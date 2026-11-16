@@ -4,8 +4,28 @@ from PIL import Image
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend import ai,intelligence,limits
+from backend.ai import generate as provider_generate
 from backend.models import Session,Workspace,Content,Quota
 import pytest
+
+@pytest.mark.parametrize('status,message,expected',[
+    (400,'API key not valid. private-provider-detail','configured API key is invalid'),
+    (403,'Your API key was reported as leaked. private-provider-detail','provider has blocked this API key'),
+    (404,'Model not found. private-provider-detail','configured model is unavailable'),
+    (503,'private-provider-detail','service status'),
+])
+def test_provider_diagnosis_never_exposes_response(monkeypatch,status,message,expected):
+    import httpx
+    original=httpx.Client
+    transport=httpx.MockTransport(lambda request:httpx.Response(status,json={'error':{'message':message}},request=request))
+    monkeypatch.setattr(ai.httpx,'Client',lambda **kwargs:original(transport=transport,**kwargs))
+    monkeypatch.setattr(ai,'available',lambda:True)
+    monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
+    monkeypatch.setenv('GEMINI_API_KEY','synthetic-unit-test-key')
+    with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
+    assert expected in str(error.value)
+    assert 'private-provider-detail' not in str(error.value)
+    assert 'synthetic-unit-test-key' not in str(error.value)
 
 def image_bytes():
     output=io.BytesIO();Image.new('RGB',(100,100),'white').save(output,format='PNG');return output.getvalue()

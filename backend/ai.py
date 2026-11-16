@@ -38,7 +38,17 @@ def generate(instruction,payload,schema,media=()):
             return schema.model_validate_json(raw)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code==429:raise ProviderError('Provider quota reached. Try again later.') from None
-        raise ProviderError('The AI provider rejected the request. Check its configuration and service status.') from None
+        status=exc.response.status_code
+        # Expose only a fixed diagnosis, never raw provider bodies or credentials.
+        try:message=str(exc.response.json().get('error',{}).get('message','')).lower()
+        except (ValueError,AttributeError):message=''
+        reason='Check the provider configuration and service status.'
+        if 'api key not valid' in message:reason='The configured API key is invalid.'
+        elif 'leaked' in message:reason='The provider has blocked this API key; replace it in server settings.'
+        elif 'location' in message and ('not supported' in message or 'unsupported' in message):reason='The provider does not support the server location.'
+        elif status==404:reason='The configured model is unavailable to this provider account.'
+        elif status in (401,403):reason='The provider denied access; check key restrictions and API permissions.'
+        raise ProviderError(f'The AI provider rejected the request (HTTP {status}). {reason}') from None
     except (httpx.HTTPError,ValueError,KeyError,TypeError):raise ProviderError('AI processing did not complete with a valid response. No result was accepted.') from None
 
 class Suggestion(BaseModel):
