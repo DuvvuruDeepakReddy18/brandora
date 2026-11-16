@@ -2,6 +2,12 @@
 
 Target: the authenticated owner's new private Brandora GitHub repository and Vercel project `brandora`, in team `duvvurudeepakreddy18s-projects`.
 
+Published: https://brandora-omega-three.vercel.app
+
+Repository: https://github.com/DuvvuruDeepakReddy18/brandora (private).
+
+The production deployment is `dpl_7fT2RzabfxvVK7hWWF4QTGf99CUX`, built from `8b0cae4fdd37be34198ce996c9676a067df27b94`. It was promoted only after CI and the complete hosted workflow passed. Later documentation-only commits do not change that deployed application revision. See `docs/release.json` and the verification reports for exact results.
+
 ## Architecture
 
 Vercel Services builds Next.js and FastAPI independently and routes `/api/*` to Python and the remaining paths to Next.js. Services is beta. Neon PostgreSQL stores accounts, sessions, source versions, content, approval receipts, logo references, translations, request quotas and audit records. No mutable state relies on the function filesystem.
@@ -27,7 +33,7 @@ Automatic deployment is intentionally not used as a substitute for CI passing. F
 ## Operations
 
 - Health: `/api/health` checks database connectivity and exposes only capability/status metadata. Structured provider failures return user-safe messages; no API keys or provider response bodies are logged.
-- Model calls time out after 55 seconds; function duration is capped at 120 seconds. Daily global/workspace request caps are database-backed. A provider-side spend cap is independent of these request limits.
+- Model calls share a 55-second deadline, with at most one retry for HTTP 500/502/503/504; function duration is capped at 120 seconds. Daily global/workspace request caps are database-backed. A retry may make two provider attempts for one application request; a provider-side spend cap is independent of these request limits.
 - Workspace changes use transactions and per-workspace PostgreSQL row locks. Startup schema additions are serialized with a PostgreSQL advisory lock and are additive; destructive migrations require a separately reviewed migration.
 - Keep database backups/restore points through the database provider. Do not run regression tests against the production schema. The PostgreSQL verification script creates and removes a uniquely named isolated schema.
 - Monitor Vercel error logs, Neon compute/storage and Google API quota/billing. No paid monitoring or log drain is configured by this release.

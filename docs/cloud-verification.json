@@ -1,0 +1,112 @@
+{
+  "deployment": "https://brandora-ffl7mvzcr-duvvurudeepakreddy18s-projects.vercel.app",
+  "synthetic_only": true,
+  "core_only": false,
+  "passed": true,
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 401
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/demo/manager",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/campaigns",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/rules",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/content",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/63d860c8dc8c47b496327f941919ac2d/scan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/63d860c8dc8c47b496327f941919ac2d/request-review",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/63d860c8dc8c47b496327f941919ac2d/approve",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/63d860c8dc8c47b496327f941919ac2d/translate",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/translations/1025f04c1ab247d3a29e449b5450ffa4/save",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/logos",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/visual/analyze",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/ocr",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 200
+    }
+  ],
+  "ai_features": {
+    "semantic_review": "passed",
+    "translation": "passed",
+    "ocr": "passed",
+    "logo_comparison": "passed",
+    "scanned_pdf": "passed"
+  },
+  "approval_receipt": "passed",
+  "temporary_tenant_removed": true
+}

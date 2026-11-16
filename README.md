@@ -1,5 +1,9 @@
 # Brandora
 
+[Live application](https://brandora-omega-three.vercel.app) · [Private GitHub repository](https://github.com/DuvvuruDeepakReddy18/brandora)
+
+For first access, choose **Create your workspace** and use the private code in the local `deployment-access.txt`. Create your own password, then enable AI in **Privacy & settings**. The setup code is not stored in this repository.
+
 An evidence-connected brand governance application: draft, inspect, correct, request review and approve an exact version. Next.js/React/TypeScript frontend, FastAPI backend, PostgreSQL in production and SQLite for local development.
 
 ## Product

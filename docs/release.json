@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-16",
+  "url": "https://brandora-omega-three.vercel.app",
+  "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
+  "repository_visibility": "private",
+  "deployment_id": "dpl_7fT2RzabfxvVK7hWWF4QTGf99CUX",
+  "deployment_url": "https://brandora-ffl7mvzcr-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "8b0cae4fdd37be34198ce996c9676a067df27b94",
+  "status": "READY",
+  "target": "production",
+  "promoted": true,
+  "topology": "Vercel Services: Next.js and FastAPI; dedicated Neon PostgreSQL",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "verification": {
+    "regression_tests": 42,
+    "regression_result": "passed",
+    "postgresql": "35-test suite plus final schema/translation case and two final approval-policy regressions passed in disposable schemas",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "github_actions_run": 43867159086,
+    "github_actions_result": "success",
+    "hosted_ai_workflow": "passed; see cloud-verification.json",
+    "public_http_and_access_checks": "passed; see public-verification.json",
+    "public_browser_setup_form": "passed; no recorded browser errors",
+    "synthetic_tenant_removed": true,
+    "production_demo_disabled": true,
+    "owner_setup_required": true
+  },
+  "owner_next_step": "Create a workspace using the private local deployment-access.txt code, then enable AI in Privacy & settings.",
+  "limits": "Functional release verification; no penetration test, large-scale load certification or user study is claimed."
+}

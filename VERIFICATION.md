@@ -2,15 +2,19 @@
 
 ## Full release verification
 
-- Expanded regression suite: **37 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.
+- Expanded regression suite: **42 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.
 - Next.js route type generation, TypeScript checking and production compilation pass.
 - Live Gemini 3.5 Flash-Lite verification passed for image OCR, approved-reference logo matching, Hindi translation with protected facts, scanned-PDF OCR and source-cited semantic review. Inputs were generated fictional fixtures only. Exact accepted outputs are in `docs/provider-verification.json`.
 - An initial semantic response incorrectly quoted the draft as its evidence; the validator rejected it and prevented silent approval. Clarifying the source/draft field contract produced a valid cited response. Rejected output was never treated as evidence.
 - Browser verification registered a synthetic approved logo, uploaded a synthetic creative and received actual OCR text, a matched logo location and suggested alt text. `docs/visual-analysis.jpg` captures the result.
-- PostgreSQL: the 35-test suite passed in 693.55 seconds in a unique isolated schema. The final translation/schema case also passed in a fresh schema (96.57 seconds). Both temporary schemas were removed; production records were not used. Two additional approval-policy regressions pass locally and are being verified against PostgreSQL.
+- PostgreSQL: the 35-test suite passed in 693.55 seconds in a unique isolated schema. The final translation/schema case passed in a fresh schema (96.57 seconds), as did both final approval-policy regressions (126.29 seconds). All temporary schemas were removed; production records were not used.
 - The browser generated a Hindi translation, displayed its English back-translation and preserved HarborDesk, 14 and ₹499/month, then saved a separate draft. It did not automatically approve the translation.
-- GitHub Actions passed for the initial release commit. The staged Vercel build completed, and its health endpoint confirmed production mode, persistent database connectivity, configured Gemini/vision and disabled demo access. Final deployment results will be recorded in `docs/release.json` after verification.
+- GitHub Actions passed for deployed commit `8b0cae4fdd37be34198ce996c9676a067df27b94` (run `43867159086`). The Vercel production build passed and the exact tested deployment was promoted.
+- Hosted verification passed actual Gemini semantic review, independent approval with a SHA-256 receipt, Hindi translation saved as a separate language-review-required draft, approved-reference logo recognition, image OCR and scanned-PDF OCR. The synthetic workspace and its records were removed afterward. See `docs/cloud-verification.json`.
+- The public domain returned HTTP 200 for the frontend and healthy API, HTTP 401 for an unauthenticated workspace, HTTP 404 for production demo login and HTTP 403 for an incorrect setup code or disallowed origin. First-owner setup remains available. See `docs/public-verification.json`.
+- The published site was opened in the browser and its protected first-workspace form was inspected visually. No browser errors were recorded. `docs/live-workspace-setup.jpg` captures the public screen; no account or password was created for the owner. The final deployment error-log query returned no matching error logs.
 - Secret scanning checks staged source and confirms the database, environment files, setup code and provider key are excluded.
+- Hosted testing caught a temporary provider HTTP 503. The final adapter retries HTTP 500/502/503/504 once within the existing deadline, and exposes only fixed diagnostic messages. Tests verify recovery, decreasing request deadlines and exclusion of raw provider data and credentials from errors.
 
 The following records describe the initial rules-only build and are retained as earlier verification, not current feature limitations.
 
@@ -43,4 +47,4 @@ The demo database retains the tested launch draft at approved version 2. These a
 
 At the initial build, only local functional behavior had been verified. The full-release section above supersedes that build's AI/OCR/logo/translation status. Neither verification run is a security audit, a large-scale concurrency certification, the proposal's held-out product evaluation, or a user study. Email delivery and managed external identity are not part of this release.
 
-See README.md for the implemented module boundaries and remaining deployment work.
+See README.md for implemented module boundaries and DEPLOYMENT.md for first access and operating instructions.

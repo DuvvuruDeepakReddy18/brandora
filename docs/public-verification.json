@@ -1,0 +1,42 @@
+{
+  "url": "https://brandora-omega-three.vercel.app",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "path": "/api/workspace",
+      "status": 401
+    },
+    {
+      "path": "/api/auth/demo/manager",
+      "status": 404
+    },
+    {
+      "path": "/api/auth/register",
+      "origin": "https://brandora-omega-three.vercel.app",
+      "status": 403
+    },
+    {
+      "path": "/api/auth/register",
+      "origin": "https://untrusted.invalid",
+      "status": 403
+    }
+  ],
+  "health": {
+    "status": "ok",
+    "version": "1.0.0",
+    "demo": false,
+    "ai_configured": true,
+    "provider": "gemini",
+    "vision_configured": true,
+    "setup_required": true,
+    "production": true
+  },
+  "passed": true
+}

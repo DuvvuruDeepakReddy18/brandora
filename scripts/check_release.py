@@ -2,6 +2,9 @@
 import os,re,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+locked=(ROOT/'backend/requirements-lock.txt').read_text().strip()
+pinned='\n'.join(line for line in (ROOT/'backend/requirements.txt').read_text().splitlines() if line and not line.startswith('#'))
+if pinned!=locked:raise SystemExit('Release blocked: Vercel requirements differ from the verified Python lockfile.')
 files=subprocess.check_output(['git','ls-files','-z'],cwd=ROOT).decode().split('\0')
 blocked=[]
 patterns=[rb'AIza[0-9A-Za-z_-]{30,}',rb'gh[pousr]_[0-9A-Za-z]{25,}',rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----']
