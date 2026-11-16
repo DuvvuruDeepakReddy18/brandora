@@ -4,7 +4,11 @@
 
 - 52 local regressions pass, including visitor/owner isolation, blocked cross-workspace reads and writes, creator-to-reviewer approval, partner scope, owner-session preservation, reset, expiry, forged cookies, ordinary-login denial for demo credentials, fictional member emails and shared AI/action caps.
 - The browser exercised Explore demo, corrected the sample draft as creator, approved version 2 as reviewer, used the AI-settings shortcut and returned to the original workspace. The 390-pixel mobile layout was checked, then the viewport override was reset. No browser errors were recorded.
-- TypeScript and the production frontend build pass. PostgreSQL and hosted release results are recorded after their verification below.
+- TypeScript and the production frontend build pass. GitHub CI passed for application commit `4ae7a8958748fd872fb2833ab9394a8ddee81f11` (run `43886706402`).
+- PostgreSQL: seven of the eight initial demo cases passed; the remaining case encountered an SSL transport failure, and its first isolated retry encountered a DNS failure. A clean rerun of the owner-session/reset case passed in 114.70 seconds. Temporary schemas were removed in all runs. The two additional limit regressions passed locally; no claim is made that the complete 52-test suite was rerun on PostgreSQL.
+- Hosted verification on `dpl_BKWqvefUWap9ZhC5FG5nRmE5q9Lk` passed two independent anonymous visitors, denied cross-workspace access, creator/reviewer approval, partner scoping, live Gemini review, Hindi translation, image OCR/logo comparison, scanned-PDF OCR and correct AI usage accounting. Both synthetic sandboxes were reset and subsequent access returned 401. See `docs/judge-demo-verification.json`.
+- That exact deployment was promoted to the public domain. Public routing/access checks passed, with `explore_demo=true`, legacy `demo=false` and owner setup closed. A final deployment error-log query returned no matching logs.
+- A fresh public browser opened the live **Explore demo** button without credentials, entered its own sample workspace, switched to reviewer and back to creator, and displayed the walkthrough and controls correctly. No browser errors were recorded. Screenshots: `docs/explore-demo-entry.jpg` and `docs/explore-demo-workspace.jpg`. This browser sandbox remains available for the owner's preview until it expires; the two API-test sandboxes were removed.
 
 ## Full release verification
 

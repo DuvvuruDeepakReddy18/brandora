@@ -32,10 +32,11 @@
     "status": "ok",
     "version": "1.0.0",
     "demo": false,
+    "explore_demo": true,
     "ai_configured": true,
     "provider": "gemini",
     "vision_configured": true,
-    "setup_required": true,
+    "setup_required": false,
     "production": true
   },
   "passed": true

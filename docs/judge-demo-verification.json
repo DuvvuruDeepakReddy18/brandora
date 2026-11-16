@@ -1,0 +1,204 @@
+{
+  "deployment": "https://brandora-3wc4oiz1o-duvvurudeepakreddy18s-projects.vercel.app",
+  "passed": true,
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 401,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/start",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/start",
+      "status": 200,
+      "visitor": "second"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 200,
+      "visitor": "second"
+    },
+    {
+      "method": "GET",
+      "path": "/api/content/539cd8d78bcf48ae8cb9b4197433cf7a/history",
+      "status": 404,
+      "visitor": "first"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/scan",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/request-review",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/approve",
+      "status": 403,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/role",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/approve",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/role",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/role",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/scan",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content/c4bfd70fc3e9482789305d98b821923c/translate",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/translations/1da77e48439249cba506b318adc4dd44/save",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/demo/assets/creative.png",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/demo/assets/scanned-source.pdf",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logos",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/visual/analyze",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/ocr",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/intelligence/status",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 200,
+      "visitor": "second"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/reset",
+      "status": 200,
+      "visitor": "first"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 401,
+      "visitor": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/demo/reset",
+      "status": 200,
+      "visitor": "second"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace",
+      "status": 401,
+      "visitor": "second"
+    }
+  ],
+  "synthetic_only": true,
+  "features": {
+    "isolated_visitors": "passed",
+    "creator_reviewer_approval": "passed",
+    "partner_scope": "passed",
+    "gemini_review": "passed",
+    "translation": "passed",
+    "image_ocr_logo": "passed",
+    "scanned_pdf": "passed",
+    "ai_quota": "passed"
+  },
+  "temporary_demos_removed": true
+}

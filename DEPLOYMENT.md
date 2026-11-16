@@ -6,7 +6,7 @@ Published: https://brandora-omega-three.vercel.app
 
 Repository: https://github.com/DuvvuruDeepakReddy18/brandora (private).
 
-The production deployment is `dpl_7fT2RzabfxvVK7hWWF4QTGf99CUX`, built from `8b0cae4fdd37be34198ce996c9676a067df27b94`. It was promoted only after CI and the complete hosted workflow passed. Later documentation-only commits do not change that deployed application revision. See `docs/release.json` and the verification reports for exact results.
+The current production deployment is `dpl_BKWqvefUWap9ZhC5FG5nRmE5q9Lk`, built from `4ae7a8958748fd872fb2833ab9394a8ddee81f11`. It includes credential-free, isolated judge demos and was promoted after CI and the hosted judge workflow passed. Later documentation/verification-script commits do not change that deployed application revision. See `docs/release.json` and the verification reports for exact results.
 
 ## Architecture
 
