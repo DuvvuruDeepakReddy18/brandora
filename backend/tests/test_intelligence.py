@@ -27,6 +27,23 @@ def test_provider_diagnosis_never_exposes_response(monkeypatch,status,message,ex
     assert 'private-provider-detail' not in str(error.value)
     assert 'synthetic-unit-test-key' not in str(error.value)
 
+def test_transient_provider_failure_recovers_with_one_bounded_retry(monkeypatch):
+    import httpx
+    original=httpx.Client
+    calls=[]
+    def handle(request):
+        calls.append(request)
+        data={'error':{'message':'temporarily unavailable'}} if len(calls)==1 else {'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':'{"findings":[]}'}]}}]}
+        return httpx.Response(503 if len(calls)==1 else 200,json=data,request=request)
+    monkeypatch.setattr(ai.httpx,'Client',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+    monkeypatch.setattr(ai,'available',lambda:True)
+    monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
+    monkeypatch.setenv('GEMINI_API_KEY','synthetic-unit-test-key')
+    monkeypatch.setattr(ai.time,'sleep',lambda _:None)
+    assert provider_generate('Review',{},ai.Suggestions).findings==[]
+    assert len(calls)==2
+    assert calls[1].extensions['timeout']['read']<=calls[0].extensions['timeout']['read']<=55
+
 def image_bytes():
     output=io.BytesIO();Image.new('RGB',(100,100),'white').save(output,format='PNG');return output.getvalue()
 

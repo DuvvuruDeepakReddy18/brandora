@@ -21,10 +21,11 @@ from PIL import Image
 CLI=Path(os.environ['APPDATA'])/'npm/node_modules/vercel/dist/index.js'
 TEAM='duvvurudeepakreddy18s-projects'
 URL=sys.argv[1]
+core_only='--core-only' in sys.argv[2:]
 if not URL.startswith('https://brandora-') or not URL.endswith('.vercel.app'):raise SystemExit('Use the verified Brandora deployment URL.')
 suffix=uuid4().hex;org_id=uid();password=secrets.token_urlsafe(24)
 folder=ROOT/'.local'/('cloud-check-'+suffix);folder.mkdir(parents=True)
-report={'deployment':URL,'synthetic_only':True,'checks':[]}
+report={'deployment':URL,'synthetic_only':True,'core_only':core_only,'passed':False,'checks':[]}
 def call(path,method='GET',body=None,role='manager',upload=None,fields=None,expected=200):
     args=['node',str(CLI),'curl',path,'--deployment',URL,'--scope',TEAM,'--','--silent','--show-error','--request',method,'--write-out','\n%{http_code}']
     if role:
@@ -55,22 +56,28 @@ try:
     source=call('/api/sources','POST',{'title':'Synthetic approved trial','owner':'Synthetic owner','excerpt':'HarborDesk offers a free trial for 14 days.','review_date':'','status':'approved'})
     call('/api/rules','POST',{'source_id':source['id'],'code':'F01','title':'Trial duration','kind':'number','value':'14','subject':'HarborDesk','config':{'metric':'trial'}})
     content=call('/api/content','POST',{'title':'Synthetic release draft','campaign_id':campaign['id'],'channel':'Social','subject':'HarborDesk','body':'Try HarborDesk free for 14 days.'})
-    call('/api/settings','PUT',{'ai_enabled':True})
+    if not core_only:call('/api/settings','PUT',{'ai_enabled':True})
     checked=call('/api/content/'+content['id']+'/scan','POST')
-    assert 'validated gemini' in checked['scan_coverage'] and not checked['findings'],checked['scan_coverage']
+    assert not checked['findings'],checked['scan_coverage']
+    if not core_only:assert 'validated gemini' in checked['scan_coverage'],checked['scan_coverage']
     call('/api/content/'+content['id']+'/request-review','POST')
     receipt=call('/api/content/'+content['id']+'/approve','POST',role='reviewer');assert len(receipt['content_hash'])==64
-    translated=call('/api/content/'+content['id']+'/translate','POST',{'language':'hi','expected_version':1});assert '14' in translated['result']['translated_text']
-    saved=call('/api/translations/'+translated['id']+'/save','POST');assert saved['language_review_required']==1
-    reference,creative=fixtures();(folder/'reference.png').write_bytes(reference);(folder/'creative.png').write_bytes(creative)
-    logo=call('/api/logos','POST',upload=folder/'reference.png',fields={'name':'Synthetic HarborDesk'})
-    visual=call('/api/visual/analyze','POST',upload=folder/'creative.png',fields={'reference_ids':json.dumps([logo['id']])})
-    assert '499' in visual['ocr']['text'] and visual['logos'][0]['result']=='match'
-    pdf=io.BytesIO();Image.open(io.BytesIO(creative)).convert('RGB').save(pdf,format='PDF');(folder/'scanned.pdf').write_bytes(pdf.getvalue())
-    ocr=call('/api/sources/ocr','POST',upload=folder/'scanned.pdf');assert '499' in ocr['excerpt'] and not ocr['stored']
+    if not core_only:
+        translated=call('/api/content/'+content['id']+'/translate','POST',{'language':'hi','expected_version':1});assert '14' in translated['result']['translated_text']
+        saved=call('/api/translations/'+translated['id']+'/save','POST');assert saved['language_review_required']==1
+        reference,creative=fixtures();(folder/'reference.png').write_bytes(reference);(folder/'creative.png').write_bytes(creative)
+        logo=call('/api/logos','POST',upload=folder/'reference.png',fields={'name':'Synthetic HarborDesk'})
+        visual=call('/api/visual/analyze','POST',upload=folder/'creative.png',fields={'reference_ids':json.dumps([logo['id']])})
+        assert '499' in visual['ocr']['text'] and visual['logos'][0]['result']=='match'
+        pdf=io.BytesIO();Image.open(io.BytesIO(creative)).convert('RGB').save(pdf,format='PDF');(folder/'scanned.pdf').write_bytes(pdf.getvalue())
+        ocr=call('/api/sources/ocr','POST',upload=folder/'scanned.pdf');assert '499' in ocr['excerpt'] and not ocr['stored']
     state=call('/api/workspace');assert len(state['sources'])==1 and len(state['approvals'])==1
-    report['ai_features']={'semantic_review':'passed','translation':'passed','ocr':'passed','logo_comparison':'passed','scanned_pdf':'passed','approval_receipt':'passed'}
+    report['ai_features']='not exercised' if core_only else {'semantic_review':'passed','translation':'passed','ocr':'passed','logo_comparison':'passed','scanned_pdf':'passed'}
+    report['approval_receipt']='passed'
     report['passed']=True
+except Exception as exc:
+    report['error']=str(exc)
+    raise
 finally:
     # All deletes are limited to the exact newly-created synthetic workspace.
     with Session.begin() as db:
@@ -87,5 +94,6 @@ finally:
         db.execute(delete(Quota).where(Quota.id.like('ai:'+org_id+':%')))
         db.delete(ws)
     report['temporary_tenant_removed']=True
-    (ROOT/'docs/cloud-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+    report_name='cloud-core-verification.json' if core_only else 'cloud-verification.json'
+    (ROOT/'docs'/report_name).write_text(json.dumps(report,indent=2),encoding='utf-8')
     print('Removed only the synthetic release tenant; first-owner setup remains available.',flush=True)
