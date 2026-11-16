@@ -1,5 +1,11 @@
 # Brandora verification — 16 November 2026
 
+## Credential-free judge demo
+
+- 52 local regressions pass, including visitor/owner isolation, blocked cross-workspace reads and writes, creator-to-reviewer approval, partner scope, owner-session preservation, reset, expiry, forged cookies, ordinary-login denial for demo credentials, fictional member emails and shared AI/action caps.
+- The browser exercised Explore demo, corrected the sample draft as creator, approved version 2 as reviewer, used the AI-settings shortcut and returned to the original workspace. The 390-pixel mobile layout was checked, then the viewport override was reset. No browser errors were recorded.
+- TypeScript and the production frontend build pass. PostgreSQL and hosted release results are recorded after their verification below.
+
 ## Full release verification
 
 - Expanded regression suite: **42 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.

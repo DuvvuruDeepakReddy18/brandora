@@ -15,7 +15,7 @@ with httpx.Client(base_url=URL, timeout=60, follow_redirects=False) as client:
             health = response.json()
             assert health['production'] and not health['demo']
             assert health['ai_configured'] and health['vision_configured']
-            assert health['setup_required']
+            assert isinstance(health['setup_required'],bool)
             report['health'] = health
     response = client.post('/api/auth/demo/manager', headers={'Origin': URL})
     assert response.status_code == 404

@@ -2,6 +2,8 @@
 
 [Live application](https://brandora-omega-three.vercel.app) · [Private GitHub repository](https://github.com/DuvvuruDeepakReddy18/brandora)
 
+**Judges:** choose **Explore demo** for a private, temporary sample workspace with creator/reviewer/manager/partner switching. No credentials are needed. See [JUDGES.md](JUDGES.md) for the walkthrough and demo limits. Normal workspace login remains separate.
+
 For first access, choose **Create your workspace** and use the private code in the local `deployment-access.txt`. Create your own password, then enable AI in **Privacy & settings**. The setup code is not stored in this repository.
 
 An evidence-connected brand governance application: draft, inspect, correct, request review and approve an exact version. Next.js/React/TypeScript frontend, FastAPI backend, PostgreSQL in production and SQLite for local development.
@@ -43,7 +45,7 @@ python -m venv .venv-app
 
 Open http://127.0.0.1:3200. The startup script launches hidden loopback-only processes and writes `api*.log` and `web*.log`. Alternatively run `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8200` and `npm run dev` in separate terminals with the virtual environment activated.
 
-Local records persist in `data/brandora.db`. The four demo accounts and HarborDesk examples are fictional. Demo access is disabled in production. Local browser verification may leave the launch draft at approved version 2; create another draft to repeat the workflow.
+Local records persist in `data/brandora.db`. The four legacy demo accounts and HarborDesk examples are fictional. The shared development login is disabled in production; **Explore demo** uses separate, expiring visitor workspaces instead. Local browser verification may leave the launch draft at approved version 2; create another draft to repeat the workflow.
 
 Set the backend environment variables from `.env.example` in the API process. Next.js `.env.local` is not automatically loaded by Python. Gemini defaults to `gemini-3.5-flash-lite`; set `GEMINI_API_KEY`, then enable AI services as a manager. The key stays on the server. Anthropic remains supported for text review/translation when its key and model are configured; image/PDF features currently require Gemini.
 

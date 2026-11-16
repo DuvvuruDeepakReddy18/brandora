@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { DemoTour } from "./components/demo-tour";
 import {
   AIStatus,
   VisualIntelligence,
@@ -57,6 +58,7 @@ type Data = {
   user: Row;
   workspace: Row;
   demo: boolean;
+  judge_demo: { expires: string; ai_limit: number; roles: string[] } | null;
   ai_configured: boolean;
   ai_provider: string | null;
   members: Row[];
@@ -278,6 +280,7 @@ export default function App() {
     [mobile, setMobile] = useState(false),
     [narrow, setNarrow] = useState(false),
     [isDemo, setIsDemo] = useState(false),
+    [exploreDemo, setExploreDemo] = useState(false),
     [production, setProduction] = useState(false),
     [setupRequired, setSetupRequired] = useState(false),
     [signup, setSignup] = useState(false);
@@ -309,6 +312,7 @@ export default function App() {
     api("/health")
       .then((v) => {
         setIsDemo(v.demo);
+        setExploreDemo(v.explore_demo);
         setProduction(v.production);
         setSetupRequired(v.setup_required);
       })
@@ -410,6 +414,50 @@ export default function App() {
       setBusy(false);
     }
   };
+  const enterDemo = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("/demo/start", "POST");
+      setModal(null);
+      setSignup(false);
+      go("Overview");
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const changeDemoRole = async (role: string) => {
+    const changed = await action(
+      "/demo/role",
+      "POST",
+      { role },
+      `Exploring as ${role}`,
+    );
+    if (changed) {
+      setModal(null);
+      go(role === "reviewer" ? "Review desk" : "Overview");
+    }
+    return changed;
+  };
+  const exitDemo = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/demo/exit", "POST");
+      setData(null);
+      setModal(null);
+      go("Overview");
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   if (loading)
     return (
       <div className="boot">
@@ -472,6 +520,27 @@ export default function App() {
             {error && (
               <div className="error" role="alert">
                 {error}
+              </div>
+            )}
+            {exploreDemo && (
+              <div className="explore-entry">
+                <span className="kicker">HERE TO EVALUATE?</span>
+                <button
+                  className="button primary"
+                  onClick={enterDemo}
+                  disabled={busy}
+                >
+                  <FlaskConical size={18} />
+                  {busy ? "Opening demo…" : "Explore demo"}
+                  <ArrowRight size={17} />
+                </button>
+                <p>
+                  No account needed. Your own sample workspace with creator,
+                  reviewer, manager and partner roles.
+                </p>
+                <div className="divider">
+                  <span>OR SIGN IN TO YOUR WORKSPACE</span>
+                </div>
               </div>
             )}
             <Form
@@ -992,7 +1061,7 @@ export default function App() {
                       <LogOut size={16} />
                       Sign out
                     </button>
-                    {data.demo && (
+                    {data.demo && !data.judge_demo && (
                       <p className="form-note">
                         To test independent approval, sign out and select the
                         reviewer account.
@@ -1090,7 +1159,78 @@ export default function App() {
             <span className="top-avatar">{data.user.name[0]}</span>
           </div>
         </header>
-        <main id="main">
+        <main id="main" key={`${data.workspace.id}:${data.user.id}`}>
+          {data.judge_demo ? (
+            <DemoTour
+              role={data.user.role}
+              expires={data.judge_demo.expires}
+              aiLimit={data.judge_demo.ai_limit}
+              busy={busy}
+              aiEnabled={data.workspace.settings.ai_enabled}
+              onRole={changeDemoRole}
+              onExit={exitDemo}
+              onReset={() =>
+                setModal({
+                  title: "Reset your demo?",
+                  body: (
+                    <div className="form">
+                      <p>
+                        This removes only your temporary demo and starts fresh
+                        sample data. Your real workspace and other visitors are
+                        unaffected.
+                      </p>
+                      <button
+                        className="button primary"
+                        disabled={busy}
+                        onClick={async () => {
+                          const reset = await action(
+                            "/demo/reset",
+                            "POST",
+                            undefined,
+                            "Demo reset",
+                          );
+                          if (reset) await enterDemo();
+                        }}
+                      >
+                        Reset my demo
+                      </button>
+                    </div>
+                  ),
+                })
+              }
+              onStart={async () => {
+                if (
+                  data.user.role !== "creator" &&
+                  !(await changeDemoRole("creator"))
+                )
+                  return;
+                go(
+                  "Content studio",
+                  data.content.find((c) => c.title === "Launch announcement")
+                    ?.id || null,
+                );
+              }}
+              onAI={async () => {
+                if (
+                  data.user.role !== "manager" &&
+                  !(await changeDemoRole("manager"))
+                )
+                  return;
+                go("Privacy & settings");
+              }}
+            />
+          ) : (
+            exploreDemo && (
+              <button
+                className="text-button explore-workspace"
+                disabled={busy}
+                onClick={enterDemo}
+              >
+                <FlaskConical size={15} />
+                Explore a separate demo
+              </button>
+            )
+          )}
           <div className="page-heading">
             <div>
               <div className="heading-kicker">
@@ -1684,8 +1824,9 @@ export default function App() {
                                 />
                               </Field>
                               <p className="form-note">
-                                This creates an account directly. No invitation
-                                email is sent.
+                                {data.judge_demo
+                                  ? "Demo members get fictional internal email addresses and cannot sign in outside this sandbox. Use the role controls to switch between the four sample teammates."
+                                  : "This creates an account directly. No invitation email is sent."}
                               </p>
                             </Form>
                           ),

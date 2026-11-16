@@ -3702,3 +3702,161 @@ td small {
   white-space: nowrap;
   border-radius: 3px 3px 0 0;
 }
+
+.explore-entry {
+  margin: 24px 0 12px;
+}
+.explore-entry > .button {
+  width: 100%;
+  justify-content: center;
+  margin: 10px 0;
+  min-height: 48px;
+}
+.explore-entry > p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64746e;
+  margin: 2px 0 18px;
+}
+.explore-workspace {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 20px;
+}
+.judge-demo {
+  margin-bottom: 28px;
+  border: 1px solid #c8dbd3;
+  background: #f0f6f2;
+  border-radius: 14px;
+  padding: 20px 24px;
+  color: #203d35;
+}
+.judge-demo-top,
+.judge-demo-title,
+.judge-demo-actions,
+.judge-demo-roles,
+.judge-demo-files {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.judge-demo-top {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.judge-demo-title strong {
+  display: block;
+  font-size: 16px;
+}
+.judge-demo-title span {
+  display: block;
+  color: #526960;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.judge-demo-actions {
+  flex-wrap: wrap;
+}
+.judge-demo button,
+.judge-demo-files a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #c5d8ce;
+  border-radius: 7px;
+  padding: 8px 11px;
+  background: white;
+  color: #244a3f;
+  cursor: pointer;
+  text-decoration: none;
+}
+.judge-demo button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.judge-demo button:hover:not(:disabled),
+.judge-demo-files a:hover {
+  border-color: #2d6652;
+}
+.judge-demo button:focus-visible,
+.judge-demo a:focus-visible,
+.judge-demo summary:focus-visible {
+  outline: 2px solid #2d6652;
+  outline-offset: 3px;
+}
+.judge-demo-roles {
+  flex-wrap: wrap;
+  margin-top: 18px;
+  gap: 7px;
+}
+.judge-demo-roles > span {
+  font-size: 12px;
+  margin-right: 5px;
+}
+.judge-demo-roles button {
+  text-transform: capitalize;
+}
+.judge-demo-roles button[aria-pressed="true"] {
+  background: #224f41;
+  border-color: #224f41;
+  color: white;
+}
+.judge-demo-guide {
+  margin-top: 18px;
+  border-top: 1px solid #ccded4;
+  padding-top: 14px;
+}
+.judge-demo-guide summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.judge-demo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding-top: 18px;
+}
+.judge-demo-grid b {
+  font-size: 12px;
+}
+.judge-demo-grid p,
+.judge-demo-footnote {
+  font-size: 12px;
+  line-height: 1.65;
+  color: #526960;
+}
+.judge-demo-grid p {
+  margin: 8px 0 12px;
+}
+.judge-demo-files {
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.judge-demo-files > span {
+  font-size: 12px;
+  font-weight: 600;
+}
+.judge-demo-footnote {
+  margin: 14px 0 0;
+}
+@media (max-width: 1000px) {
+  .judge-demo-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+@media (max-width: 760px) {
+  .judge-demo {
+    padding: 18px;
+  }
+  .judge-demo-actions {
+    margin-top: 5px;
+  }
+  .judge-demo-roles {
+    gap: 5px;
+  }
+}

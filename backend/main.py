@@ -10,7 +10,7 @@ from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
 from .engine import scan, digest, current, applies
-from . import ai, intelligence, limits
+from . import ai, intelligence, limits, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
 PRODUCTION=os.getenv('BRANDORA_ENV')=='production'
@@ -26,7 +26,11 @@ def reserve_ai(db,actor,vision=False):
     ws=db.get(Workspace,actor.org_id)
     if not ws.settings.get('ai_enabled'):fail(409,'A manager must enable AI in Privacy & settings before sending material to the provider.')
     if not ai.available() or (vision and not ai.vision_available()):fail(409,'A compatible AI provider is not configured.')
-    try:limits.reserve([(f'ai:global:{limits.day()}',AI_GLOBAL_LIMIT),(f'ai:{actor.org_id}:{limits.day()}',AI_DAILY_LIMIT)])
+    demo_visit=judge_demo.visit_for_org(db,actor.org_id)
+    cap=judge_demo.AI_LIMIT if demo_visit else AI_DAILY_LIMIT
+    quotas=[(f'ai:global:{limits.day()}',AI_GLOBAL_LIMIT),(f'ai:{actor.org_id}:{limits.day()}',cap)]
+    if demo_visit:quotas.append((f'ai:demo-global:{limits.day()}',judge_demo.AI_GLOBAL_LIMIT))
+    try:limits.reserve(quotas)
     except limits.LimitReached:fail(429,'The daily AI request limit has been reached. Try again tomorrow.')
 def password_hash(password):
     salt=secrets.token_hex(16)
@@ -66,11 +70,22 @@ def database(request:Request):
         if write:write_lock.release()
 
 def user(request:Request,db=Depends(database)):
+    if request.cookies.get(judge_demo.MODE)=='demo':
+        visit=db.get(DemoVisit,digest(request.cookies.get(judge_demo.COOKIE,'')))
+        if not judge_demo.ENABLED or not visit or visit.expires<now():fail(401,'Demo expired. Please sign in or open a fresh Explore demo.')
+        actor=db.get(User,visit.users.get(visit.active_role,''))
+        if not actor or actor.org_id!=visit.org_id or actor.role!=visit.active_role:fail(401,'Demo is unavailable. Please sign in or start again.')
+        if request.method not in ('GET','HEAD','OPTIONS'):
+            try:limits.reserve([(f'demo:write:{visit.id}',250)])
+            except limits.LimitReached:fail(429,'This demo has reached its action limit. Start a new session later.')
+            db.scalar(select(Workspace).where(Workspace.id==actor.org_id).with_for_update())
+        return actor
     token=request.cookies.get('brandora_session','')
     session=db.get(LoginSession,digest(token)) if token else None
     if not session or session.expires<now():fail(401,'Please sign in.')
     actor=db.get(User,session.user_id)
     if not actor:fail(401,'Account no longer exists.')
+    if judge_demo.visit_for_org(db,actor.org_id):fail(401,'Demo accounts are available only through Explore demo. Please sign in with your own account.')
     # Serialize mutations per workspace across PostgreSQL processes as well.
     if request.method not in ('GET','HEAD','OPTIONS'):
         db.scalar(select(Workspace).where(Workspace.id==actor.org_id).with_for_update())
@@ -209,18 +224,20 @@ def create_session(db,actor,response):
     token=secrets.token_urlsafe(40)
     db.add(LoginSession(id=digest(token),user_id=actor.id,expires=(datetime.now(timezone.utc)+timedelta(hours=8)).isoformat()))
     response.set_cookie('brandora_session',token,httponly=True,secure=PRODUCTION,samesite='lax',max_age=28800,path='/')
+    response.delete_cookie(judge_demo.MODE)
     return row(actor,('password',))
 @app.get('/api/health')
 def health(db=Depends(database)):
     db.execute(text('SELECT 1'))
-    return {'status':'ok','version':'1.0.0','demo':DEMO,'ai_configured':ai.available(),'provider':ai.provider() if ai.available() else None,'vision_configured':ai.vision_available(),'setup_required':PRODUCTION and not db.scalar(select(User.id).limit(1)),'production':PRODUCTION}
+    owner_exists=db.scalar(select(User.id).where(~User.org_id.in_(select(DemoVisit.org_id))).limit(1))
+    return {'status':'ok','version':'1.0.0','demo':DEMO,'explore_demo':judge_demo.ENABLED,'ai_configured':ai.available(),'provider':ai.provider() if ai.available() else None,'vision_configured':ai.vision_available(),'setup_required':PRODUCTION and not owner_exists,'production':PRODUCTION}
 @app.post('/api/auth/login')
 def login(data:LoginBody,request:Request,response:Response,db=Depends(database)):
     key=digest(data.email.lower().strip());bucket=int(datetime.now().timestamp())//600
     try:limits.reserve([(f'login:{key}:{bucket}',20)])
     except limits.LimitReached:fail(429,'Too many attempts. Try again in ten minutes.')
     actor=db.scalar(select(User).where(User.email==data.email.lower().strip()))
-    if not actor or not verify_password(data.password,actor.password):
+    if not actor or judge_demo.visit_for_org(db,actor.org_id) or not verify_password(data.password,actor.password):
         fail(401,'Email or password is incorrect.')
     return create_session(db,actor,response)
 @app.post('/api/auth/register')
@@ -228,7 +245,8 @@ def register(data:Signup,response:Response,db=Depends(database)):
     if PRODUCTION:
         if engine.dialect.name=='postgresql':db.execute(text('SELECT pg_advisory_xact_lock(784325127)'))
         token=os.getenv('BRANDORA_SETUP_TOKEN','')
-        if not token or not hmac.compare_digest(data.setup_token,token) or db.scalar(select(User.id).limit(1)):fail(403,'Workspace setup is closed or the setup code is incorrect. Ask a manager for an account.')
+        owner_exists=db.scalar(select(User.id).where(~User.org_id.in_(select(DemoVisit.org_id))).limit(1))
+        if not token or not hmac.compare_digest(data.setup_token,token) or owner_exists:fail(403,'Workspace setup is closed or the setup code is incorrect. Ask a manager for an account.')
     if '@' not in data.email or db.scalar(select(User).where(User.email==data.email.lower().strip())):fail(400,'Use an available email address.')
     ws=Workspace(name=data.workspace,settings={'ai_enabled':False});db.add(ws);db.flush()
     actor=User(org_id=ws.id,name=data.name,email=data.email.lower().strip(),password=password_hash(data.password),role='manager');db.add(actor);db.flush()
@@ -242,8 +260,65 @@ def demo(role:str,response:Response,db=Depends(database)):
     return create_session(db,actor,response)
 @app.post('/api/auth/logout')
 def logout(request:Request,response:Response,db=Depends(database)):
+    if request.cookies.get(judge_demo.MODE)=='demo':
+        response.delete_cookie(judge_demo.MODE);return {'ok':True}
     db.execute(delete(LoginSession).where(LoginSession.id==digest(request.cookies.get('brandora_session',''))))
     response.delete_cookie('brandora_session');return {'ok':True}
+
+class DemoRole(BaseModel):
+    role:Literal['creator','reviewer','manager','partner']
+
+@app.post('/api/demo/start')
+def demo_start(request:Request,response:Response,db=Depends(database)):
+    if not judge_demo.ENABLED:fail(404,'Explore demo is unavailable.')
+    token=request.cookies.get(judge_demo.COOKIE,'')
+    visit=db.get(DemoVisit,digest(token)) if token else None
+    if not visit or visit.expires<now():
+        # Global creation limits remain authoritative even behind a proxy.
+        host=request.client.host if request.client else 'unknown'
+        # Vercel overwrites this header at its edge; never trust it on other hosts.
+        if os.getenv('VERCEL')=='1':host=request.headers.get('x-vercel-forwarded-for',host).split(',')[0].strip()
+        bucket=int(datetime.now(timezone.utc).timestamp())//3600
+        try:limits.reserve([(f'demo:start:{digest(host)}:{bucket}',12),(f'demo:start:global:{limits.day()}',200)])
+        except limits.LimitReached:fail(429,'Demo capacity is busy. Please try again later.')
+        if engine.dialect.name=='postgresql':db.execute(text('SELECT pg_advisory_xact_lock(784325128)'))
+        judge_demo.cleanup_expired(db)
+        ws=Workspace(name='HarborDesk · Judge demo',settings={'ai_enabled':False});db.add(ws);db.flush()
+        users=judge_demo.populate(db,ws)
+        token=secrets.token_urlsafe(40)
+        visit=DemoVisit(id=digest(token),org_id=ws.id,users=users,active_role='creator',expires=(datetime.now(timezone.utc)+timedelta(hours=judge_demo.HOURS)).isoformat());db.add(visit);db.flush()
+    response.set_cookie(judge_demo.COOKIE,token,httponly=True,secure=PRODUCTION,samesite='lax',max_age=judge_demo.HOURS*3600,path='/')
+    response.set_cookie(judge_demo.MODE,'demo',httponly=True,secure=PRODUCTION,samesite='lax',max_age=judge_demo.HOURS*3600,path='/')
+    return {'ok':True,'expires':visit.expires}
+
+@app.post('/api/demo/role')
+def demo_role(data:DemoRole,actor=Depends(user),db=Depends(database)):
+    visit=judge_demo.visit_for_org(db,actor.org_id)
+    if not visit:fail(403,'Role switching is available only in your isolated demo.')
+    target=db.get(User,visit.users[data.role])
+    if not target or target.org_id!=actor.org_id or target.role!=data.role:fail(409,'This demo role is unavailable.')
+    visit.active_role=data.role
+    return {'role':data.role}
+
+@app.post('/api/demo/exit')
+def demo_exit(response:Response):
+    response.delete_cookie(judge_demo.MODE);return {'ok':True}
+
+@app.post('/api/demo/reset')
+def demo_reset(request:Request,response:Response,actor=Depends(user),db=Depends(database)):
+    visit=judge_demo.visit_for_org(db,actor.org_id)
+    if not visit:fail(403,'Only a demo can be reset here.')
+    judge_demo.remove_visit(db,visit)
+    response.delete_cookie(judge_demo.COOKIE);response.delete_cookie(judge_demo.MODE)
+    return {'ok':True}
+
+@app.get('/api/demo/assets/{name}')
+def demo_asset(name:str,actor=Depends(user),db=Depends(database)):
+    if not judge_demo.visit_for_org(db,actor.org_id):fail(403,'Sample files belong to Explore demo.')
+    item=judge_demo.assets().get(name)
+    if not item:fail(404,'Sample file not found.')
+    mime,blob=item
+    return Response(blob,media_type=mime,headers={'Content-Disposition':f'attachment; filename="brandora-{name}"'})
 
 @app.get('/api/workspace')
 def workspace(actor=Depends(user),db=Depends(database)):
@@ -252,8 +327,10 @@ def workspace(actor=Depends(user),db=Depends(database)):
     users=list(db.scalars(select(User).where(User.org_id==actor.org_id)))
     sources=org_sources(db,actor);rules=org_rules(db,actor)
     decisions=list(db.scalars(select(Decision).where(Decision.org_id==actor.org_id)))
+    visit=judge_demo.visit_for_org(db,actor.org_id)
     return {'user':row(actor,('password',)),'workspace':row(db.get(Workspace,actor.org_id)),
-      'demo':DEMO and actor.email.endswith('@demo.brandora.test'),'ai_configured':ai.available(),'ai_provider':ai.provider() if ai.available() else None,'vision_configured':ai.vision_available(),
+      'judge_demo':{'expires':visit.expires,'ai_limit':judge_demo.AI_LIMIT,'roles':judge_demo.ROLES} if visit else None,
+      'demo':bool(visit) or (DEMO and actor.email.endswith('@demo.brandora.test')),'ai_configured':ai.available(),'ai_provider':ai.provider() if ai.available() else None,'vision_configured':ai.vision_available(),
       'members':[row(u,('password',)) for u in users] if actor.role=='manager' else [{'id':u.id,'name':u.name,'role':u.role} for u in users],
       'campaigns':[row(c) for c in campaigns], 'sources':[dict(row(s),current=current(s)) for s in sources.values()], 'rules':[row(r) for r in rules],
       'content':[dict(row(c),status=status(db,c)) for c in items],
@@ -273,6 +350,9 @@ def assign(id:str,data:Assignment,actor=Depends(user),db=Depends(database)):
 @app.post('/api/members')
 def member(data:MemberInput,actor=Depends(user),db=Depends(database)):
     require(actor,'manager')
+    if judge_demo.visit_for_org(db,actor.org_id):
+        # Public demos cannot reserve or probe real account email addresses.
+        data.email=f'{digest(data.email.lower().strip())[:16]}-{actor.org_id}@demo.brandora.invalid'
     if '@' not in data.email or db.scalar(select(User).where(User.email==data.email.lower().strip())):fail(400,'Use an available email address.')
     u=User(org_id=actor.org_id,name=data.name,email=data.email.lower().strip(),password=password_hash(data.password),role=data.role);db.add(u);db.flush();audit(db,actor,'Created member',u.name,{'role':u.role});return row(u,('password',))
 @app.post('/api/sources')
@@ -486,7 +566,8 @@ async def extract_source(file:UploadFile=File(...),actor=Depends(user)):
 @app.get('/api/intelligence/status')
 def intelligence_status(actor=Depends(user),db=Depends(database)):
     used=db.get(Quota,f'ai:{actor.org_id}:{limits.day()}')
-    return {'provider':ai.provider(),'model':ai.model(),'configured':ai.available(),'vision_configured':ai.vision_available(),'enabled':bool(db.get(Workspace,actor.org_id).settings.get('ai_enabled')),'requests_today':used.count if used else 0,'daily_limit':AI_DAILY_LIMIT,'languages':intelligence.LANGUAGES}
+    cap=judge_demo.AI_LIMIT if judge_demo.visit_for_org(db,actor.org_id) else AI_DAILY_LIMIT
+    return {'provider':ai.provider(),'model':ai.model(),'configured':ai.available(),'vision_configured':ai.vision_available(),'enabled':bool(db.get(Workspace,actor.org_id).settings.get('ai_enabled')),'requests_today':used.count if used else 0,'daily_limit':cap,'languages':intelligence.LANGUAGES}
 
 @app.get('/api/logos')
 def logos(actor=Depends(user),db=Depends(database)):

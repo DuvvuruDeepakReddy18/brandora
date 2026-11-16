@@ -42,6 +42,13 @@ class LoginSession(Base):
     id: Mapped[str]=mapped_column(String,primary_key=True)
     user_id: Mapped[str]=mapped_column(ForeignKey('users.id'))
     expires: Mapped[str]=mapped_column(String)
+class DemoVisit(Base):
+    __tablename__='demo_visits'
+    id: Mapped[str]=mapped_column(String,primary_key=True)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),unique=True,index=True)
+    users: Mapped[dict]=mapped_column(JSON)
+    active_role: Mapped[str]=mapped_column(String,default='creator')
+    expires: Mapped[str]=mapped_column(String,index=True)
 class Campaign(Base):
     __tablename__='campaigns'
     id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)

@@ -96,4 +96,4 @@ finally:
     report['temporary_tenant_removed']=True
     report_name='cloud-core-verification.json' if core_only else 'cloud-verification.json'
     (ROOT/'docs'/report_name).write_text(json.dumps(report,indent=2),encoding='utf-8')
-    print('Removed only the synthetic release tenant; first-owner setup remains available.',flush=True)
+    print('Removed only the synthetic release tenant; existing workspaces were left unchanged.',flush=True)

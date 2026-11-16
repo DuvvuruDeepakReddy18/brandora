@@ -16,9 +16,17 @@ The dedicated database was provisioned using the existing Neon `free_v3` integra
 
 ## First workspace
 
-Open the deployed website and choose **Create your workspace**. Enter your own name, email, a password of at least 12 characters and the code in the local, Git-ignored `deployment-access.txt`. Setup closes after the first account exists. The code is not included in the repository or application bundle. Production has no public demo accounts.
+Open the deployed website and choose **Create your workspace**. Enter your own name, email, a password of at least 12 characters and the code in the local, Git-ignored `deployment-access.txt`. Setup closes after the first real account exists. Demo visitors do not consume first-owner setup. The code is not included in the repository or application bundle.
 
 As the manager, create a campaign, register approved sources and rules, add teammates in Partner Workspace, and enable AI services in Privacy & settings when ready. AI features require that explicit workspace switch even though the provider is configured.
+
+## Judge access
+
+**Explore demo** creates or resumes a private two-hour sandbox in PostgreSQL, using a separate HTTP-only token and a server-held whitelist of four sample role accounts. It preserves the owner's normal session cookie. Role switching, sample downloads, reset and expiry operate only on that sandbox. Ordinary password login rejects demo accounts; demo member emails are confined to a fictional namespace.
+
+The demo entry is enabled by default and can be disabled with `BRANDORA_EXPLORE_DEMO=0`. Keep `BRANDORA_DEMO=0`: that flag controls the older shared development login, which remains unavailable in production. Demo AI is opt-in, capped at 12 requests/session/day and 80 total demo requests/day, within the existing global cap. The shared demo cap is configurable through `BRANDORA_DEMO_AI_GLOBAL_LIMIT`.
+
+Creation limits are 12/client/hour and 200/day globally; demo mutations are capped at 250/session. On Vercel only, the creation limiter uses the platform-overwritten `x-vercel-forwarded-for` header ([Vercel request headers](https://vercel.com/docs/headers/request-headers)); other hosts use the socket peer. No raw client address is stored. Expired demos are inaccessible immediately and cleaned up in batches of five when a new demo is created. See [JUDGES.md](JUDGES.md) for evaluator instructions.
 
 ## Release checks
 
