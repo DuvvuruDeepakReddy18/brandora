@@ -519,7 +519,7 @@ export function TranslationPanel({
           </button>
         </>
       )}
-      {(item.language !== "en" || item.language_review_required) && (
+      {(item.language !== "en" || !!item.language_review_required) && (
         <div className="language-review">
           <p>
             <b>Draft language:</b> {languages[item.language] || item.language}

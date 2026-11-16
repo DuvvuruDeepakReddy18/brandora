@@ -97,3 +97,22 @@ def test_document_ocr_requires_review_and_creates_no_source(workspace,monkeypatc
     assert r.status_code==200,r.text
     assert not r.json()['stored'] and r.json()['warnings']
     assert manager.get('/api/workspace').json()['sources']==[]
+
+def test_ai_policy_change_invalidates_prior_approval(workspace):
+    manager,reviewer,content=workspace
+    manager.put('/api/settings',json={'ai_enabled':False})
+    manager.post('/api/content/'+content['id']+'/scan');manager.post('/api/content/'+content['id']+'/request-review')
+    assert reviewer.post('/api/content/'+content['id']+'/approve').status_code==200
+    assert manager.put('/api/settings',json={'ai_enabled':True}).status_code==200
+    state=manager.get('/api/workspace').json()
+    assert next(c for c in state['content'] if c['id']==content['id'])['status']=='Needs reassessment'
+
+def test_english_translation_also_requires_language_review(workspace,monkeypatch):
+    manager,reviewer,content=workspace
+    monkeypatch.setattr(intelligence,'translate',lambda *args:{'translated_text':'HarborDesk costs 499. Try for 14 days.','back_translation':'HarborDesk costs 499. Try for 14 days.','warnings':[],'protected_terms':[]})
+    t=manager.post('/api/content/'+content['id']+'/translate',json={'language':'en','expected_version':1}).json()
+    translated=manager.post('/api/translations/'+t['id']+'/save').json()
+    assert translated['language_review_required']==1
+    manager.put('/api/settings',json={'ai_enabled':False})
+    manager.post('/api/content/'+translated['id']+'/scan');manager.post('/api/content/'+translated['id']+'/request-review')
+    assert reviewer.post('/api/content/'+translated['id']+'/approve').status_code==409

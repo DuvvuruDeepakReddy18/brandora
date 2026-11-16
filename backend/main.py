@@ -137,7 +137,7 @@ def run_scan(db,c,user):
     for d in deps:db.add(Dependency(content_id=c.id,**d))
     c.findings=findings;c.scan_hash=digest(c.body);c.scan_revision=ws.revision;c.updated=now()
     c.scan_coverage=coverage+(f' · {hidden} Citation Failed hidden' if hidden else '')
-    c.status='Needs changes' if findings else 'Ready for review'
+    c.status='Needs changes' if findings or coverage.startswith('AI incomplete:') else 'Ready for review'
     open_tasks=list(db.scalars(select(Task).where(Task.content_id==c.id,Task.status=='Open')))
     for task in open_tasks:task.status='Superseded by rescan'
     for f in findings:
@@ -414,7 +414,13 @@ def close_task(id:str,actor=Depends(user),db=Depends(database)):
 def settings(data:SettingsInput,actor=Depends(user),db=Depends(database)):
     require(actor,'manager')
     if data.ai_enabled and not ai.available():fail(409,'Configure a Gemini or Anthropic provider on the API host first.')
-    ws=db.get(Workspace,actor.org_id);ws.settings={**ws.settings,'ai_enabled':data.ai_enabled};audit(db,actor,'Updated AI policy',ws.name,{'ai_enabled':data.ai_enabled});return ws.settings
+    ws=db.get(Workspace,actor.org_id)
+    if bool(ws.settings.get('ai_enabled'))!=data.ai_enabled:
+        ws.revision+=1
+        for c in db.scalars(select(Content).where(Content.org_id==actor.org_id,Content.status!='Deleted')):
+            c.scan_revision=0
+            if c.status in ('Approved','In review'):c.status='Needs reassessment'
+    ws.settings={**ws.settings,'ai_enabled':data.ai_enabled};audit(db,actor,'Updated AI policy',ws.name,{'ai_enabled':data.ai_enabled});return ws.settings
 @app.get('/api/export')
 def export(actor=Depends(user),db=Depends(database)):
     require(actor,'manager')

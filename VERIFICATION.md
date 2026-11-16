@@ -2,12 +2,14 @@
 
 ## Full release verification
 
-- Expanded regression suite: **35 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.
+- Expanded regression suite: **37 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.
 - Next.js route type generation, TypeScript checking and production compilation pass.
 - Live Gemini 3.5 Flash-Lite verification passed for image OCR, approved-reference logo matching, Hindi translation with protected facts, scanned-PDF OCR and source-cited semantic review. Inputs were generated fictional fixtures only. Exact accepted outputs are in `docs/provider-verification.json`.
 - An initial semantic response incorrectly quoted the draft as its evidence; the validator rejected it and prevented silent approval. Clarifying the source/draft field contract produced a valid cited response. Rejected output was never treated as evidence.
 - Browser verification registered a synthetic approved logo, uploaded a synthetic creative and received actual OCR text, a matched logo location and suggested alt text. `docs/visual-analysis.jpg` captures the result.
-- PostgreSQL regression verification is running in a unique isolated schema. Deployment results will be recorded in `docs/release.json` after the release is verified.
+- PostgreSQL: the 35-test suite passed in 693.55 seconds in a unique isolated schema. The final translation/schema case also passed in a fresh schema (96.57 seconds). Both temporary schemas were removed; production records were not used. Two additional approval-policy regressions pass locally and are being verified against PostgreSQL.
+- The browser generated a Hindi translation, displayed its English back-translation and preserved HarborDesk, 14 and ₹499/month, then saved a separate draft. It did not automatically approve the translation.
+- GitHub Actions passed for the initial release commit. The staged Vercel build completed, and its health endpoint confirmed production mode, persistent database connectivity, configured Gemini/vision and disabled demo access. Final deployment results will be recorded in `docs/release.json` after verification.
 - Secret scanning checks staged source and confirms the database, environment files, setup code and provider key are excluded.
 
 The following records describe the initial rules-only build and are retained as earlier verification, not current feature limitations.
