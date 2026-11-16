@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { DemoTour } from "./components/demo-tour";
+import { LandingPage } from "./components/landing-page";
 import {
   AIStatus,
   VisualIntelligence,
@@ -385,7 +386,7 @@ export default function App() {
     setSelected(id);
     setSearch("");
     setMobile(false);
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: "instant" });
   };
   const submitModal = async (
     path: string,
@@ -407,7 +408,7 @@ export default function App() {
         values,
       );
       await refresh();
-      setView("Overview");
+      go("Overview");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -468,168 +469,110 @@ export default function App() {
     );
   if (!data)
     return (
-      <div className="login">
-        <section className="login-story">
-          <Logo />
-          <div className="login-main">
-            <span className="eyebrow">EVIDENCE BEFORE EVERYTHING</span>
-            <h1>
-              Your brand has a story.
-              <br />
-              <em>Give it a source.</em>
-            </h1>
-            <p>
-              Bring your content, evidence and approvals together.
-              <br />
-              Know what you can stand behind.
-            </p>
-            <div className="story-chain">
-              <div>
-                <BookOpen />
-                <span>Approved source</span>
-                <small>Pricing sheet · v1</small>
-              </div>
-              <ArrowRight />
-              <div>
-                <FileText />
-                <span>Supported claim</span>
-                <small>Exact words. Clear evidence.</small>
-              </div>
-              <ArrowRight />
-              <div>
-                <ShieldCheck />
-                <span>Human approval</span>
-                <small>Signed to this version.</small>
-              </div>
+      <LandingPage
+        logo={<Logo />}
+        onExplore={enterDemo}
+        demoAvailable={exploreDemo}
+        busy={busy}
+        error={error}
+      >
+        <div className="login-form">
+          <span className="kicker">YOUR BRAND WORKSPACE</span>
+          <h2 id="brandora-auth-title">
+            {signup ? "Make room for clarity." : "Welcome back."}
+          </h2>
+          <p>
+            {signup
+              ? "Create your workspace to start the review workflow."
+              : "Good work starts with a shared source of truth."}
+          </p>
+          {error && (
+            <div className="error" role="alert">
+              {error}
             </div>
-          </div>
-          <div className="login-foot">
-            <span>A clearer path from claim to confidence.</span>
-            <span>BRANDORA / 2026</span>
-          </div>
-        </section>
-        <section className="login-panel">
-          <div className="login-form">
-            <span className="kicker">YOUR BRAND WORKSPACE</span>
-            <h2>{signup ? "Make room for clarity." : "Welcome back."}</h2>
-            <p>
-              {signup
-                ? "Create your workspace to start the review workflow."
-                : "Good work starts with a shared source of truth."}
-            </p>
-            {error && (
-              <div className="error" role="alert">
-                {error}
-              </div>
+          )}
+          <Form
+            onSubmit={(v) => signIn(undefined, v)}
+            button={signup ? "Create workspace" : "Sign in"}
+            busy={busy}
+          >
+            {signup && (
+              <>
+                <Field label="Your name">
+                  <input name="name" required minLength={2} />
+                </Field>
+                <Field label="Workspace name">
+                  <input name="workspace" required minLength={2} />
+                </Field>
+                {production && (
+                  <Field label="One-time setup code">
+                    <input
+                      name="setup_token"
+                      type="password"
+                      required
+                      autoComplete="off"
+                    />
+                  </Field>
+                )}
+              </>
             )}
-            {exploreDemo && (
-              <div className="explore-entry">
-                <span className="kicker">HERE TO EVALUATE?</span>
-                <button
-                  className="button primary"
-                  onClick={enterDemo}
-                  disabled={busy}
-                >
-                  <FlaskConical size={18} />
-                  {busy ? "Opening demo…" : "Explore demo"}
-                  <ArrowRight size={17} />
-                </button>
-                <p>
-                  No account needed. Your own sample workspace with creator,
-                  reviewer, manager and partner roles.
-                </p>
-                <div className="divider">
-                  <span>OR SIGN IN TO YOUR WORKSPACE</span>
-                </div>
-              </div>
-            )}
-            <Form
-              onSubmit={(v) => signIn(undefined, v)}
-              button={signup ? "Create workspace" : "Sign in"}
-              busy={busy}
+            <Field label="Email address">
+              <input
+                name="email"
+                type="email"
+                placeholder="you@company.com"
+                required
+                autoComplete="email"
+              />
+            </Field>
+            <Field label="Password">
+              <input
+                name="password"
+                type="password"
+                placeholder={
+                  signup ? "At least 12 characters" : "Your password"
+                }
+                required
+                minLength={signup ? 12 : 1}
+                autoComplete={signup ? "new-password" : "current-password"}
+              />
+            </Field>
+          </Form>
+          {(!production || setupRequired || signup) && (
+            <button
+              className="text-button login-switch"
+              onClick={() => setSignup(!signup)}
             >
-              {signup && (
-                <>
-                  <Field label="Your name">
-                    <input name="name" required minLength={2} />
-                  </Field>
-                  <Field label="Workspace name">
-                    <input name="workspace" required minLength={2} />
-                  </Field>
-                  {production && (
-                    <Field label="One-time setup code">
-                      <input
-                        name="setup_token"
-                        type="password"
-                        required
-                        autoComplete="off"
-                      />
-                    </Field>
-                  )}
-                </>
-              )}
-              <Field label="Email address">
-                <input
-                  name="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  required
-                  autoComplete="email"
-                />
-              </Field>
-              <Field label="Password">
-                <input
-                  name="password"
-                  type="password"
-                  placeholder={
-                    signup ? "At least 12 characters" : "Your password"
-                  }
-                  required
-                  minLength={signup ? 12 : 1}
-                  autoComplete={signup ? "new-password" : "current-password"}
-                />
-              </Field>
-            </Form>
-            {(!production || setupRequired || signup) && (
-              <button
-                className="text-button login-switch"
-                onClick={() => setSignup(!signup)}
-              >
-                {signup
-                  ? "Already have a workspace? Sign in"
-                  : "Create your workspace"}
-              </button>
-            )}
-            {isDemo && (
-              <div className="demo-login">
-                <div className="divider">
-                  <span>EXPLORE THE FICTIONAL DEMO</span>
-                </div>
-                <div className="demo-roles">
-                  {["manager", "creator", "reviewer", "partner"].map((role) => (
-                    <button
-                      disabled={busy}
-                      onClick={() => signIn(role)}
-                      key={role}
-                    >
-                      <span>{role}</span>
-                      <ArrowUpRight size={15} />
-                    </button>
-                  ))}
-                </div>
-                <small>
-                  Separate demo accounts let you try the complete review flow.
-                  Demo sign-in is disabled in production.
-                </small>
+              {signup
+                ? "Already have a workspace? Sign in"
+                : "Create your workspace"}
+            </button>
+          )}
+          {isDemo && (
+            <div className="demo-login">
+              <div className="divider">
+                <span>EXPLORE THE FICTIONAL DEMO</span>
               </div>
-            )}
-          </div>
-          <div className="login-note">
-            <LockKeyhole size={14} /> Rules-only by default. Your content stays
-            in your workspace unless you enable an external AI service.
-          </div>
-        </section>
-      </div>
+              <div className="demo-roles">
+                {["manager", "creator", "reviewer", "partner"].map((role) => (
+                  <button
+                    disabled={busy}
+                    onClick={() => signIn(role)}
+                    key={role}
+                  >
+                    <span>{role}</span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                ))}
+              </div>
+              <small>
+                Separate demo accounts let you try the complete review flow.
+                Demo sign-in is disabled in production.
+              </small>
+            </div>
+          )}
+        </div>
+      </LandingPage>
     );
   const manager = data.user.role === "manager",
     reviewer = ["manager", "reviewer"].includes(data.user.role),
