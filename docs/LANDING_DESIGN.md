@@ -21,6 +21,8 @@ The user requested UI/UX Pro Max and suggested 21st.dev, GSAP, Taste Skill, and 
 - Stage buttons update the displayed explanation and 3D depth; pointer input updates the spring transforms. Pause removes continuous animation and tilt.
 - Feature selection works by click and arrow keys. Native sign-in dialog closes with Escape and restores focus to its trigger.
 - The bottom demo CTA opens the existing isolated workspace at the top of its overview. Owner data is not involved in this check.
+- All 52 API regressions and GitHub CI passed. Public HTTP/access checks, the live sign-in dialog, demo entry, reviewer switching, and return to the landing page passed; the browser reported no errors.
+- Main text/accent/button/form-hint contrast pairs measure 8.01:1, 12.42:1, 9.53:1, and 5.15:1 respectively.
 - System reduced-motion behavior is implemented with Motion's preference hook and CSS media guards; no operating-system preference was changed during verification.
 
 See `release.json` for the deployed source revision and release checks. Browser images document the shipped layout. No frame-rate benchmark, user study, or conversion result is claimed.

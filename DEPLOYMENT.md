@@ -16,7 +16,7 @@ The dedicated database was provisioned using the existing Neon `free_v3` integra
 
 ## First workspace
 
-Open the deployed website and choose **Create your workspace**. Enter your own name, email, a password of at least 12 characters and the code in the local, Git-ignored `deployment-access.txt`. Setup closes after the first real account exists. Demo visitors do not consume first-owner setup. The code is not included in the repository or application bundle.
+Open the deployed website, choose **Sign in**, then **Create your workspace** when first-owner setup is available. Enter your own name, email, a password of at least 12 characters and the code in the local, Git-ignored `deployment-access.txt`. Setup closes after the first real account exists. Demo visitors do not consume first-owner setup. The code is not included in the repository or application bundle.
 
 As the manager, create a campaign, register approved sources and rules, add teammates in Partner Workspace, and enable AI services in Privacy & settings when ready. AI features require that explicit workspace switch even though the provider is configured.
 
