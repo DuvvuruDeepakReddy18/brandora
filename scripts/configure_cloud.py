@@ -7,7 +7,7 @@ TEAM='duvvurudeepakreddy18s-projects'
 setup=ROOT/'.local/setup-token'
 setup.parent.mkdir(exist_ok=True)
 if not setup.exists():setup.write_text(secrets.token_urlsafe(36),encoding='utf-8')
-values={'BRANDORA_ENV':'production','BRANDORA_DEMO':'0','BRANDORA_AI_PROVIDER':'gemini','GEMINI_MODEL':'gemini-3.5-flash-lite','GEMINI_API_KEY':os.environ['GEMINI_API_KEY'],'BRANDORA_SETUP_TOKEN':setup.read_text().strip(),'BRANDORA_AI_DAILY_LIMIT':'30','BRANDORA_AI_GLOBAL_LIMIT':'200','ALLOWED_ORIGINS':'https://brandora.vercel.app,https://brandora-duvvurudeepakreddy18s-projects.vercel.app'}
+values={'BRANDORA_ENV':'production','BRANDORA_DEMO':'0','BRANDORA_AI_PROVIDER':'gemini','GEMINI_MODEL':'gemini-3.5-flash-lite','GEMINI_API_KEY':os.environ['GEMINI_API_KEY'],'BRANDORA_SETUP_TOKEN':setup.read_text().strip(),'BRANDORA_AI_DAILY_LIMIT':'30','BRANDORA_AI_GLOBAL_LIMIT':'200','ALLOWED_ORIGINS':'https://brandora-omega-three.vercel.app,https://brandora-duvvurudeepakreddy18s-projects.vercel.app'}
 for key,value in values.items():
     result=subprocess.run(['node',str(CLI),'env','add',key,'production','--sensitive','--force','--yes','--scope',TEAM],input=value,text=True,capture_output=True,cwd=ROOT)
     if result.returncode:raise SystemExit(f'Failed to configure {key}; check the Vercel project settings. No secret output emitted.')
