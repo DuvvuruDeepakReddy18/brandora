@@ -1,0 +1,17 @@
+node_modules
+.next
+.venv
+.venv-app
+.uv-cache
+.git
+.env*
+.local
+deployment-access.txt
+data
+*.log
+**/__pycache__
+.pytest_cache
+docs
+backend/tests
+scripts
+*.tsbuildinfo

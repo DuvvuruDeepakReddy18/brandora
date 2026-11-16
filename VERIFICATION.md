@@ -1,0 +1,44 @@
+# Brandora verification — 16 November 2026
+
+## Full release verification
+
+- Expanded regression suite: **35 passed** using the dedicated pinned Python 3.12 environment; external provider calls are disabled in this suite. One upstream Starlette warning reports that its HTTPX TestClient adapter is deprecated; it does not affect the running API.
+- Next.js route type generation, TypeScript checking and production compilation pass.
+- Live Gemini 3.5 Flash-Lite verification passed for image OCR, approved-reference logo matching, Hindi translation with protected facts, scanned-PDF OCR and source-cited semantic review. Inputs were generated fictional fixtures only. Exact accepted outputs are in `docs/provider-verification.json`.
+- An initial semantic response incorrectly quoted the draft as its evidence; the validator rejected it and prevented silent approval. Clarifying the source/draft field contract produced a valid cited response. Rejected output was never treated as evidence.
+- Browser verification registered a synthetic approved logo, uploaded a synthetic creative and received actual OCR text, a matched logo location and suggested alt text. `docs/visual-analysis.jpg` captures the result.
+- PostgreSQL regression verification is running in a unique isolated schema. Deployment results will be recorded in `docs/release.json` after the release is verified.
+- Secret scanning checks staged source and confirms the database, environment files, setup code and provider key are excluded.
+
+The following records describe the initial rules-only build and are retained as earlier verification, not current feature limitations.
+
+## Automated checks
+
+| Check | Observed result |
+| --- | --- |
+| `python -m pytest backend/tests -q` | 26 passed in 5.79 seconds |
+| `npm run typecheck` | Passed; no TypeScript errors |
+| `npm run build` | Passed; optimized production build and static page generation completed |
+
+The API suite uses an isolated temporary SQLite database. It covers authentication, tenant and campaign isolation, author/last-editor approval restrictions, exact content hashes, version conflicts, cited findings, unsupported claims, source-change invalidation with an unaffected control, non-mutating hypothetical impact replay, import review requirements, rejected blank PDFs, invalid configuration, contrast calculations, unsafe image rejection, cross-site writes, invalid AI citations and payload redaction.
+
+## Browser checks
+
+The local application was exercised through the visible browser at desktop width and a 390 × 844 mobile viewport. The viewport override was reset afterward.
+
+- Signed in as the fictional creator, corrected the four-finding launch draft, saved version 2, checked it with zero remaining findings and requested review.
+- Signed in separately as the fictional reviewer and approved that exact version. The saved approval receipt and version appeared in the interface.
+- Inspected Claim DNA and confirmed three connected content items for the pricing fact.
+- Replayed a hypothetical price change from 499 to 599. The UI showed three affected items, each changing from zero to one finding, while the existing approval remained Approved. The response explicitly labels the results as projections.
+- Checked the mobile dashboard, content layout and navigation drawer. Closed mobile navigation is excluded from the accessibility tree; opening and closing it works.
+- Reloaded after the final API restart and confirmed saved content and approval persisted.
+- Browser error log inspection returned no recorded errors for this tab at the end of those checks.
+- Returned the visible workspace to the fictional manager account for exploration.
+
+The demo database retains the tested launch draft at approved version 2. These are fictional development records, not user research or evaluation results.
+
+## Limits of this verification
+
+At the initial build, only local functional behavior had been verified. The full-release section above supersedes that build's AI/OCR/logo/translation status. Neither verification run is a security audit, a large-scale concurrency certification, the proposal's held-out product evaluation, or a user study. Email delivery and managed external identity are not part of this release.
+
+See README.md for the implemented module boundaries and remaining deployment work.

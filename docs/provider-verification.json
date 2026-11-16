@@ -1,0 +1,152 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "synthetic_only": true,
+  "ocr_and_logo": {
+    "ocr": {
+      "text": "HarborDesk\nA clearer workday\nTry it free for 14 days.\nINR 499/month, billed annually.",
+      "language": "en",
+      "regions": [
+        {
+          "text": "HarborDesk",
+          "box": [
+            116,
+            157,
+            203,
+            369
+          ]
+        },
+        {
+          "text": "A clearer workday",
+          "box": [
+            399,
+            65,
+            451,
+            393
+          ]
+        },
+        {
+          "text": "Try it free for 14 days.",
+          "box": [
+            530,
+            66,
+            584,
+            461
+          ]
+        },
+        {
+          "text": "INR 499/month, billed annually.",
+          "box": [
+            662,
+            66,
+            720,
+            627
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    "logos": [
+      {
+        "reference_id": "fixture-logo",
+        "result": "match",
+        "explanation": "The HarborDesk logo icon and text match the reference perfectly.",
+        "box": [
+          117,
+          68,
+          237,
+          368
+        ]
+      }
+    ],
+    "suggested_alt_text": "HarborDesk promotional creative with the text A clearer workday, Try it free for 14 days, and INR 499/month, billed annually.",
+    "warnings": []
+  },
+  "translation": {
+    "translated_text": "HarborDesk की कीमत 499/month INR है, जिसका बिल सालाना लिया जाता है। इसे 14 दिनों के लिए मुफ्त में आज़माएं।",
+    "back_translation": "HarborDesk costs 499/month INR, which is billed annually. Try it for free for 14 days.",
+    "warnings": [
+      "Currency placement may vary in natural Hindi usage, but INR is kept as requested.",
+      "Cultural tone assumes a standard SaaS subscription context."
+    ],
+    "target_language": "hi",
+    "protected_terms": [
+      "HarborDesk",
+      "499/month",
+      "14"
+    ],
+    "requires_human_review": true
+  },
+  "scanned_pdf_ocr": {
+    "text": "[Page 1]\nHarborDesk\nA clearer workday\nTry it free for 14 days.\nINR 499/month, billed annually.",
+    "language": "en",
+    "regions": [
+      {
+        "text": "HarborDesk",
+        "box": [
+          155,
+          157,
+          203,
+          370
+        ]
+      },
+      {
+        "text": "A clearer workday",
+        "box": [
+          392,
+          65,
+          440,
+          391
+        ]
+      },
+      {
+        "text": "Try it free for 14 days.",
+        "box": [
+          518,
+          65,
+          565,
+          462
+        ]
+      },
+      {
+        "text": "INR 499/month, billed annually.",
+        "box": [
+          642,
+          65,
+          688,
+          629
+        ]
+      }
+    ],
+    "warnings": []
+  },
+  "semantic_review": {
+    "coverage": "Rules + validated gemini suggestions",
+    "findings": [
+      {
+        "id": "15c9a04350622c0896de",
+        "rule_id": "tone-rule",
+        "rule_code": "TONE",
+        "outcome": "Low Confidence",
+        "title": "Suggested semantic review",
+        "message": "Avoid using the word 'obviously' as it can sound dismissive.",
+        "suggestion": "Remove 'Obviously,' to maintain a supportive and respectful tone.",
+        "severity": "medium",
+        "span": "Obviously,",
+        "start": 0,
+        "end": 10,
+        "engine": "AI-assisted",
+        "resolved": false,
+        "evidence": {
+          "source_id": "tone-source",
+          "title": "Fictional voice guide",
+          "version": 1,
+          "excerpt": "Use supportive, respectful language. Avoid the word obviously and a dismissive tone.",
+          "owner": "Test brand owner",
+          "rule_value": "obviously"
+        }
+      }
+    ],
+    "hidden": 0
+  }
+}
