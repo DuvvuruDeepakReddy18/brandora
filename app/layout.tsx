@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import "@fontsource/dm-sans/400.css";
-import "@fontsource/dm-sans/500.css";
-import "@fontsource/dm-sans/600.css";
-import "@fontsource/dm-sans/700.css";
+import "@fontsource-variable/archivo";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/newsreader/400.css";
 import "@fontsource/newsreader/400-italic.css";
 import "@fontsource/newsreader/500.css";
 import "./globals.css";
+import "./workspace-theme.css";
 export const metadata: Metadata = {
   title: "Brandora — A clear path from claim to confidence",
   description:

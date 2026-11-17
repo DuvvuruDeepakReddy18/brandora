@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { DemoTour } from "./components/demo-tour";
+import { WorkspaceCrew } from "./components/workspace-crew";
 import { LandingPage } from "./components/brand-crew-landing";
 import {
   AIStatus,
@@ -167,13 +168,16 @@ async function api(path: string, method = "GET", body?: unknown) {
   return response.json();
 }
 function Badge({ value }: { value: string }) {
-  const tone = /Approved|Ready|Verified|Closed|passes/i.test(value)
-    ? "green"
-    : /Gap|changes|reassessment|conflict|withdrawn/i.test(value)
+  const tone =
+    /Contradiction|Gap|Unverified|changes|reassessment|conflict|withdrawn/i.test(
+      value,
+    )
       ? "amber"
-      : /Confidence|review|Open/i.test(value)
-        ? "blue"
-        : "neutral";
+      : /Approved|Ready|Verified|Closed|passes|Human resolved/i.test(value)
+        ? "green"
+        : /Confidence|review|Open/i.test(value)
+          ? "blue"
+          : "neutral";
   return (
     <span className={"badge " + tone}>
       <span />
@@ -247,14 +251,22 @@ function Form({
 function Logo({ small = false }: { small?: boolean }) {
   return (
     <div className={"logo " + (small ? "small" : "")}>
-      <span className="logo-mark">
-        <i />
-        <i />
-        <i />
+      <span className="crew-brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="32" height="32">
+          <rect x="1" y="1" width="32" height="32" rx="9" fill="currentColor" />
+          <path
+            d="m16 24 6 6 15-19"
+            fill="none"
+            stroke="#3a2bff"
+            strokeWidth="7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </span>
       {!small && (
         <span>
-          brandora<span className="logo-dot">.</span>
+          Brandora<span className="logo-dot">.</span>
         </span>
       )}
     </div>
@@ -923,7 +935,7 @@ export default function App() {
       ),
     });
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-view={view}>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -944,7 +956,9 @@ export default function App() {
           className="workspace-switch"
           onClick={() => go("Privacy & settings")}
         >
-          <span className="workspace-icon">H</span>
+          <span className="workspace-icon">
+            {data.workspace.name.charAt(0).toUpperCase()}
+          </span>
           <span>
             {data.workspace.name}
             <small>
@@ -1178,8 +1192,15 @@ export default function App() {
             <div>
               <div className="heading-kicker">
                 {view === "Overview"
-                  ? "YOUR BRAND, IN FOCUS"
-                  : "BRANDORA WORKSPACE"}
+                  ? "THE BRAND CREW / YOUR WORKSPACE"
+                  : "THE BRAND CREW / " +
+                    sections
+                      .flatMap((group) =>
+                        group.items.map(([name]) => name as string),
+                      )
+                      .indexOf(view)
+                      .toString()
+                      .padStart(2, "0")}
                 {data.demo && <span>DEMO DATA</span>}
               </div>
               <h1>
@@ -1207,66 +1228,7 @@ export default function App() {
           )}
           {view === "Overview" && (
             <>
-              <section className="overview-hero">
-                <div className="hero-copy">
-                  <span className="eyebrow">CONNECTED BRAND GOVERNANCE</span>
-                  <h2>
-                    Every claim.
-                    <br />
-                    <em>A clear line to its source.</em>
-                  </h2>
-                  <p>
-                    Review with context. Approve with confidence.
-                    <br />
-                    Stay in sync when the facts change.
-                  </p>
-                  <button
-                    className="hero-link"
-                    onClick={() => go("Review desk")}
-                  >
-                    Open review desk
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-                <div
-                  className="hero-map"
-                  aria-label="Source linked to a claim and a human approval"
-                >
-                  <div className="map-top">
-                    <div className="map-icon">
-                      <BookOpen size={21} />
-                    </div>
-                    <div>
-                      <small>APPROVED SOURCE</small>
-                      <b>Pricing sheet</b>
-                      <span>
-                        {data.sources[0]
-                          ? "Version " + data.sources[0].version
-                          : "Your evidence starts here"}
-                      </span>
-                    </div>
-                    <CheckCircle2 className="map-check" size={17} />
-                  </div>
-                  <div className="map-connector">
-                    <span />
-                    <span>evidence you can follow</span>
-                  </div>
-                  <div className="map-bottom">
-                    <span>
-                      <Link2 size={17} />
-                      Claim
-                    </span>
-                    <ArrowRight size={18} />
-                    <span>
-                      <ShieldCheck size={17} />
-                      Approval
-                    </span>
-                  </div>
-                  <div className="map-caption">
-                    <span className="live-dot" /> Connected across every version
-                  </div>
-                </div>
-              </section>
+              <WorkspaceCrew onNavigate={go} />
               <section className="stats">
                 {[
                   {

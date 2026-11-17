@@ -65,7 +65,7 @@ export function DemoTour(props: Props) {
           </button>
         ))}
       </div>
-      <details className="judge-demo-guide" open>
+      <details className="judge-demo-guide">
         <summary>A five-minute walkthrough</summary>
         <div className="judge-demo-grid">
           <div>

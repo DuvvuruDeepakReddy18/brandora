@@ -2,7 +2,7 @@
 
 [Live application](https://brandora-omega-three.vercel.app) · [Private GitHub repository](https://github.com/DuvvuruDeepakReddy18/brandora)
 
-The public entry is **Brandora — The Brand Crew**, with the four-robot interactive introduction, real login and isolated demo entry. See [integration notes](docs/BRAND_CREW_INTEGRATION.md) and [release verification](docs/brand-crew-integration-verification.json). Previous design editions are retained as source history.
+The public entry is **Brandora — The Brand Crew**, with the four-robot interactive introduction, real login and isolated demo entry. The dashboard and all 13 internal pages continue its paper surfaces, cobalt controls, editorial typography and four crew colours. See [landing integration](docs/BRAND_CREW_INTEGRATION.md), [workspace design and verification](docs/WORKSPACE_THEME.md) and [landing release verification](docs/brand-crew-integration-verification.json). Previous design editions are retained as source history.
 
 **Judges:** choose **Explore demo** for a private, temporary sample workspace with creator/reviewer/manager/partner switching. No credentials are needed. See [JUDGES.md](JUDGES.md) for the walkthrough and demo limits. Normal workspace login remains separate.
 
