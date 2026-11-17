@@ -1,0 +1,153 @@
+html:has(.brand-crew-shell),
+body:has(.brand-crew-shell) {
+  overflow: hidden;
+}
+.brand-crew-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 320px;
+  overflow: hidden;
+  background: #f1efe9;
+  color: #111114;
+}
+.brand-crew-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.brand-crew-loading {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 14px 20px;
+  background: #f1efe9;
+  border: 1px solid #b8b5b0;
+  border-radius: 7px;
+  box-shadow: 0 8px 28px #11111412;
+  text-align: center;
+  font-size: 12px;
+}
+.brand-crew-loading > div {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.brand-crew-loading button {
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid #3a2bff;
+  background: #3a2bff;
+  color: white;
+  border-radius: 5px;
+}
+.brand-crew-auth {
+  padding: 0;
+  background: #f1efe9;
+  color: #111114;
+  border: 1px solid #c4c0b6;
+  border-radius: 12px;
+  width: min(470px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overscroll-behavior: contain;
+  box-shadow: 0 30px 130px #11111450;
+}
+.brand-crew-auth::backdrop {
+  background: #1111148f;
+  backdrop-filter: blur(8px);
+}
+.brand-crew-auth-inner {
+  padding: 45px 36px 30px;
+  position: relative;
+}
+.brand-crew-auth-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  padding: 11px;
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+}
+.brand-crew-auth-close:hover {
+  background: #e4e1d9;
+}
+.brand-crew-auth .login-form {
+  width: 100%;
+  max-width: none;
+}
+.brand-crew-auth .login-form > .kicker {
+  color: #3a2bff;
+  font-size: 10px;
+}
+.brand-crew-auth .login-form > h2 {
+  font-family: var(--serif);
+  font-size: 37px;
+  letter-spacing: -1px;
+  margin: 15px 0 11px;
+  color: #111114;
+}
+.brand-crew-auth .login-form > p {
+  color: #57555d;
+  font-size: 13px;
+  margin-bottom: 26px;
+  line-height: 1.75;
+}
+.brand-crew-auth .field > span {
+  font-size: 12px;
+  color: #484650;
+}
+.brand-crew-auth .field input {
+  font-size: 16px;
+  padding: 12px;
+  background: #fffefa;
+  border-color: #a9a5a0;
+}
+.brand-crew-auth .form > .button {
+  background: #3a2bff;
+  border-color: #3a2bff;
+  color: #fff;
+  min-height: 48px;
+  font-size: 14px;
+}
+.brand-crew-auth .login-switch {
+  color: #3a2bff;
+  font-size: 12px;
+  margin-top: 18px;
+  padding-block: 10px;
+}
+.brand-crew-auth :is(button, input):focus-visible,
+.brand-crew-loading button:focus-visible {
+  outline: 2px solid #3a2bff;
+  outline-offset: 4px;
+}
+.brand-crew-auth-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 27px;
+  padding-top: 20px;
+  border-top: 1px solid #b8b5b04a;
+  color: #57555d;
+}
+.brand-crew-auth-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.brand-crew-auth-note p {
+  font-size: 11px;
+  line-height: 1.75;
+}
+@media (max-width: 600px) {
+  .brand-crew-auth-inner {
+    padding: 45px 25px 25px;
+  }
+}

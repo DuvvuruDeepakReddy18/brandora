@@ -20,6 +20,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm ci
+      - run: node scripts/prepare-brand-crew.cjs --check
+      - run: node --test scripts/brand-crew.test.mjs
       - run: python -m pip install -r backend/requirements-lock.txt
       - run: python -m pytest backend/tests -q
       - run: npm run typecheck

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { DemoTour } from "./components/demo-tour";
-import { LandingPage } from "./components/landing-page";
+import { LandingPage } from "./components/brand-crew-landing";
 import {
   AIStatus,
   VisualIntelligence,

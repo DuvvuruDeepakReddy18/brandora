@@ -1,0 +1,18 @@
+.brand-crew-host-status {
+  position: fixed;
+  z-index: 500;
+  top: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 32px));
+  padding: 16px 20px;
+  border: 1px solid #b83b26;
+  border-radius: 6px;
+  background: #fff1e9;
+  color: #752c1e;
+  box-shadow: 0 10px 30px #1111141a;
+  font: 14px/1.6 Archivo, sans-serif;
+}
+.brand-crew-host-status[hidden] { display: none; }
+html[data-host-modal="true"] *, html[data-host-modal="true"] *::before, html[data-host-modal="true"] *::after { animation-play-state: paused !important; }
+[data-demo]:disabled, [data-info="login"]:disabled { opacity: .65; cursor: wait; }

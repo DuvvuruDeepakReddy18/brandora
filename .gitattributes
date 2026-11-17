@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.jpg binary
 *.png binary
+# These files are byte-pinned by the Brand Crew handoff/generator.
+/brand-crew/index.html -text
+/public/brand-crew/index.html -text
