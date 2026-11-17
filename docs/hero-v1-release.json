@@ -1,0 +1,65 @@
+{
+  "name": "Brandora Hero v1",
+  "url": "https://brandora-hero-v1.vercel.app",
+  "projectId": "prj_wHjvAc8WAbItwvLywmMPltaDX39c",
+  "teamId": "team_t14IgwKTIHpvqi5uKOfPKnz1",
+  "deploymentId": "dpl_EfxvXJSg111Fr2btKZ8NKPdH5BC1",
+  "deploymentUrl": "https://brandora-hero-v1-j0jstl9yw-duvvurudeepakreddy18s-projects.vercel.app",
+  "target": "production",
+  "status": "READY",
+  "date": "2026-11-16",
+  "framework": "Next.js static export",
+  "baseCommit": "5987ff4196a08bd1a7912928bb5b4e0785b07bfe",
+  "uncommittedSource": true,
+  "scope": "Standalone robot landing page; on-page workflow only. No backend or sign-in.",
+  "verification": [
+    "Local and Vercel builds passed",
+    "Public page renders without authentication",
+    "3D studio loaded",
+    "Explore workflow opens evidence chapter",
+    "Sample approve, request changes and reset passed",
+    "Browser console: no warnings or errors"
+  ],
+  "files": [
+    {
+      "file": "app/page.tsx",
+      "sha256": "cd65f125cc87427eaacb6564e2f5751bea7f29eab1ff85149b5a912a9b2f7458"
+    },
+    {
+      "file": "app/layout.tsx",
+      "sha256": "fef2935c906b5c9ddfab00e38cecfab1d053b52a777e98d5e6e204ab0453c52e"
+    },
+    {
+      "file": "app/globals.css",
+      "sha256": "af4aecd340bba9c0881fc10e201d68539e823214286dc2d0fb000b5ad0b61e5d"
+    },
+    {
+      "file": "app/components/studio-landing.tsx",
+      "sha256": "a75b2464b21a52a1c1dbd52a6df95a747ec746840e006233837181fd51381fa0"
+    },
+    {
+      "file": "app/components/studio-landing.css",
+      "sha256": "ebde8ba9a8f1c6cb5ad7b959c17e42bed5176b2122f3758aff4c7605b5277c00"
+    },
+    {
+      "file": "app/components/studio-scene.ts",
+      "sha256": "4ce290a861c09514b783f7ecd934020bcfd6f7c531a571ed46eb36dc5d2c1eeb"
+    },
+    {
+      "file": "package.json",
+      "sha256": "ddffe9ba88b63e95b9118b35f758ab41906fc621c7a982c2daa976bbe0a254d4"
+    },
+    {
+      "file": "next.config.ts",
+      "sha256": "cfb98f3bc99ad67f3600adf9fb6349451deb9f97483b98e902d4e60d835eecb4"
+    },
+    {
+      "file": "tsconfig.json",
+      "sha256": "9f6409111d541fd054809ae3c4ffb90600eeda64530cc8082770878906007d12"
+    },
+    {
+      "file": "vercel.json",
+      "sha256": "cd90e4e02e617fad08b7bd94de3accaf183a3605e0d3cf86f5ece2673fc01f77"
+    }
+  ]
+}

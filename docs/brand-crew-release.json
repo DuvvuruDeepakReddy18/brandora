@@ -1,0 +1,216 @@
+{
+  "edition": "The Brand Crew",
+  "date": "2026-11-17",
+  "url": "https://brandora-brand-crew.vercel.app",
+  "immutableUrl": "https://brandora-brand-crew-izxux9p89-duvvurudeepakreddy18s-projects.vercel.app",
+  "projectId": "prj_An5kgKeF3WjgrTobRkZ0vmIAiYTh",
+  "projectName": "brandora-brand-crew",
+  "deploymentId": "dpl_AUFTEGNXkwz7Mg87VKEyXmmB7xjz",
+  "teamId": "team_t14IgwKTIHpvqi5uKOfPKnz1",
+  "state": "READY",
+  "target": "production",
+  "source": "brand-crew/index.html",
+  "sha256": "3f8540e6ec92bea2ad51391982d7f9cabce8329c80a6e9762dec1f9c45bb4d53",
+  "sourceBytes": 271652,
+  "publicHttpStatus": 200,
+  "publicSourceHashMatches": true,
+  "scope": "Standalone static landing page; no application, database, credentials, AI service or booking integration changed.",
+  "browserVerification": {
+    "checks": [
+      {
+        "name": "shared WebGL portraits and world loaded",
+        "pass": true
+      },
+      {
+        "name": "shelf next arrow advances a case",
+        "pass": true
+      },
+      {
+        "name": "category navigation selects relevant case",
+        "pass": true
+      },
+      {
+        "name": "case cover expands and corrected ink reveal completes",
+        "pass": true
+      },
+      {
+        "name": "original/corrected switch and Escape close",
+        "pass": true
+      },
+      {
+        "name": "fix station reverses and reapplies the same fixes exactly",
+        "pass": true
+      },
+      {
+        "name": "sample human approval follows fixes",
+        "pass": true
+      },
+      {
+        "name": "next asset changes reviewer and proof",
+        "pass": true
+      },
+      {
+        "name": "sample claim attaches fictional source for review",
+        "pass": true
+      },
+      {
+        "name": "arbitrary claim cannot reuse fictional evidence",
+        "pass": true
+      },
+      {
+        "name": "feature portrait navigation and mask wipe",
+        "pass": true
+      },
+      {
+        "name": "carousel supports pause and keyboard movement",
+        "pass": true
+      },
+      {
+        "name": "audit export contains seven decisions",
+        "pass": true
+      },
+      {
+        "name": "demo dialog opens and closes",
+        "pass": true
+      },
+      {
+        "name": "mobile snapshots captured",
+        "pass": true,
+        "data": {
+          "width": 390,
+          "scroll": 390,
+          "offenders": [
+            {
+              "tag": "DIV",
+              "cls": "cursor",
+              "right": 1255.8299560546875
+            },
+            {
+              "tag": "I",
+              "cls": "",
+              "right": 1249.3299560546875
+            },
+            {
+              "tag": "SPAN",
+              "cls": "",
+              "right": 1256.4393310546875
+            },
+            {
+              "tag": "DIV",
+              "cls": "sky-mist",
+              "right": 468.38453674316406
+            },
+            {
+              "tag": "DIV",
+              "cls": "world-wordmark",
+              "right": 452.9976501464844
+            },
+            {
+              "tag": "DIV",
+              "cls": "letter-row",
+              "right": 452.9976501464844
+            },
+            {
+              "tag": "SPAN",
+              "cls": "letter-wrap",
+              "right": 457.9546813964844
+            },
+            {
+              "tag": "SPAN",
+              "cls": "glyph",
+              "right": 452.2804870605469
+            },
+            {
+              "tag": "SPAN",
+              "cls": "proof-annotation",
+              "right": 430.0265808105469
+            },
+            {
+              "tag": "DIV",
+              "cls": "word-scan",
+              "right": 455.6976623535156
+            },
+            {
+              "tag": "DIV",
+              "cls": "shelf-plank",
+              "right": 432.48009872436523
+            },
+            {
+              "tag": "DIV",
+              "cls": "slide-sky",
+              "right": 412.0218811035156
+            },
+            {
+              "tag": "DIV",
+              "cls": "slide-sky",
+              "right": 409.9549865722656
+            },
+            {
+              "tag": "DIV",
+              "cls": "slide-sky",
+              "right": 410.70838928222656
+            },
+            {
+              "tag": "DIV",
+              "cls": "slide-sky",
+              "right": 425.71697998046875
+            },
+            {
+              "tag": "DIV",
+              "cls": "cloud-bank",
+              "right": 413.390625
+            },
+            {
+              "tag": "I",
+              "cls": "",
+              "right": 414.09610748291016
+            },
+            {
+              "tag": "I",
+              "cls": "",
+              "right": 421.5452880859375
+            },
+            {
+              "tag": "I",
+              "cls": "",
+              "right": 399.796875
+            },
+            {
+              "tag": "I",
+              "cls": "",
+              "right": 447.296875
+            }
+          ]
+        }
+      },
+      {
+        "name": "reduced motion uses static corrected proof and horizontal asset row",
+        "pass": true
+      },
+      {
+        "name": "no runtime errors",
+        "pass": true
+      }
+    ],
+    "errors": []
+  },
+  "finalLiveVerification": {
+    "checks": [
+      "All four assets scan, fix, and reach sample human approval",
+      "Attach and dismiss buttons never resubmit the claim",
+      "No horizontal page overflow at 360, 390, 768 and 1440 px",
+      "Reduced motion keeps crew descriptions available",
+      "No JavaScript or resource errors"
+    ],
+    "frames": {
+      "frames": 136,
+      "medianMs": 13.899999999999636,
+      "p95Ms": 20.799999999999272
+    },
+    "a11y": [],
+    "errors": []
+  },
+  "accessibilityScope": "Axe WCAG 2 A/AA semantic checks excluding color contrast returned zero violations; keyboard, modal focus, reduced motion and four viewport widths checked. Not a full accessibility certification.",
+  "performanceScope": "Two-second requestAnimationFrame sample at 1440×1000 in the local Chromium test environment, viewing the live 3D crew. Not a cross-device performance guarantee.",
+  "optionalMedia": "No optional media URLs configured; procedural rendering used in all verification."
+}

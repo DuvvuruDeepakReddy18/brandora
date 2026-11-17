@@ -1,0 +1,25 @@
+{
+  "project": "brandora-hero-v2",
+  "projectId": "prj_BAQaHMK3XaQB0tBPJqAF41jJZf73",
+  "deploymentId": "dpl_21XyUsqjqm43ukisEQ4vTngC26W2",
+  "url": "https://brandora-hero-v2.vercel.app",
+  "immutableUrl": "https://brandora-hero-v2-ikc3z1ses-duvvurudeepakreddy18s-projects.vercel.app",
+  "sourceUncommitted": true,
+  "date": "2026-11-16",
+  "sha256": {
+    "app/components/case-landing.tsx": "99c821a7430270df7a794309c8e184405c798f06718441db60dc0b8373796257",
+    "app/components/case-landing.css": "d1ba826686baa74f8b3c55e11eaae6cc310b309949f90c8a06120ae12ab4f729",
+    "app/components/case-inspector.ts": "cf23becaf214ef9d9aba49ef03bf1fa15bccba772f2594b7dddccea803db3c50",
+    "scripts/prepare-hero-v2.cjs": "e4682e06fd9ae75e17d1bfc4f83741b61fe94dff00d1f7c62988163bb3d91bae"
+  },
+  "validation": [
+    "TypeScript passed",
+    "Local static production build passed",
+    "Vercel production build passed",
+    "Desktop and mobile visual inspection",
+    "Native live shelf drag changed case",
+    "Source-linked correction",
+    "Approve and request changes",
+    "Horizontal feature navigation"
+  ]
+}

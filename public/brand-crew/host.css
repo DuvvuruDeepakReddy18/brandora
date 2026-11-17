@@ -16,3 +16,17 @@
 .brand-crew-host-status[hidden] { display: none; }
 html[data-host-modal="true"] *, html[data-host-modal="true"] *::before, html[data-host-modal="true"] *::after { animation-play-state: paused !important; }
 [data-demo]:disabled, [data-info="login"]:disabled { opacity: .65; cursor: wait; }
+/* Both real entry paths must remain reachable on small phones. */
+@media (max-width: 520px) {
+  .nav { padding: 0 12px; gap: 6px; }
+  .nav .brand { font-size: 18px; gap: 5px; }
+  .nav-actions { gap: 6px; }
+  .nav .login { display: block; min-width: 44px; min-height: 44px; }
+  .nav-actions .pill { min-height: 44px; padding: 0 11px; gap: 6px; }
+  .nav-actions .pill svg { display: none; }
+  .nav .motion-toggle { width: 32px; min-height: 44px; flex-shrink: 0; }
+}
+@media (max-width: 360px) {
+  .nav .brand { font-size: 16px; gap: 4px; }
+  .nav .brand-mark, .nav .brand-mark svg { width: 20px; height: 20px; }
+}

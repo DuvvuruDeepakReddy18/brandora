@@ -25,6 +25,8 @@ The landing's checker remains a local rule demonstration; all sample campaign ev
 
 Run `node --test scripts/brand-crew.test.mjs`, the generator check, existing API regressions, TypeScript and the production build. CI includes the bridge rejection and source-fidelity checks. Browser verification must cover actual sign-in, demo entry, role changes, exit/reentry, parent modal focus, source/case interactions, scrolling and phone layout.
 
-The shared checkout also contains uncommitted V1/V2 files, package changes and historical design notes. Those are preserved, not reset or included in this release. Deploy from a clean archive of the intended Git commit so Vercel and CI receive the same source/dependency set.
+Earlier V1/V2 files, their Three.js dependency, screenshots and historical design notes are retained in GitHub at the user's request. They are not imported by the current product entry; the Brand Crew iframe keeps its original pinned runtime. Deploy from a clean archive of the intended Git commit so Vercel and CI receive the same source/dependency set.
+
+Local browser checks use a separate loopback API and disposable SQLite fixture, with no external provider key. Successful password login, rejected invalid credentials, separate demo entry, reviewer switching, original-session restoration, anonymous entry/exit, case inspection and mobile auth were exercised. The adapter overrides the original design's hidden mobile login rule without changing the canonical handoff. See the verification record for production checks.
 
 Product target: `brandora` / `prj_2JE7c59uDZ1vljwTac5sp862twx7`, https://brandora-omega-three.vercel.app. Never use the child standalone project's link. See `release.json` and `brand-crew-integration-verification.json` for release identity and observed results.
