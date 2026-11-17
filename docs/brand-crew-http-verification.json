@@ -1,0 +1,11 @@
+{
+  "url": "https://brandora-omega-three.vercel.app",
+  "passed": true,
+  "checks": [
+    "Product root remains protected from framing",
+    "Landing permits only same-origin embedding",
+    "index.html: HTTP 200 and exact source hash",
+    "host-bridge.js: HTTP 200 and exact source hash",
+    "host.css: HTTP 200 and exact source hash"
+  ]
+}

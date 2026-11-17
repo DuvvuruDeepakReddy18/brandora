@@ -2,6 +2,8 @@
 
 [Live application](https://brandora-omega-three.vercel.app) · [Private GitHub repository](https://github.com/DuvvuruDeepakReddy18/brandora)
 
+The public entry is **Brandora — The Brand Crew**, with the four-robot interactive introduction, real login and isolated demo entry. See [integration notes](docs/BRAND_CREW_INTEGRATION.md) and [release verification](docs/brand-crew-integration-verification.json). Previous design editions are retained as source history.
+
 **Judges:** choose **Explore demo** for a private, temporary sample workspace with creator/reviewer/manager/partner switching. No credentials are needed. See [JUDGES.md](JUDGES.md) for the walkthrough and demo limits. Normal workspace login remains separate.
 
 For first access, choose **Create your workspace** and use the private code in the local `deployment-access.txt`. Create your own password, then enable AI in **Privacy & settings**. The setup code is not stored in this repository.
