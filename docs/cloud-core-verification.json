@@ -1,5 +1,5 @@
 {
-  "deployment": "https://brandora-kyh4r9ab0-duvvurudeepakreddy18s-projects.vercel.app",
+  "deployment": "https://brandora-nvi0ryhvy-duvvurudeepakreddy18s-projects.vercel.app",
   "synthetic_only": true,
   "core_only": true,
   "passed": true,
@@ -51,17 +51,17 @@
     },
     {
       "method": "POST",
-      "path": "/api/content/70565b3df8184d9dbaac947a89bfcf84/scan",
+      "path": "/api/content/21a43b090bd4467e86059d0a3d02be01/scan",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/content/70565b3df8184d9dbaac947a89bfcf84/request-review",
+      "path": "/api/content/21a43b090bd4467e86059d0a3d02be01/request-review",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/content/70565b3df8184d9dbaac947a89bfcf84/approve",
+      "path": "/api/content/21a43b090bd4467e86059d0a3d02be01/approve",
       "status": 200
     },
     {

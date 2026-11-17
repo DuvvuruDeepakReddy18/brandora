@@ -19,4 +19,10 @@ Finding badges distinguish contradictions and unverified evidence in amber from 
 - Translation language controls, approved logo references, OCR controls, settings, source and history views were inspected. Existing provider checks are retained; this styling pass did not make new external AI calls.
 - No warning or error entries were recorded in the local browser console.
 
-Automated and production release results are recorded in `workspace-theme-verification.json` after deployment. Earlier full AI/provider verification remains in `VERIFICATION.md` and `docs/cloud-verification.json`.
+Automated and production release results are recorded in [workspace-theme-verification.json](workspace-theme-verification.json). Earlier full AI/provider verification remains in `VERIFICATION.md` and `docs/cloud-verification.json`.
+
+## Published release
+
+Live at [Brandora](https://brandora-omega-three.vercel.app). Application commit `fa40290791060cbbdf2be9d94e414ba4728b1eaf` passed [GitHub CI](https://github.com/DuvvuruDeepakReddy18/brandora/actions/runs/44094779785) and hosted password-login/approval checks before deployment `dpl_HrdnGbwqj9BJsizgyqZ4uLib59xK` was promoted. The synthetic verification workspace was removed. Public access guards, demo entry/exit, reviewer switching and mobile layout passed; no runtime errors were observed.
+
+Saved public screenshots: [dashboard](workspace-brand-crew-live.jpg), [editor](workspace-brand-crew-editor.jpg), [phone](workspace-brand-crew-mobile.jpg).

@@ -1,4 +1,12 @@
-# Brandora verification — 16 November 2026
+# Brandora verification
+
+## Brand Crew workspace — 17 November 2026
+
+- Dashboard and all 13 internal pages checked at desktop, tablet and phone widths. All four crew shortcuts, password login, isolated demo switching, mobile draft creation, edit/scan/review/approval, receipt export, dialog focus, contrast and hypothetical impact checks passed.
+- 52 API regressions and 3 landing bridge checks passed, along with TypeScript and the production build. GitHub CI run `44094779785` passed for application commit `fa40290791060cbbdf2be9d94e414ba4728b1eaf`.
+- Exact deployment `dpl_HrdnGbwqj9BJsizgyqZ4uLib59xK` passed hosted manager/reviewer password login, scanning and independent approval; its unique synthetic workspace was removed. This deployment was promoted to the main Brandora domain.
+- Public login/demo, reviewer switching, amber evidence warnings and the 390-pixel layout were verified. Public health/access guards and unchanged landing hashes passed; no browser errors or Vercel error logs were observed.
+- See [design and test details](docs/WORKSPACE_THEME.md) and the [release record](docs/workspace-theme-verification.json). The earlier hosted AI/OCR/logo/translation results below are retained; this presentation update made no new provider calls.
 
 ## Credential-free judge demo
 

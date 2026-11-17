@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-17",
+  "application_commit": "fa40290791060cbbdf2be9d94e414ba4728b1eaf",
+  "github_actions_run": 44094779785,
+  "github_actions_result": "success",
+  "automated_checks": {
+    "api_regressions": 52,
+    "landing_bridge_checks": 3,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "release_scan": "passed: 113 tracked files",
+    "npm_audit_vulnerabilities": 0
+  },
+  "local_browser": {
+    "views_checked": 14,
+    "viewport_widths": [
+      1280,
+      768,
+      390,
+      320
+    ],
+    "horizontal_overflow": false,
+    "crew_shortcuts": 4,
+    "successful_password_login": true,
+    "anonymous_demo_entry_exit": true,
+    "authenticated_demo_preserves_workspace": true,
+    "roles": [
+      "creator",
+      "reviewer",
+      "manager",
+      "partner"
+    ],
+    "edit_scan_request_review_independent_approval": true,
+    "receipt_download": true,
+    "dialog_escape_focus_restoration": true,
+    "small_phone_draft_creation": true,
+    "hypothetical_impact_preserves_approval": true,
+    "contrast_ratio": 6.15,
+    "runtime_errors": 0
+  },
+  "production": {
+    "url": "https://brandora-omega-three.vercel.app",
+    "deployment_id": "dpl_HrdnGbwqj9BJsizgyqZ4uLib59xK",
+    "immutable_url": "https://brandora-nvi0ryhvy-duvvurudeepakreddy18s-projects.vercel.app",
+    "project_id": "prj_2JE7c59uDZ1vljwTac5sp862twx7",
+    "status": "READY",
+    "promoted": true,
+    "hosted_password_login": "passed for synthetic manager and reviewer",
+    "hosted_scan_review_approval": "passed; cloud-core-verification.json",
+    "synthetic_test_workspace_removed": true,
+    "public_health_and_access_guards": "passed",
+    "landing_source_hashes": "unchanged; passed",
+    "public_browser_login_dialog": true,
+    "public_browser_anonymous_demo_entry": true,
+    "public_browser_reviewer_switching": true,
+    "public_browser_demo_exit": true,
+    "public_browser_contradiction_and_unverified_badges": "amber",
+    "public_mobile_viewport": 390,
+    "public_mobile_horizontal_overflow": false,
+    "browser_runtime_errors": 0,
+    "vercel_error_log_check": "No error logs returned for the release over the preceding 15 minutes",
+    "screenshots": [
+      "workspace-brand-crew-live.jpg",
+      "workspace-brand-crew-editor.jpg",
+      "workspace-brand-crew-mobile.jpg"
+    ],
+    "ai_configuration": "Gemini and vision configured; no new provider calls"
+  },
+  "scope": "Workspace presentation and preserved workflows. No new external AI calls; earlier hosted AI/OCR/logo/translation verification is retained. No performance, user-study or security-certification claim.",
+  "test_environment_note": "The local resolver failed to resolve the database host in two attempts before any synthetic workspace was created. The successful hosted core check used a fresh public DNS answer via process-scoped PGHOSTADDR, preserving the hostname and TLS settings. No system or production network configuration changed."
+}
