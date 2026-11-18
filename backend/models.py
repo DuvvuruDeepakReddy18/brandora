@@ -185,6 +185,28 @@ class Translation(Base):
     saved_content_id: Mapped[str]=mapped_column(String,default='')
     created: Mapped[str]=mapped_column(String,default=now)
 
+class Creative(Base):
+    """An uploaded or sample creative tied to one exact content version, with its annotation coordinates."""
+    __tablename__='creatives'
+    id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),index=True)
+    content_id: Mapped[str]=mapped_column(ForeignKey('content.id'),index=True)
+    version: Mapped[int]=mapped_column(Integer)
+    name: Mapped[str]=mapped_column(String,default='Creative')
+    image: Mapped[str]=mapped_column(Text,default='')
+    width: Mapped[int]=mapped_column(Integer,default=0)
+    height: Mapped[int]=mapped_column(Integer,default=0)
+    origin: Mapped[str]=mapped_column(String,default='ai')
+    regions: Mapped[list]=mapped_column(JSON,default=list)
+    logos: Mapped[list]=mapped_column(JSON,default=list)
+    findings: Mapped[list]=mapped_column(JSON,default=list)
+    warnings: Mapped[list]=mapped_column(JSON,default=list)
+    alt_text: Mapped[str]=mapped_column(Text,default='')
+    provider: Mapped[str]=mapped_column(String,default='')
+    sha256: Mapped[str]=mapped_column(String,default='')
+    created_by: Mapped[str]=mapped_column(String,default='')
+    created: Mapped[str]=mapped_column(String,default=now)
+
 with engine.begin() as connection:
     if engine.dialect.name=='postgresql':connection.execute(text('SELECT pg_advisory_xact_lock(784325126)'))
     Base.metadata.create_all(connection)

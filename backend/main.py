@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
-from .engine import scan, digest, current, applies
+from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount
 from . import ai, intelligence, limits, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
@@ -136,28 +136,56 @@ def invalidate(db,user,source_id=None,subject=None,rule_id=None):
     return changed
 def bump(db,user):
     ws=db.get(Workspace,user.org_id);ws.revision+=1;return ws
-def run_scan(db,c,user):
+def current_creative(db,c):
+    return db.scalar(select(Creative).where(Creative.content_id==c.id,Creative.version==c.version).order_by(Creative.created.desc()))
+LOGO_TITLES={'modified':'Logo differs from the approved reference','not_found':'Approved logo not found','uncertain':'Check the logo treatment'}
+def visual_findings(creative):
+    out=[]
+    for logo in creative.logos or []:
+        if logo.get('result') not in LOGO_TITLES:continue
+        outcome='Low Confidence' if logo['result']=='uncertain' else 'Visual Violation'
+        out.append({'id':digest(f"visual:{creative.id}:{logo['reference_id']}:{logo['result']}")[:20],'rule_id':'','rule_code':'LOGO','outcome':outcome,'title':LOGO_TITLES[logo['result']],
+            'message':logo.get('explanation',''),'suggestion':'','severity':'high' if outcome=='Visual Violation' else 'medium','start':0,'end':0,'span':'','kind':'visual','box':logo.get('box',[0,0,0,0]),
+            'engine':'Demo fixture · predefined' if creative.origin=='fixture' else 'Vision AI · '+(creative.provider or 'provider'),'resolved':False,
+            'evidence':{'source_id':'logo:'+logo['reference_id'],'title':'Approved logo · '+logo.get('name','reference'),'version':1,'excerpt':'Approved logo reference registered in Company Hub. The submitted mark must match it without recolouring, stretching or replacement.','owner':'Brand team','rule_value':logo.get('name',''),'logo_reference_id':logo['reference_id']}})
+    return out
+def reserve_semantic(db,actor):
+    """Reserve the text-review request before a handler writes, so quota commits never wait on its transaction."""
+    if not db.get(Workspace,actor.org_id).settings.get('ai_enabled'):return False
+    reserve_ai(db,actor);return True
+def run_scan(db,c,user,ai_reserved=False):
     rules=org_rules(db,user);sources=org_sources(db,user)
     findings,deps=scan(c.body,c.subject,c.channel,rules,sources)
     coverage='Rules only';hidden=0
     ws=db.get(Workspace,user.org_id)
     if ws.settings.get('ai_enabled'):
-        reserve_ai(db,user)
+        if not ai_reserved:reserve_ai(db,user)
         extra,coverage,hidden=ai.semantic(c.body,c.subject,c.channel,rules,sources)
         findings.extend(extra)
         for f in extra:
             ev=f['evidence']
             if not any(d['rule_id']==f['rule_id'] for d in deps):deps.append({'rule_id':f['rule_id'],'source_id':ev['source_id'],'source_version':ev['version']})
+    creative=current_creative(db,c)
+    visual=visual_findings(creative) if creative else []
+    findings.extend(visual)
+    previous={f['id']:f for f in (c.findings or [])}
+    for f in findings:
+        # Reviewer notes stay attached to an unchanged finding across a rescan of the same version.
+        p=previous.get(f['id'])
+        if not p:continue
+        if p.get('review_log'):f['review_log']=p['review_log']
+        if (p.get('review') or {}).get('state') in ('Confirmed','Needs evidence','Escalated'):f['review']=p['review']
     db.execute(delete(Dependency).where(Dependency.content_id==c.id))
     for d in deps:db.add(Dependency(content_id=c.id,**d))
     c.findings=findings;c.scan_hash=digest(c.body);c.scan_revision=ws.revision;c.updated=now()
+    if creative:creative.findings=[dict(f) for f in findings]
     c.scan_coverage=coverage+(f' · {hidden} Citation Failed hidden' if hidden else '')
     c.status='Needs changes' if findings or coverage.startswith('AI incomplete:') else 'Ready for review'
     open_tasks=list(db.scalars(select(Task).where(Task.content_id==c.id,Task.status=='Open')))
     for task in open_tasks:task.status='Superseded by rescan'
     for f in findings:
         if f['outcome']=='Evidence Gap':db.add(Task(org_id=user.org_id,content_id=c.id,title=f'Substantiate: {f["span"][:100]}',owner=f['evidence']['owner']))
-    audit(db,user,'Scanned content',c.title,{'content_id':c.id,'version':c.version,'findings':len(findings),'coverage':coverage,'hidden':hidden})
+    audit(db,user,'Scanned content',c.title,{'content_id':c.id,'version':c.version,'findings':len(findings),'visual':len(visual),'coverage':coverage,'hidden':hidden})
     return row(c)
 
 class LoginBody(BaseModel):
@@ -192,8 +220,10 @@ class RuleInput(BaseModel):
         if len(json.dumps(v))>4000:raise ValueError('Configuration is too large.')
         for key in ('variants','unsupported_terms','channels'):
             if key in v and (not isinstance(v[key],list) or any(not isinstance(x,str) or not x or len(x)>300 for x in v[key]) or len(v[key])>30):raise ValueError('Use a bounded list of text values.')
-        for key in ('metric','qualifier','trigger','replacement'):
+        for key in ('metric','qualifier','trigger','replacement','plan','qualifier_text'):
             if key in v and (not isinstance(v[key],str) or len(v[key])>300):raise ValueError('Rule conditions must be text of at most 300 characters.')
+        if 'qualifier_review' in v and not isinstance(v['qualifier_review'],bool):raise ValueError('qualifier_review must be true or false.')
+        if 'replacements' in v and (not isinstance(v['replacements'],dict) or len(v['replacements'])>30 or any(not isinstance(a,str) or not isinstance(b,str) or len(a)>300 or len(b)>300 for a,b in v['replacements'].items())):raise ValueError('replacements must map claim text to approved rewrites.')
         return v
 class Draft(BaseModel):
     title:str=Field(min_length=2,max_length=120);body:str=Field(min_length=1,max_length=5000)
@@ -283,7 +313,7 @@ def demo_start(request:Request,response:Response,db=Depends(database)):
         except limits.LimitReached:fail(429,'Demo capacity is busy. Please try again later.')
         if engine.dialect.name=='postgresql':db.execute(text('SELECT pg_advisory_xact_lock(784325128)'))
         judge_demo.cleanup_expired(db)
-        ws=Workspace(name='HarborDesk · Judge demo',settings={'ai_enabled':False});db.add(ws);db.flush()
+        ws=Workspace(name='Inkloom AI · Judge demo',settings={'ai_enabled':False});db.add(ws);db.flush()
         users=judge_demo.populate(db,ws)
         token=secrets.token_urlsafe(40)
         visit=DemoVisit(id=digest(token),org_id=ws.id,users=users,active_role='creator',expires=(datetime.now(timezone.utc)+timedelta(hours=judge_demo.HOURS)).isoformat());db.add(visit);db.flush()
@@ -333,7 +363,8 @@ def workspace(actor=Depends(user),db=Depends(database)):
       'demo':bool(visit) or (DEMO and actor.email.endswith('@demo.brandora.test')),'ai_configured':ai.available(),'ai_provider':ai.provider() if ai.available() else None,'vision_configured':ai.vision_available(),
       'members':[row(u,('password',)) for u in users] if actor.role=='manager' else [{'id':u.id,'name':u.name,'role':u.role} for u in users],
       'campaigns':[row(c) for c in campaigns], 'sources':[dict(row(s),current=current(s)) for s in sources.values()], 'rules':[row(r) for r in rules],
-      'content':[dict(row(c),status=status(db,c)) for c in items],
+      'content':[dict(row(c),status=status(db,c),verified=verified_spans(c.body,c.subject,c.channel,rules,sources)) for c in items],
+      'creatives':[dict(row(cr,('image',)),image_url=f'/api/creatives/{cr.id}/image' if cr.image else '') for cr in db.scalars(select(Creative).where(Creative.org_id==actor.org_id).order_by(Creative.created.desc())) if cr.content_id in ids],
       'approvals':[row(a) for a in db.scalars(select(Approval).where(Approval.org_id==actor.org_id).order_by(Approval.created.desc())) if a.content_id in ids],
       'dependencies':[row(d) for d in db.scalars(select(Dependency).join(Content,Content.id==Dependency.content_id).where(Content.org_id==actor.org_id)) if d.content_id in ids],
       'tasks':[row(t) for t in db.scalars(select(Task).where(Task.org_id==actor.org_id)) if t.content_id in ids],
@@ -455,6 +486,7 @@ def content_delete(id:str,actor=Depends(user),db=Depends(database)):
     for t in db.scalars(select(Translation).where(Translation.org_id==actor.org_id)):
         if t.content_id==id or t.saved_content_id==id:t.result={'deleted':True}
     c.language_review={}
+    for cr in db.scalars(select(Creative).where(Creative.content_id==id)):cr.image='';cr.regions=[];cr.findings=[];cr.alt_text='';cr.name='Deleted creative'
     for event in db.scalars(select(Audit).where(Audit.org_id==actor.org_id)):
         if event.detail.get('content_id')==id:event.target='Deleted content'
     db.execute(delete(Dependency).where(Dependency.content_id==id));audit(db,actor,'Deleted content payload',id,{'content_id':id});return {'ok':True}
@@ -479,8 +511,8 @@ def impact(data:ImpactInput,actor=Depends(user),db=Depends(database)):
 def conflicts(actor=Depends(user),db=Depends(database)):
     rules=org_rules(db,actor);sources=org_sources(db,actor);groups={}
     for r in rules:
-        if r.kind=='number' and r.active and current(sources[r.source_id]):groups.setdefault((r.subject,r.config.get('metric'),r.config.get('qualifier','')),[]).append(r)
-    return [{'subject':key[0],'metric':key[1],'condition':key[2],'rules':[dict(row(r),source=sources[r.source_id].title) for r in group]} for key,group in groups.items() if len({r.value for r in group})>1]
+        if r.kind=='number' and r.active and current(sources[r.source_id]):groups.setdefault(conflict_key(r),[]).append(r)
+    return [{'subject':key[0],'metric':key[1],'condition':' · '.join(x for x in key[2:] if x),'rules':[dict(row(r),source=sources[r.source_id].title) for r in group]} for key,group in groups.items() if len({amount(r.value) for r in group})>1]
 @app.post('/api/campaigns/{id}/compare')
 def compare(id:str,actor=Depends(user),db=Depends(database)):
     get(db,Campaign,id,actor);sources=org_sources(db,actor);rules=org_rules(db,actor)
@@ -530,12 +562,8 @@ async def image_inspect(file:UploadFile=File(...),actor=Depends(user)):
     except (UnidentifiedImageError,OSError,Image.DecompressionBombError):fail(422,'This file could not be read as a safe image.')
     return {'width':width,'height':height,'palette':palette,'bytes':len(blob),'stored':False,'coverage':'Palette extracted on the API server. Use the OCR and logo comparison panel for optional AI analysis.'}
 
-@app.post('/api/sources/extract')
-async def extract_source(file:UploadFile=File(...),actor=Depends(user)):
-    require(actor,'manager')
-    blob=await file.read(3_000_001)
-    if len(blob)>3_000_000:fail(413,'Document must be no larger than 3 MB.')
-    name=file.filename or 'Source';extension=name.lower().rsplit('.',1)[-1]
+def document_text(blob,name):
+    extension=name.lower().rsplit('.',1)[-1]
     try:
         if extension=='pdf':
             from pypdf import PdfReader
@@ -561,6 +589,15 @@ async def extract_source(file:UploadFile=File(...),actor=Depends(user)):
     except Exception:fail(422,'The document could not be read. Try copying its approved text manually.')
     if len(text.strip())<8:fail(422,'No usable text found. Select AI OCR to transcribe a scanned document.')
     if len(text)>12000:fail(422,'Extracted text exceeds 12,000 characters. Import a shorter excerpt.')
+    return text
+
+@app.post('/api/sources/extract')
+async def extract_source(file:UploadFile=File(...),actor=Depends(user)):
+    require(actor,'manager')
+    blob=await file.read(3_000_001)
+    if len(blob)>3_000_000:fail(413,'Document must be no larger than 3 MB.')
+    name=file.filename or 'Source'
+    text=document_text(blob,name)
     return {'title':name.rsplit('.',1)[0][:120],'excerpt':text,'stored':False,'message':'Review extracted text before registering it as an approved source. No facts or rules have been created.'}
 
 @app.get('/api/intelligence/status')
@@ -680,6 +717,148 @@ def language_review(id:str,data:LanguageReviewInput,actor=Depends(user),db=Depen
     if c.version!=data.expected_version:fail(409,'The draft changed. Review its latest version.')
     c.language_review={'reviewer':actor.name,'reviewer_id':actor.id,'reason':data.reason,'content_hash':digest(c.body),'created':now()}
     audit(db,actor,'Recorded native-language review',c.title,{'content_id':id,'version':c.version});return row(c)
+
+# --- Scan & Detect: uploaded creatives and documents become annotated, versioned content. ---
+IMAGE_TYPES=('png','jpg','jpeg','webp')
+DOCUMENT_TYPES=('pdf','docx','txt','md')
+CHANNELS=('Website','Email','Social','Advertisement')
+
+def logo_refs(db,actor,reference_ids):
+    try:
+        ids=json.loads(reference_ids or '[]')
+        if not isinstance(ids,list) or len(ids)>3 or any(not isinstance(x,str) for x in ids) or len(set(ids))!=len(ids):raise ValueError()
+    except ValueError:fail(422,'Select up to three distinct logo references.')
+    refs=[]
+    for id in ids:
+        r=get(db,LogoReference,id,actor)
+        if not r.active:fail(409,'A selected logo reference has been withdrawn.')
+        refs.append({'id':r.id,'name':r.name,'blob':base64.b64decode(r.image)})
+    return refs
+
+def regions_to_body(regions):
+    """Join OCR regions in reading order and keep each region's character range in the joined text."""
+    body='';placed=[]
+    for region in regions:
+        text=' '.join(str(region.get('text','')).split())
+        if not text:continue
+        if body:body+=' '
+        start=len(body);body+=text
+        placed.append({'text':text,'box':list(region['box']),'start':start,'end':len(body)})
+    return body,placed
+
+async def read_creative(db,actor,blob,refs):
+    """Run OCR and logo comparison. Fails loudly; nothing is saved when the provider fails."""
+    reserve_ai(db,actor,vision=True)
+    try:result=await run_in_threadpool(intelligence.inspect_visual,blob,refs)
+    except ai.ProviderError as exc:fail(502,f'Processing failed: {exc} Nothing was saved. You can paste the text to review it manually.')
+    body,regions=regions_to_body(result['ocr']['regions'])
+    warnings=list(result['ocr']['warnings'])+list(result['warnings'])
+    if not body.strip():
+        body=' '.join(result['ocr']['text'].split());regions=[]
+        if body:warnings.append('Text was read, but its location on the image was not returned. Findings are marked on the text only.')
+    if not body.strip():fail(422,'No readable text was found in this image. Nothing was saved. Paste the text to review it manually.')
+    if len(body)>5000:fail(422,'The readable text exceeds 5,000 characters. Split the creative and try again.')
+    names={r['id']:r['name'] for r in refs}
+    logos=[{**logo,'name':names.get(logo['reference_id'],'reference')} for logo in result['logos']]
+    return body,regions,logos,warnings,result['suggested_alt_text']
+
+def new_creative(db,actor,c,blob,name,origin,regions,logos,warnings,alt_text):
+    with Image.open(io.BytesIO(blob)) as image:width,height=image.size
+    cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image=base64.b64encode(blob).decode(),width=width,height=height,origin=origin,regions=regions,logos=logos,warnings=warnings[:12],alt_text=alt_text[:600],
+        provider=f'{ai.provider()} · {ai.model()}' if origin=='ai' else 'Sample layout data',sha256=hashlib.sha256(blob).hexdigest(),created_by=actor.name)
+    db.add(cr);db.flush();return cr
+
+@app.post('/api/scan/upload')
+async def scan_upload(file:UploadFile=File(...),title:str=Form(min_length=2,max_length=120),campaign_id:str=Form(...),subject:str=Form(min_length=1,max_length=80),channel:str=Form(default='Advertisement'),reference_ids:str=Form(default='[]'),actor=Depends(user),db=Depends(database)):
+    require(actor,'manager','creator','partner');get(db,Campaign,campaign_id,actor)
+    if channel not in CHANNELS:fail(422,'Choose a supported channel.')
+    name=file.filename or 'upload';extension=name.lower().rsplit('.',1)[-1]
+    blob=await file.read(3_000_001)
+    if len(blob)>3_000_000:fail(413,'Use a file no larger than 3 MB.')
+    if extension in IMAGE_TYPES:
+        refs=logo_refs(db,actor,reference_ids)
+        try:blob=intelligence.normalize_image(blob)
+        except ValueError as exc:fail(422,str(exc))
+        body,regions,logos,warnings,alt_text=await read_creative(db,actor,blob,refs)
+    elif extension in DOCUMENT_TYPES:
+        try:text=document_text(blob,name)
+        except HTTPException as exc:
+            if extension!='pdf' or 'AI OCR' not in str(exc.detail):raise
+            reserve_ai(db,actor,vision=True)
+            try:text=(await run_in_threadpool(intelligence.extract_document,blob,'application/pdf'))['text']
+            except ai.ProviderError as error:fail(502,f'Processing failed: {error} Nothing was saved.')
+        body=text.strip()
+        if len(body)>5000:fail(422,'The document text exceeds 5,000 characters. Upload a shorter section.')
+    else:fail(422,'Use PNG, JPEG, WebP, PDF, DOCX, TXT or Markdown.')
+    reserved=reserve_semantic(db,actor)
+    c=Content(org_id=actor.org_id,author_id=actor.id,campaign_id=campaign_id,title=title,channel=channel,subject=subject,body=body);db.add(c);db.flush()
+    db.add(ContentVersion(content_id=c.id,version=1,body=body))
+    if extension in IMAGE_TYPES:new_creative(db,actor,c,blob,name,'ai',regions,logos,warnings,alt_text)
+    audit(db,actor,'Uploaded content for scanning',c.title,{'content_id':c.id,'file':name[:120],'kind':'image' if extension in IMAGE_TYPES else 'document','sha256':hashlib.sha256(blob).hexdigest()})
+    return run_scan(db,c,actor,reserved)
+
+@app.post('/api/content/{id}/creative')
+async def creative_revision(id:str,expected_version:int=Form(...),reference_ids:str=Form(default='[]'),reuse:str=Form(default=''),file:UploadFile|None=File(default=None),actor=Depends(user),db=Depends(database)):
+    """Upload a revised creative, or re-read a stored one with live AI. Either way it becomes a new exact version."""
+    c=get(db,Content,id,actor);content_allowed(c,actor)
+    if c.version!=expected_version:fail(409,'This content changed. Reload before adding a creative.')
+    if reuse:
+        previous=get(db,Creative,reuse,actor)
+        if previous.content_id!=c.id or not previous.image:fail(404,'Creative not found.')
+        blob=base64.b64decode(previous.image);name=previous.name
+    else:
+        if not file:fail(422,'Choose an image.')
+        name=file.filename or 'creative'
+        if name.lower().rsplit('.',1)[-1] not in IMAGE_TYPES:fail(422,'Use a PNG, JPEG or WebP image.')
+        try:blob=intelligence.normalize_image(await file.read(3_000_001))
+        except ValueError as exc:fail(422,str(exc))
+    refs=logo_refs(db,actor,reference_ids)
+    body,regions,logos,warnings,alt_text=await read_creative(db,actor,blob,refs)
+    reserved=reserve_semantic(db,actor)
+    c.body=body;c.last_editor_id=actor.id;c.version+=1;c.status='Draft';c.scan_revision=0;c.findings=[];c.language_review={};c.updated=now()
+    db.add(ContentVersion(content_id=c.id,version=c.version,body=body))
+    new_creative(db,actor,c,blob,name,'ai',regions,logos,warnings,alt_text)
+    audit(db,actor,'Re-read creative with AI' if reuse else 'Uploaded creative revision',c.title,{'content_id':c.id,'version':c.version})
+    return run_scan(db,c,actor,reserved)
+
+@app.get('/api/creatives/{id}/image')
+def creative_image(id:str,actor=Depends(user),db=Depends(database)):
+    cr=get(db,Creative,id,actor);get(db,Content,cr.content_id,actor)
+    if not cr.image:fail(404,'This creative was deleted.')
+    return Response(base64.b64decode(cr.image),media_type='image/jpeg')
+
+class FindingDecision(BaseModel):
+    action:Literal['confirm','verify','reject','request_evidence','escalate','comment']
+    reason:str=Field(min_length=3,max_length=1000)
+REVIEW_STATES={'confirm':'Confirmed','verify':'Verified by reviewer','reject':'AI finding rejected','request_evidence':'Needs evidence','escalate':'Escalated'}
+REVIEW_ACTIONS={'confirm':'Confirmed finding','verify':'Marked finding verified','reject':'Rejected AI finding','request_evidence':'Requested evidence','escalate':'Escalated finding','comment':'Commented on finding'}
+
+@app.post('/api/content/{id}/findings/{finding_id}/decision')
+def finding_decision(id:str,finding_id:str,data:FindingDecision,actor=Depends(user),db=Depends(database)):
+    c=get(db,Content,id,actor)
+    findings=[dict(f) for f in c.findings];f=next((x for x in findings if x['id']==finding_id),None)
+    if not f:fail(404,'Finding not found. Rescan and try again.')
+    if data.action!='comment':
+        require(actor,'manager','reviewer')
+        if actor.id in (c.author_id,c.last_editor_id):fail(403,'The author or last editor cannot decide on their own content. Ask another reviewer.')
+    if data.action in ('verify','reject'):
+        if f.get('resolved'):fail(409,'This finding already has a recorded resolution.')
+        if f['outcome']!='Low Confidence':fail(409,'Confirmed contradictions, evidence gaps and visual violations come from approved records. Correct the content, or update the approved record in Company Hub, then rescan.')
+        if not f.get('evidence') or f['title'] in ('Source needs review','Approved sources disagree'):fail(409,'This claim has no approved mapping. Map it in Company Hub or remove it, then rescan.')
+        if len(data.reason.strip())<10:fail(422,'Record a reason of at least 10 characters.')
+        f['resolved']=True;f['resolution']=data.reason
+    entry={'action':data.action,'by':actor.name,'role':actor.role,'reason':data.reason,'at':now()}
+    f['review_log']=list(f.get('review_log') or [])+[entry]
+    if data.action in REVIEW_STATES:f['review']={'state':REVIEW_STATES[data.action],'by':actor.name,'at':entry['at'],'reason':data.reason}
+    label=(f['span'] or f['title'])[:90]
+    if data.action=='request_evidence':db.add(Task(org_id=actor.org_id,content_id=c.id,title=f'Evidence requested: {label}',owner=(f.get('evidence') or {}).get('owner','Evidence owner')))
+    if data.action=='escalate':db.add(Task(org_id=actor.org_id,content_id=c.id,title=f'Compliance review: {label}',owner='Compliance reviewer'))
+    c.findings=findings
+    creative=current_creative(db,c)
+    if creative:creative.findings=[dict(x) for x in findings]
+    db.add(Decision(org_id=actor.org_id,content_id=c.id,rule_id=f.get('rule_id') or f.get('rule_code',''),actor=actor.name,reason=data.reason,outcome=REVIEW_STATES.get(data.action,'Comment')))
+    audit(db,actor,REVIEW_ACTIONS[data.action],c.title,{'content_id':c.id,'finding_id':f['id'],'version':c.version,'reason':data.reason[:200]})
+    return row(c)
 
 def seed():
     if not DEMO:return

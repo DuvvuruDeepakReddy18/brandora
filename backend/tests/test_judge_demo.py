@@ -53,8 +53,8 @@ def test_visitors_and_owner_are_isolated_and_role_cannot_escalate():
 
 def test_creator_to_reviewer_approval_and_partner_scope():
     client,state=visitor()
-    draft=next(c for c in state['content'] if c['title']=='Launch announcement')
-    body={'title':draft['title'],'expected_version':1,'body':'Meet HarborDesk. Try it free for 14 days. Plans start at INR 499/month, billed annually.'}
+    draft=next(c for c in state['content'] if c['title']==demo.AD_TITLE)
+    body={'title':draft['title'],'expected_version':1,'body':'The central workspace for campaign content. Organise your creative workflows in one place. Enjoy a 14-day free trial. Get our Professional plan for ₹1,999 per month + GST. Start free today'}
     assert client.put('/api/content/'+draft['id'],json=body).status_code==200
     checked=client.post('/api/content/'+draft['id']+'/scan').json();assert checked['findings']==[]
     assert client.post('/api/content/'+draft['id']+'/request-review').status_code==200
@@ -64,7 +64,7 @@ def test_creator_to_reviewer_approval_and_partner_scope():
     assert len(receipt.json()['content_hash'])==64
     partner=switch(client,'partner')
     assert len(partner['campaigns'])==1
-    internal=next(c for c in state['content'] if c['subject']=='ArchivePack')
+    internal=next(c for c in state['content'] if c['subject']=='Inkloom Asset Vault')
     assert client.get('/api/content/'+internal['id']+'/history').status_code==404
     assert client.post('/api/content/'+draft['id']+'/scan').status_code==403
 
