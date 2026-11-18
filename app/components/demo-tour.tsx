@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Download,
@@ -7,6 +8,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+export type TourStep = "inspect" | "review" | "fix" | "impact" | "ai";
 type Props = {
   role: string;
   expires: string;
@@ -16,20 +18,62 @@ type Props = {
   onRole: (role: string) => void;
   onExit: () => void;
   onReset: () => void;
-  onStart: () => void;
-  onAI: () => void;
+  onStep: (step: TourStep) => void;
+  collapsed?: boolean;
 };
 
+const STEPS: { key: TourStep; title: string; as: string; text: string; cta: string }[] = [
+  {
+    key: "inspect",
+    title: "See the marked-up ad",
+    as: "creator",
+    text: "An employee uploaded a wrong Inkloom AI ad. Six numbered marks show what contradicts or is unsupported by Company Hub. Click any mark to see its evidence.",
+    cta: "Open the ad",
+  },
+  {
+    key: "review",
+    title: "Decide as a reviewer",
+    as: "reviewer",
+    text: "Confirm the price issue, mark the GST note as reviewed, request evidence for the 80% claim. Every decision is recorded with a reason.",
+    cta: "Review as Sam",
+  },
+  {
+    key: "fix",
+    title: "Fix, re-check, approve",
+    as: "creator",
+    text: "Apply all suggestions, save and re-check (it comes back clean), request review. Then switch to Reviewer and approve. Compare original vs corrected.",
+    cta: "Fix as Alex",
+  },
+  {
+    key: "impact",
+    title: "Change a fact",
+    as: "manager",
+    text: "In Impact Monitor, change the free trial from 14 to 7 days. The old version is kept and every linked item, including approved ones, is flagged.",
+    cta: "Open Impact Monitor",
+  },
+  {
+    key: "ai",
+    title: "Try live AI on your own ad",
+    as: "manager",
+    text: "Enable AI, then upload the sample ad or any creative in Scan & Detect. Findings are generated from OCR and logo comparison, not sample data.",
+    cta: "Enable AI",
+  },
+];
+
 export function DemoTour(props: Props) {
+  const [open, setOpen] = useState(!props.collapsed);
+  useEffect(() => {
+    setOpen(!props.collapsed);
+  }, [props.collapsed]);
   return (
-    <section className="judge-demo" aria-label="Judge demo controls">
+    <section className="judge-demo" aria-label="Demo controls">
       <div className="judge-demo-top">
         <div className="judge-demo-title">
           <FlaskConical size={20} />
           <div>
-            <strong>Your private demo</strong>
+            <strong>Your private demo · Inkloom AI (fictional company)</strong>
             <span>
-              Fictional HarborDesk data · expires{" "}
+              Isolated sample workspace · expires{" "}
               {new Date(props.expires).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -37,81 +81,59 @@ export function DemoTour(props: Props) {
             </span>
           </div>
         </div>
+        <div className="judge-demo-roles" role="group" aria-label="Switch demo role">
+          <span>Acting as</span>
+          {["creator", "reviewer", "manager", "partner"].map((role) => (
+            <button
+              key={role}
+              disabled={props.busy}
+              aria-pressed={props.role === role}
+              onClick={() => props.onRole(role)}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
         <div className="judge-demo-actions">
           <button disabled={props.busy} onClick={props.onReset}>
             <RotateCcw size={14} />
-            Reset samples
+            Reset
           </button>
           <button disabled={props.busy} onClick={props.onExit}>
             <LogOut size={14} />
-            Leave demo
+            Leave
           </button>
         </div>
       </div>
-      <div
-        className="judge-demo-roles"
-        role="group"
-        aria-label="Switch demo role"
+      <details
+        className="judge-demo-guide"
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
       >
-        <span>Explore as</span>
-        {["creator", "reviewer", "manager", "partner"].map((role) => (
-          <button
-            key={role}
-            disabled={props.busy}
-            aria-pressed={props.role === role}
-            onClick={() => props.onRole(role)}
-          >
-            {role}
-          </button>
-        ))}
-      </div>
-      <details className="judge-demo-guide">
-        <summary>A five-minute walkthrough</summary>
-        <div className="judge-demo-grid">
-          <div>
-            <b>01 / Create → review → approve</b>
-            <p>
-              As creator, open Launch announcement. Correct the product name,
-              remove the unsupported guarantee, use 14 days and include “billed
-              annually”. Save, check, then request review. Switch to reviewer to
-              approve.
-            </p>
-            <button disabled={props.busy} onClick={props.onStart}>
-              Open sample draft <ArrowRight size={14} />
-            </button>
-          </div>
-          <div>
-            <b>02 / Follow the evidence</b>
-            <p>
-              Explore Claim DNA, Knowledge gaps and Source conflicts. As
-              manager, change an approved source to see affected content need
-              reassessment. Impact Lab previews changes; Time Machine keeps
-              approval snapshots.
-            </p>
-          </div>
-          <div>
-            <b>03 / Try the AI tools</b>
-            <p>
-              {props.aiEnabled
-                ? "AI is enabled. "
-                : "Switch to manager and enable AI in Privacy & settings. "}
-              Translate a draft in Content studio. Download the sample files
-              below for Visual Guardian and scanned-source import. Your session
-              has {props.aiLimit} AI requests per UTC day; shared limits also
-              apply.
-            </p>
-            <button disabled={props.busy} onClick={props.onAI}>
-              {props.aiEnabled ? "AI settings" : "Set up live AI"}{" "}
-              <ArrowRight size={14} />
-            </button>
-          </div>
+        <summary>Five-step walkthrough · about 5 minutes</summary>
+        <div className="tour-steps">
+          {STEPS.map((s, i) => (
+            <div key={s.key} className="tour-step">
+              <span className="tour-num">0{i + 1}</span>
+              <b>{s.title}</b>
+              <small>as {s.as}</small>
+              <p>
+                {s.key === "ai" && props.aiEnabled
+                  ? "AI is enabled. Upload the sample ad or any creative in Scan & Detect, or use “Re-read with live AI” on the sample."
+                  : s.text}
+              </p>
+              <button disabled={props.busy} onClick={() => props.onStep(s.key)}>
+                {s.key === "ai" && props.aiEnabled ? "AI settings" : s.cta} <ArrowRight size={13} />
+              </button>
+            </div>
+          ))}
         </div>
         <div className="judge-demo-files">
           <span>Sample files</span>
           {[
+            ["creative.png", "Wrong ad (PNG)"],
             ["logo.png", "Approved logo"],
-            ["creative.png", "Creative image"],
-            ["scanned-source.pdf", "Scanned source PDF"],
+            ["scanned-source.pdf", "Scanned pricing policy"],
           ].map(([file, label]) => (
             <a key={file} href={`/api/demo/assets/${file}`} download>
               <Download size={13} />
@@ -120,10 +142,7 @@ export function DemoTour(props: Props) {
           ))}
         </div>
         <p className="judge-demo-footnote">
-          This session is separate from the owner’s workspace and every other
-          visitor. Use fictional data; selected material is sent to the AI
-          provider only when you enable and use AI. Role switching is a demo
-          simulation of separate teammates.
+          Role switching simulates separate teammates; permissions are still enforced by the API. Live AI is capped at {props.aiLimit} requests per session per day and only runs after a manager enables it.
         </p>
       </details>
     </section>

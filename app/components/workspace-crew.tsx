@@ -1,31 +1,31 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 type Destination =
-  "Rulebook & sources" | "Visual checks" | "Content studio" | "Review desk";
+  "Company Hub" | "Scan & Detect" | "Fix & Approve" | "Verify & Review";
 const crew = [
   {
     id: "cite",
     name: "CITE",
     task: "Claims & sources",
-    destination: "Rulebook & sources",
+    destination: "Company Hub",
   },
   {
     id: "lens",
     name: "LENS",
     task: "Visual checks",
-    destination: "Visual checks",
+    destination: "Scan & Detect",
   },
   {
     id: "lingo",
     name: "LINGO",
-    task: "Content & languages",
-    destination: "Content studio",
+    task: "Fixes & languages",
+    destination: "Fix & Approve",
   },
   {
     id: "relay",
     name: "RELAY",
     task: "Review & approval",
-    destination: "Review desk",
+    destination: "Verify & Review",
   },
 ] as const;
 
@@ -53,9 +53,9 @@ export function WorkspaceCrew({
           </p>
           <button
             className="hero-link"
-            onClick={() => onNavigate("Review desk")}
+            onClick={() => onNavigate("Verify & Review")}
           >
-            Open review desk <ArrowRight size={16} />
+            Open review queue <ArrowRight size={16} />
           </button>
         </div>
         <div className="crew-ensemble" aria-hidden="true">

@@ -463,7 +463,7 @@ export function TranslationPanel({
           </div>
           {!enabled && (
             <p className="form-note">
-              Enable AI services in Privacy & settings to translate.
+              A manager can enable AI in Trust & Audit → Privacy & AI to translate.
             </p>
           )}
         </>
@@ -507,14 +507,14 @@ export function TranslationPanel({
                 "/translations/" + result.id + "/save",
                 "POST",
                 undefined,
-                "Translated draft saved to Content studio",
+                "Translated draft saved as new content",
               );
               if (saved) setResult({ ...result, saved_content_id: saved.id });
               setBusy(false);
             }}
           >
             {result.saved_content_id
-              ? "Saved in Content studio"
+              ? "Saved as new content"
               : "Save as a separate draft"}
           </button>
         </>

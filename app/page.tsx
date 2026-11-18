@@ -3,11 +3,25 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { DemoTour } from "./components/demo-tour";
 import { WorkspaceCrew } from "./components/workspace-crew";
 import { LandingPage } from "./components/brand-crew-landing";
+import { AIStatus } from "./components/intelligence";
+import { ReviewWorkspace, type Stage } from "./components/review-workspace";
 import {
-  AIStatus,
-  VisualIntelligence,
-  TranslationPanel,
-} from "./components/intelligence";
+  FixQueue,
+  HomeDashboard,
+  ImpactMonitor,
+  LogoRegister,
+  ScanDetect,
+  VerifyQueue,
+} from "./components/modules";
+import {
+  MODULES,
+  api,
+  type Data,
+  type Modal,
+  type Module,
+  type Row,
+  type View,
+} from "./components/shared";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -53,120 +67,43 @@ import {
   CircleX,
   Loader2,
   Settings2,
+  Wand2,
 } from "lucide-react";
 
-type Row = { id: string; title: any; code: any; [key: string]: any };
-type Data = {
-  user: Row;
-  workspace: Row;
-  demo: boolean;
-  judge_demo: { expires: string; ai_limit: number; roles: string[] } | null;
-  ai_configured: boolean;
-  ai_provider: string | null;
-  members: Row[];
-  campaigns: Row[];
-  sources: Row[];
-  rules: Row[];
-  content: Row[];
-  approvals: Row[];
-  dependencies: Row[];
-  tasks: Row[];
-  decisions: Row[];
-  activity: Row[];
+const ICONS: Record<View, any> = {
+  Home: LayoutDashboard,
+  "Company Hub": BookOpen,
+  "Scan & Detect": ScanLine,
+  "Verify & Review": ShieldCheck,
+  "Fix & Approve": Wand2,
+  "Impact Monitor": GitBranch,
+  "Trust & Audit": History,
 };
-type View =
-  | "Overview"
-  | "Content studio"
-  | "Review desk"
-  | "Rulebook & sources"
-  | "Claim DNA"
-  | "Source conflicts"
-  | "Knowledge gaps"
-  | "Visual checks"
-  | "Campaigns"
-  | "Impact lab"
-  | "Time machine"
-  | "Learning loop"
-  | "Partner workspace"
-  | "Privacy & settings";
-type Modal = { title: string; body: React.ReactNode } | null;
-const sections = [
-  {
-    label: "WORKSPACE",
-    items: [
-      ["Overview", LayoutDashboard],
-      ["Content studio", FileText],
-      ["Review desk", ShieldCheck],
-      ["Rulebook & sources", BookOpen],
-    ],
-  },
-  {
-    label: "INTELLIGENCE",
-    items: [
-      ["Claim DNA", GitBranch],
-      ["Source conflicts", AlertTriangle],
-      ["Knowledge gaps", CircleHelp],
-      ["Visual checks", ScanLine],
-      ["Campaigns", Layers],
-      ["Impact lab", FlaskConical],
-      ["Time machine", History],
-      ["Learning loop", Sparkles],
-    ],
-  },
-  {
-    label: "ORGANISATION",
-    items: [
-      ["Partner workspace", Users],
-      ["Privacy & settings", LockKeyhole],
-    ],
-  },
-] as const;
 const descriptions: Record<View, string> = {
-  Overview: "A clear view of what your brand says, and what supports it.",
-  "Content studio": "Shape your message. Keep the evidence close.",
-  "Review desk":
-    "Every approval is a human decision, tied to an exact version.",
-  "Rulebook & sources": "The approved material behind every finding.",
-  "Claim DNA": "Follow a claim from its source to every place it appears.",
-  "Source conflicts": "Resolve disagreements in your approved knowledge.",
-  "Knowledge gaps": "Give unsupported claims an owner and a next step.",
-  "Visual checks":
-    "Check the details that make a brand readable and recognisable.",
-  Campaigns: "One reference. A consistent story across channels.",
-  "Impact lab": "Understand a change before you put it into effect.",
-  "Time machine": "The decision, the evidence and the version as they were.",
-  "Learning loop": "Turn review decisions into clearer guidance.",
-  "Partner workspace":
-    "The same source of truth, with carefully scoped access.",
-  "Privacy & settings":
-    "Control your workspace and the services your content touches.",
+  Home: "What needs your attention, from live workspace records.",
+  "Company Hub":
+    "The official source of truth: pricing, approved claims, policies, evidence, brand assets and people.",
+  "Scan & Detect":
+    "Upload any marketing content. Brandora marks what contradicts, or is unsupported by, Company Hub.",
+  "Verify & Review":
+    "Reviewers confirm, reject or escalate each finding with the evidence side by side.",
+  "Fix & Approve":
+    "Turn findings into a corrected version, re-check it, and approve one exact version.",
+  "Impact Monitor":
+    "When an approved fact changes, find every piece of content that relied on it.",
+  "Trust & Audit":
+    "Who did what, when and why, plus approval receipts and privacy controls.",
 };
-async function api(path: string, method = "GET", body?: unknown) {
-  const response = await fetch("/api" + path, {
-    method,
-    credentials: "same-origin",
-    headers:
-      body instanceof FormData ? {} : { "Content-Type": "application/json" },
-    body:
-      body === undefined
-        ? undefined
-        : body instanceof FormData
-          ? body
-          : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    let message = "Request failed";
-    try {
-      const data = await response.json();
-      message =
-        typeof data.detail === "string"
-          ? data.detail
-          : JSON.stringify(data.detail);
-    } catch {}
-    throw new Error(message);
-  }
-  return response.json();
-}
+const HUB_TABS = [
+  "Sources & facts",
+  "Brand assets",
+  "Campaigns",
+  "Team & roles",
+  "Source conflicts",
+  "Claim lineage",
+] as const;
+const TRUST_TABS = ["Audit trail", "Approval receipts", "Privacy & AI"] as const;
+const ITEM_VIEWS: View[] = ["Scan & Detect", "Verify & Review", "Fix & Approve"];
 function Badge({ value }: { value: string }) {
   const tone =
     /Contradiction|Gap|Unverified|changes|reassessment|conflict|withdrawn/i.test(
@@ -283,7 +220,12 @@ const shortHash = (s: string) => s?.slice(0, 12) || "—";
 export default function App() {
   const [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
-    [view, setView] = useState<View>("Overview"),
+    [view, setView] = useState<View>("Home"),
+    [stage, setStage] = useState<Stage>("review"),
+    [hubTab, setHubTab] = useState<(typeof HUB_TABS)[number]>("Sources & facts"),
+    [trustTab, setTrustTab] = useState<(typeof TRUST_TABS)[number]>("Audit trail"),
+    [auditQuery, setAuditQuery] = useState(""),
+    [lineageRule, setLineageRule] = useState<string | null>(null),
     [selected, setSelected] = useState<string | null>(null),
     [modal, setModal] = useState<Modal>(null),
     [toast, setToast] = useState(""),
@@ -393,9 +335,10 @@ export default function App() {
       setBusy(false);
     }
   };
-  const go = (v: View, id: string | null = null) => {
+  const go = (v: View, id: string | null = null, st: Stage = "review") => {
     setView(v);
     setSelected(id);
+    setStage(st);
     setSearch("");
     setMobile(false);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -420,7 +363,7 @@ export default function App() {
         values,
       );
       await refresh();
-      go("Overview");
+      go("Home");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -435,8 +378,12 @@ export default function App() {
       await api("/demo/start", "POST");
       setModal(null);
       setSignup(false);
-      go("Overview");
-      await refresh();
+      const fresh: Data = await api("/workspace");
+      setData(fresh);
+      const ad = fresh.content.find((c) =>
+        fresh.creatives?.some((x) => x.content_id === c.id && x.origin === "fixture"),
+      );
+      go(ad ? "Scan & Detect" : "Home", ad?.id || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -450,10 +397,7 @@ export default function App() {
       { role },
       `Exploring as ${role}`,
     );
-    if (changed) {
-      setModal(null);
-      go(role === "reviewer" ? "Review desk" : "Overview");
-    }
+    if (changed) setModal(null);
     return changed;
   };
   const exitDemo = async () => {
@@ -463,7 +407,7 @@ export default function App() {
       await api("/demo/exit", "POST");
       setData(null);
       setModal(null);
-      go("Overview");
+      go("Home");
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -590,10 +534,25 @@ export default function App() {
     reviewer = ["manager", "reviewer"].includes(data.user.role),
     creator = ["manager", "creator", "partner"].includes(data.user.role);
   const active = data.content.find((c) => c.id === selected),
-    reviewQueue = data.content.filter((c) =>
-      ["In review", "Needs reassessment"].includes(c.status),
+    awaitingDecision = data.content.filter((c) =>
+      (c.findings || []).some((f: Row) => !f.resolved && !f.review),
     ),
+    toCorrect = data.content.filter(
+      (c) =>
+        (c.findings || []).some((f: Row) => !f.resolved) &&
+        c.status !== "In review",
+    ),
+    reassess = data.content.filter((c) => c.status === "Needs reassessment"),
     openTasks = data.tasks.filter((t) => t.status === "Open");
+  const badges: Partial<Record<View, number>> = {
+    "Verify & Review": awaitingDecision.length,
+    "Fix & Approve": toCorrect.length + data.content.filter((c) => c.status === "In review").length,
+    "Impact Monitor": reassess.length,
+  };
+  const openSettings = () => {
+    setTrustTab("Privacy & AI");
+    go("Trust & Audit");
+  };
   const sourceForm = (source?: Row) =>
     setModal({
       title: source?.id
@@ -688,7 +647,7 @@ export default function App() {
             <Field label="Subject">
               <input
                 name="subject"
-                defaultValue={rule?.subject || "HarborDesk"}
+                defaultValue={rule?.subject || data.rules[0]?.subject || data.workspace.name}
                 required
               />
             </Field>
@@ -723,7 +682,7 @@ export default function App() {
               name="config"
               rows={4}
               defaultValue={JSON.stringify(
-                rule?.config || { variants: ["Harbor Desk"] },
+                rule?.config || { variants: [] },
                 null,
                 2,
               )}
@@ -731,155 +690,16 @@ export default function App() {
             />
           </Field>
           <p className="form-note">
-            Number: metric “price” or “trial”, optional qualifier. Term:
-            variants. Substantiation: unsupported_terms explicitly verified
-            against your register. Optional channels limits scope.
+            Number: metric “price” or “trial”, optional plan, qualifier and
+            qualifier_review. Term: variants. Substantiation: unsupported_terms
+            and optional replacements (approved rewrites). Optional channels
+            limits scope.
           </p>
         </Form>
       ),
     });
-  const newContent = () => {
-    if (!data.campaigns.length) {
-      notify("Create a campaign first.");
-      go("Campaigns");
-      return;
-    }
-    setModal({
-      title: "Start with your message",
-      body: (
-        <Form
-          button="Create draft"
-          onSubmit={async (v) => {
-            const r = await submitModal("/content", "POST", v, "Draft created");
-            if (r) go("Content studio", r.id);
-          }}
-        >
-          <Field label="Content title">
-            <input
-              name="title"
-              placeholder="A name your team will recognise"
-              required
-            />
-          </Field>
-          <div className="form-grid">
-            <Field label="Campaign">
-              <select name="campaign_id">
-                {data.campaigns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Channel">
-              <select name="channel">
-                {["Social", "Email", "Website", "Advertisement"].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <Field label="Product / subject">
-            <input name="subject" defaultValue={data.workspace.name} required />
-          </Field>
-          <Field label="Draft language">
-            <select name="language" defaultValue="en">
-              {Object.entries({
-                en: "English",
-                hi: "Hindi",
-                te: "Telugu",
-                ta: "Tamil",
-                kn: "Kannada",
-                ml: "Malayalam",
-                bn: "Bengali",
-                mr: "Marathi",
-                gu: "Gujarati",
-                es: "Spanish",
-                fr: "French",
-                de: "German",
-                pt: "Portuguese",
-                ar: "Arabic",
-                ja: "Japanese",
-                ko: "Korean",
-                zh: "Chinese",
-              }).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Your draft">
-            <textarea
-              name="body"
-              rows={7}
-              maxLength={5000}
-              placeholder="Write or paste the content you want to check…"
-              required
-            />
-          </Field>
-          <p className="form-note">
-            Up to 5,000 characters. Nothing is published automatically.
-          </p>
-        </Form>
-      ),
-    });
-  };
   const sourceName = (id: string) =>
     data.sources.find((s) => s.id === id)?.title || "Source";
-  const contentTable = (items: Row[]) =>
-    items.length ? (
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>CONTENT</th>
-              <th>CHANNEL</th>
-              <th>STATUS</th>
-              <th>LAST UPDATED</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((c) => (
-              <tr key={c.id} onClick={() => go("Content studio", c.id)}>
-                <td>
-                  <button className="row-link">
-                    <span className="file-icon">
-                      <FileText size={18} />
-                    </span>
-                    <span>
-                      {c.title}
-                      <small>
-                        {
-                          data.campaigns.find((p) => p.id === c.campaign_id)
-                            ?.name
-                        }{" "}
-                        · v{c.version}
-                      </small>
-                    </span>
-                  </button>
-                </td>
-                <td>
-                  <span className="channel">{c.channel}</span>
-                </td>
-                <td>
-                  <Badge value={c.status} />
-                </td>
-                <td className="muted">{formatDate(c.updated)}</td>
-                <td>
-                  <ChevronRight size={16} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <Empty title="A clean slate">
-        Your drafts will appear here as you create them.
-      </Empty>
-    );
   const receiptModal = (a: Row) =>
     setModal({
       title: "Approval receipt",
@@ -934,6 +754,14 @@ export default function App() {
         </div>
       ),
     });
+  const sourceUse = (ruleId: string) =>
+    data.dependencies.filter((d) => d.rule_id === ruleId).length;
+  const itemOpen = !!active && ITEM_VIEWS.includes(view);
+  const auditRows = data.activity.filter((a) =>
+    `${a.action} ${a.target} ${a.actor}`
+      .toLowerCase()
+      .includes(auditQuery.toLowerCase()),
+  );
   return (
     <div className="app-shell" data-view={view}>
       <a href="#main" className="skip-link">
@@ -951,51 +779,63 @@ export default function App() {
         inert={narrow && !mobile}
         className={"sidebar " + (mobile ? "open" : "")}
       >
-        <Logo />
-        <button
-          className="workspace-switch"
-          onClick={() => go("Privacy & settings")}
-        >
+        <button className="logo-home" onClick={() => go("Home")} aria-label="Home">
+          <Logo />
+        </button>
+        <button className="workspace-switch" onClick={() => go("Company Hub")}>
           <span className="workspace-icon">
             {data.workspace.name.charAt(0).toUpperCase()}
           </span>
           <span>
             {data.workspace.name}
             <small>
-              {data.demo ? "Fictional demo workspace" : "Brand workspace"}
+              {data.judge_demo ? "Fictional demo company" : "Brand workspace"}
             </small>
           </span>
           <ChevronDown size={15} />
         </button>
         <nav aria-label="Main navigation">
-          {sections.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <span className="nav-label">{group.label}</span>
-              {group.items.map(([name, Icon]) => (
+          <div className="nav-group">
+            <button
+              className={"nav-item " + (view === "Home" ? "active" : "")}
+              onClick={() => go("Home")}
+              aria-current={view === "Home" ? "page" : undefined}
+            >
+              <LayoutDashboard size={18} />
+              <span>Home</span>
+            </button>
+          </div>
+          <div className="nav-group">
+            <span className="nav-label">SIX MODULES</span>
+            {MODULES.map((name, i) => {
+              const Icon = ICONS[name];
+              return (
                 <button
                   key={name}
-                  className={"nav-item " + (view === name ? "active" : "")}
+                  className={"nav-item module " + (view === name ? "active" : "")}
                   onClick={() => go(name)}
                   aria-current={view === name ? "page" : undefined}
                 >
-                  <Icon size={18} />
+                  <span className="nav-num">0{i + 1}</span>
+                  <Icon size={17} />
                   <span>{name}</span>
-                  {name === "Review desk" && reviewQueue.length > 0 && (
-                    <b>{reviewQueue.length}</b>
-                  )}
+                  {!!badges[name] && <b>{badges[name]}</b>}
                 </button>
-              ))}
-            </div>
-          ))}
+              );
+            })}
+          </div>
+          <p className="nav-flow">
+            Hub → Scan → Verify → Fix → Monitor → Audit
+          </p>
         </nav>
         <div className="sidebar-bottom">
-          <div className="mode-note">
+          <button className="mode-note" onClick={openSettings}>
             <span className="live-dot" />
             {data.workspace.settings.ai_enabled
               ? "AI assistance enabled"
               : "Rules-only workspace"}
             <LockKeyhole size={13} />
-          </div>
+          </button>
           <button
             className="user-card"
             onClick={() =>
@@ -1018,12 +858,6 @@ export default function App() {
                       <LogOut size={16} />
                       Sign out
                     </button>
-                    {data.demo && !data.judge_demo && (
-                      <p className="form-note">
-                        To test independent approval, sign out and select the
-                        reviewer account.
-                      </p>
-                    )}
                   </div>
                 ),
               })
@@ -1059,6 +893,12 @@ export default function App() {
             <span>{data.workspace.name}</span>
             <ChevronRight size={14} />
             <b>{view}</b>
+            {itemOpen && (
+              <>
+                <ChevronRight size={14} />
+                <span className="crumb-item">{active.title}</span>
+              </>
+            )}
           </div>
           <div className="top-actions">
             <div className="search-wrap">
@@ -1084,8 +924,8 @@ export default function App() {
                         key={r.id}
                         onClick={() =>
                           r.type === "content"
-                            ? go("Content studio", r.id)
-                            : (go("Rulebook & sources"), setSearch(""))
+                            ? go("Scan & Detect", r.id)
+                            : (go("Company Hub"), setSearch(""))
                         }
                       >
                         {r.type === "content" ? (
@@ -1108,7 +948,7 @@ export default function App() {
             <button
               className="icon-button notification-button"
               aria-label={`${openTasks.length} open evidence tasks`}
-              onClick={() => go("Knowledge gaps")}
+              onClick={() => go("Verify & Review")}
             >
               <Bell size={19} />
               {openTasks.length > 0 && <i />}
@@ -1124,6 +964,7 @@ export default function App() {
               aiLimit={data.judge_demo.ai_limit}
               busy={busy}
               aiEnabled={data.workspace.settings.ai_enabled}
+              collapsed={itemOpen || view !== "Home"}
               onRole={changeDemoRole}
               onExit={exitDemo}
               onReset={() =>
@@ -1155,25 +996,20 @@ export default function App() {
                   ),
                 })
               }
-              onStart={async () => {
-                if (
-                  data.user.role !== "creator" &&
-                  !(await changeDemoRole("creator"))
-                )
-                  return;
-                go(
-                  "Content studio",
-                  data.content.find((c) => c.title === "Launch announcement")
-                    ?.id || null,
+              onStep={async (step) => {
+                const ad = data.content.find((c) =>
+                  data.creatives?.some(
+                    (x) => x.content_id === c.id && x.origin === "fixture",
+                  ),
                 );
-              }}
-              onAI={async () => {
-                if (
-                  data.user.role !== "manager" &&
-                  !(await changeDemoRole("manager"))
-                )
-                  return;
-                go("Privacy & settings");
+                const role =
+                  step === "review" ? "reviewer" : step === "impact" || step === "ai" ? "manager" : "creator";
+                if (data.user.role !== role && !(await changeDemoRole(role))) return;
+                if (step === "inspect") go("Scan & Detect", ad?.id || null, "review");
+                if (step === "review") go("Verify & Review", ad?.id || null, "review");
+                if (step === "fix") go("Fix & Approve", ad?.id || null, "fix");
+                if (step === "impact") go("Impact Monitor");
+                if (step === "ai") openSettings();
               }}
             />
           ) : (
@@ -1188,35 +1024,30 @@ export default function App() {
               </button>
             )
           )}
-          <div className="page-heading">
-            <div>
-              <div className="heading-kicker">
-                {view === "Overview"
-                  ? "THE BRAND CREW / YOUR WORKSPACE"
-                  : "THE BRAND CREW / " +
-                    sections
-                      .flatMap((group) =>
-                        group.items.map(([name]) => name as string),
-                      )
-                      .indexOf(view)
-                      .toString()
-                      .padStart(2, "0")}
-                {data.demo && <span>DEMO DATA</span>}
+          {!itemOpen && (
+            <div className="page-heading">
+              <div>
+                <div className="heading-kicker">
+                  {view === "Home"
+                    ? "THE BRAND CREW / YOUR WORKSPACE"
+                    : `MODULE ${String(MODULES.indexOf(view as Module) + 1).padStart(2, "0")} / 06`}
+                  {data.demo && <span>DEMO DATA</span>}
+                </div>
+                <h1>
+                  {view === "Home"
+                    ? `Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, ${data.user.name.split(" ")[0]}.`
+                    : view}
+                </h1>
+                <p>{descriptions[view]}</p>
               </div>
-              <h1>
-                {view === "Overview"
-                  ? `Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${data.user.name.split(" ")[0]}.`
-                  : view}
-              </h1>
-              <p>{descriptions[view]}</p>
+              {creator && view !== "Scan & Detect" && (
+                <button className="button primary" onClick={() => go("Scan & Detect")}>
+                  <ScanLine size={17} />
+                  Scan content
+                </button>
+              )}
             </div>
-            {creator && (
-              <button className="button primary" onClick={newContent}>
-                <Plus size={17} />
-                New content
-              </button>
-            )}
-          </div>
+          )}
           {error && (
             <div className="error" role="alert">
               <AlertTriangle size={18} />
@@ -1226,731 +1057,637 @@ export default function App() {
               </button>
             </div>
           )}
-          {view === "Overview" && (
-            <>
-              <WorkspaceCrew onNavigate={go} />
-              <section className="stats">
-                {[
-                  {
-                    label: "Content in workspace",
-                    value: data.content.length,
-                    note: "Across " + data.campaigns.length + " campaigns",
-                    icon: FileText,
-                  },
-                  {
-                    label: "Ready for a decision",
-                    value: reviewQueue.length,
-                    note: "Human review keeps you in control",
-                    icon: ShieldCheck,
-                  },
-                  {
-                    label: "Approved sources",
-                    value: data.sources.filter((s) => s.current).length,
-                    note: data.rules.length + " registered facts and rules",
-                    icon: BookOpen,
-                  },
-                  {
-                    label: "Open evidence gaps",
-                    value: openTasks.length,
-                    note: "Every gap has a next step",
-                    icon: GitBranch,
-                  },
-                ].map((s) => (
-                  <div className="stat" key={s.label}>
-                    <div>
-                      <span>{s.label}</span>
-                      <s.icon size={17} />
-                    </div>
-                    <strong>{s.value.toString().padStart(2, "0")}</strong>
-                    <p>{s.note}</p>
-                  </div>
-                ))}
-              </section>
-              <div className="overview-grid">
-                <section className="panel recent">
-                  <div className="panel-header">
-                    <div>
-                      <h2>Content at a glance</h2>
-                      <p>Your latest work, with its review status.</p>
-                    </div>
-                    <button
-                      className="text-button"
-                      onClick={() => go("Content studio")}
-                    >
-                      View all
-                      <ArrowRight size={15} />
-                    </button>
-                  </div>
-                  {contentTable(data.content.slice(0, 5))}
-                </section>
-                <section className="panel activity">
-                  <div className="panel-header">
-                    <div>
-                      <h2>The latest activity</h2>
-                      <p>A traceable trail of decisions.</p>
-                    </div>
-                    <History size={18} />
-                  </div>
-                  <div className="activity-list">
-                    {data.activity.slice(0, 5).map((a, i) => (
-                      <div className="activity-item" key={a.id}>
-                        <span className={"activity-dot dot-" + i}>
-                          <Check size={13} />
-                        </span>
-                        <div>
-                          <b>{a.action}</b>
-                          <p>{a.target}</p>
-                          <small>
-                            {a.actor} · {formatDate(a.created)}
-                          </small>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    className="activity-footer"
-                    onClick={() => go("Time machine")}
-                  >
-                    Explore the audit trail
-                    <ArrowUpRight size={15} />
-                  </button>
-                </section>
-              </div>
-              <div className="evidence-note">
-                <ShieldCheck size={17} />
-                <span>
-                  No verifiable evidence, no factual verdict. Evidence gaps
-                  remain <b>Unverified</b>.
-                </span>
-                <button onClick={() => go("Rulebook & sources")}>
-                  Explore your rulebook
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-            </>
-          )}
-          {view === "Content studio" &&
-            (active ? (
-              <Editor
-                key={active.id + ":" + active.version}
-                item={active}
-                data={data}
-                busy={busy}
-                action={action}
-                back={() => setSelected(null)}
-                receipt={receiptModal}
-                notify={notify}
-                setModal={setModal}
-              />
-            ) : (
-              <ContentLibrary items={data.content} table={contentTable} />
-            ))}
-          {view === "Review desk" && (
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Decisions waiting for you</h2>
-                  <p>Review findings and exact versions before approving.</p>
-                </div>
-                <Badge value={`${reviewQueue.length} in queue`} />
-              </div>
-              {contentTable(reviewQueue)}
-            </section>
-          )}
-          {view === "Rulebook & sources" && (
-            <>
-              <div className="section-toolbar">
-                <div className="tab-label">
-                  <BookOpen size={17} />
-                  Approved sources<span>{data.sources.length}</span>
-                </div>
-                {manager && (
-                  <div className="editor-actions" style={{ marginTop: 0 }}>
-                    <button
-                      className="button"
-                      onClick={() =>
-                        setModal({
-                          title: "Import approved material",
-                          body: (
-                            <DocumentImport
-                              onExtract={(r) =>
-                                sourceForm({
-                                  ...r,
-                                  id: "",
-                                  code: "",
-                                  owner: data.user.name,
-                                  status: "approved",
-                                  review_date: "",
-                                })
-                              }
-                            />
-                          ),
-                        })
-                      }
-                    >
-                      <Upload size={16} />
-                      Import document
-                    </button>
-                    <button className="button" onClick={() => sourceForm()}>
-                      <Plus size={16} />
-                      Register source
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="source-grid">
-                {data.sources.map((s) => (
-                  <article className="source-card" key={s.id}>
-                    <div className="source-top">
-                      <span className="source-icon">
-                        <BookOpen size={23} />
-                      </span>
-                      <Badge
-                        value={
-                          s.current
-                            ? "Approved"
-                            : s.status === "withdrawn"
-                              ? "Withdrawn"
-                              : "Review overdue"
-                        }
-                      />
-                    </div>
-                    <h3>{s.title}</h3>
-                    <p>{s.excerpt}</p>
-                    <div className="source-meta">
-                      <span>Version {s.version}</span>
-                      <span>{s.owner}</span>
-                    </div>
-                    <footer>
-                      <span>
-                        <Clock3 size={13} />
-                        {s.review_date
-                          ? "Review by " + formatDate(s.review_date)
-                          : "No review date set"}
-                      </span>
-                      {manager && (
-                        <button
-                          aria-label={"Edit " + s.title}
-                          onClick={() => sourceForm(s)}
-                        >
-                          <Pencil size={15} />
-                        </button>
-                      )}
-                    </footer>
-                  </article>
-                ))}
-              </div>
-              <section className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>Facts & rules</h2>
-                    <p>
-                      Explicit values, named owners and approved supporting
-                      material.
-                    </p>
-                  </div>
-                  {manager && (
-                    <button
-                      className="button"
-                      onClick={() => ruleForm()}
-                      disabled={!data.sources.length}
-                    >
-                      <Plus size={16} />
-                      Add rule
-                    </button>
-                  )}
-                </div>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>RULE</th>
-                        <th>APPROVED VALUE</th>
-                        <th>SOURCE</th>
-                        <th>TYPE</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.rules.map((r) => (
-                        <tr key={r.id}>
-                          <td>
-                            <span className="rule-code">{r.code}</span>
-                            <b>{r.title}</b>
-                            <small className="block muted">{r.subject}</small>
-                          </td>
-                          <td>{r.value}</td>
-                          <td>{sourceName(r.source_id)}</td>
-                          <td>
-                            <span className="channel">{r.kind}</span>
-                          </td>
-                          <td>
-                            {manager && (
-                              <button
-                                className="icon-button"
-                                aria-label={"Edit " + r.code}
-                                onClick={() => ruleForm(r)}
-                              >
-                                <Pencil size={15} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </>
-          )}
-          {view === "Claim DNA" && (
-            <Lineage data={data} onOpen={(id) => go("Content studio", id)} />
-          )}
-          {view === "Source conflicts" && (
-            <ConflictView reloadKey={data.workspace.revision} />
-          )}
-          {view === "Knowledge gaps" && (
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>The evidence to find next</h2>
-                  <p>Closing a task cannot override an unsupported claim.</p>
-                </div>
-                <Badge value={`${openTasks.length} Open`} />
-              </div>
-              {data.tasks.length ? (
-                <div className="task-list">
-                  {data.tasks.map((t) => (
-                    <div className="task-row" key={t.id}>
-                      <span className="task-icon">
-                        <CircleHelp size={21} />
-                      </span>
-                      <div>
-                        <h3>{t.title}</h3>
-                        <p>
-                          {
-                            data.content.find((c) => c.id === t.content_id)
-                              ?.title
-                          }{" "}
-                          · Owner: {t.owner}
-                        </p>
-                      </div>
-                      <Badge value={t.status} />
-                      <button
-                        className="button small"
-                        onClick={() => go("Content studio", t.content_id)}
-                      >
-                        Open content
-                        <ArrowUpRight size={14} />
-                      </button>
-                      {reviewer && t.status === "Open" && (
-                        <button
-                          className="icon-button"
-                          aria-label="Close resolved task"
-                          onClick={() =>
-                            action(
-                              "/tasks/" + t.id + "/close",
-                              "POST",
-                              undefined,
-                              "Task closed",
-                            )
-                          }
-                        >
-                          <Check size={17} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Empty title="No evidence tasks yet">
-                  Scanning content creates an owner task for each mapped
-                  evidence gap.
-                </Empty>
-              )}
-            </section>
-          )}
-          {view === "Visual checks" && (
-            <>
-              <VisualIntelligence
-                manager={manager}
-                enabled={!!data.workspace.settings.ai_enabled}
-              />
-              <VisualChecks />
-            </>
-          )}
-          {view === "Campaigns" && (
-            <CampaignView
+          {itemOpen && (
+            <ReviewWorkspace
+              key={active.id}
+              item={active}
               data={data}
-              go={go}
-              manager={manager}
+              busy={busy}
+              action={action}
+              back={() => setSelected(null)}
+              backLabel={"Back to " + view}
+              receipt={receiptModal}
+              notify={notify}
               setModal={setModal}
-              submit={submitModal}
+              initialStage={stage}
+              onSettings={openSettings}
             />
           )}
-          {view === "Impact lab" && (
-            <ImpactLab data={data} manager={manager} ruleForm={ruleForm} />
+          {view === "Home" && (
+            <HomeDashboard
+              data={data}
+              go={go}
+              crew={<WorkspaceCrew onNavigate={(v) => go(v)} />}
+            />
           )}
-          {view === "Time machine" && (
+          {view === "Scan & Detect" && !itemOpen && (
+            <ScanDetect
+              data={data}
+              open={(id) => go("Scan & Detect", id)}
+              refresh={refresh}
+              onSettings={openSettings}
+            />
+          )}
+          {view === "Verify & Review" && !itemOpen && (
+            <VerifyQueue data={data} go={go} action={action} />
+          )}
+          {view === "Fix & Approve" && !itemOpen && (
+            <FixQueue data={data} go={go} receipt={receiptModal} />
+          )}
+          {view === "Impact Monitor" && (
+            <ImpactMonitor
+              data={data}
+              go={go}
+              action={action}
+              receipt={receiptModal}
+              notify={notify}
+            />
+          )}
+          {view === "Company Hub" && (
             <>
-              <section className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>Approval archive</h2>
-                    <p>
-                      Each receipt preserves the content and evidence at the
-                      moment of approval.
-                    </p>
+              <div className="module-tabs" role="tablist">
+                {HUB_TABS.map((t) => (
+                  <button
+                    key={t}
+                    role="tab"
+                    aria-selected={hubTab === t}
+                    className={hubTab === t ? "active" : ""}
+                    onClick={() => setHubTab(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              {hubTab === "Sources & facts" && (
+                <>
+                  <div className="section-toolbar">
+                    <div className="tab-label">
+                      <BookOpen size={17} />
+                      Approved sources<span>{data.sources.length}</span>
+                    </div>
+                    {manager && (
+                      <div className="editor-actions" style={{ marginTop: 0 }}>
+                        <button
+                          className="button"
+                          onClick={() =>
+                            setModal({
+                              title: "Import an official document",
+                              body: (
+                                <DocumentImport
+                                  onExtract={(r) =>
+                                    sourceForm({
+                                      ...r,
+                                      id: "",
+                                      code: "",
+                                      owner: data.user.name,
+                                      status: "approved",
+                                      review_date: "",
+                                    })
+                                  }
+                                />
+                              ),
+                            })
+                          }
+                        >
+                          <Upload size={16} />
+                          Import document
+                        </button>
+                        <button className="button" onClick={() => sourceForm()}>
+                          <Plus size={16} />
+                          Register source
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {data.approvals.length ? (
-                  <div className="receipt-list">
-                    {data.approvals.map((a) => (
-                      <button
-                        className="receipt-row"
-                        key={a.id}
-                        onClick={() => receiptModal(a)}
-                      >
-                        <span className="receipt-icon">
-                          <ShieldCheck size={23} />
-                        </span>
-                        <span>
-                          <b>{a.snapshot.title}</b>
-                          <small>
-                            v{a.version} · {a.snapshot.reviewer} ·{" "}
-                            {formatDate(a.created)}
-                          </small>
-                        </span>
-                        <code>{shortHash(a.content_hash)}</code>
-                        <ArrowUpRight size={18} />
-                      </button>
+                  <div className="source-grid">
+                    {data.sources.map((s) => (
+                      <article className="source-card" key={s.id}>
+                        <div className="source-top">
+                          <span className="source-icon">
+                            <BookOpen size={23} />
+                          </span>
+                          <Badge
+                            value={
+                              s.current
+                                ? "Approved"
+                                : s.status === "withdrawn"
+                                  ? "Withdrawn"
+                                  : "Review overdue"
+                            }
+                          />
+                        </div>
+                        <h3>{s.title}</h3>
+                        <p>{s.excerpt}</p>
+                        <div className="source-meta">
+                          <span>Version {s.version}</span>
+                          <span>{s.owner}</span>
+                        </div>
+                        <footer>
+                          <span>
+                            <Clock3 size={13} />
+                            {s.review_date
+                              ? "Review by " + formatDate(s.review_date)
+                              : "No review date set"}
+                          </span>
+                          {manager && (
+                            <button
+                              aria-label={"Edit " + s.title}
+                              onClick={() => sourceForm(s)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
+                        </footer>
+                      </article>
                     ))}
                   </div>
-                ) : (
-                  <Empty
-                    icon={History}
-                    title="History begins with your first approval"
-                  >
-                    Approve a reviewed draft to create an immutable receipt.
-                  </Empty>
-                )}
-              </section>
-              <section className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>Workspace audit trail</h2>
-                    <p>Recorded actions, in reverse chronological order.</p>
-                  </div>
-                </div>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>ACTION</th>
-                        <th>RECORD</th>
-                        <th>WHO</th>
-                        <th>WHEN</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.activity.map((a) => (
-                        <tr key={a.id}>
-                          <td>{a.action}</td>
-                          <td>{a.target}</td>
-                          <td>{a.actor}</td>
-                          <td className="muted">
-                            {new Date(a.created).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </>
-          )}
-          {view === "Learning loop" && (
-            <Learning data={data} ruleForm={ruleForm} manager={manager} />
-          )}
-          {view === "Partner workspace" && (
-            <>
-              <section className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>People & permissions</h2>
-                    <p>
-                      Partners can access only campaigns explicitly assigned to
-                      them.
-                    </p>
-                  </div>
-                  {manager && (
-                    <button
-                      className="button"
-                      onClick={() =>
-                        setModal({
-                          title: "Create a workspace member",
-                          body: (
-                            <Form
-                              button="Create account"
-                              onSubmit={(v) =>
-                                submitModal(
-                                  "/members",
-                                  "POST",
-                                  v,
-                                  "Account created. Share its password privately.",
-                                )
-                              }
-                            >
-                              <Field label="Full name">
-                                <input name="name" required />
-                              </Field>
-                              <Field label="Email">
-                                <input name="email" type="email" required />
-                              </Field>
-                              <Field label="Role">
-                                <select name="role">
-                                  {[
-                                    "creator",
-                                    "reviewer",
-                                    "partner",
-                                    "manager",
-                                  ].map((r) => (
-                                    <option key={r}>{r}</option>
-                                  ))}
-                                </select>
-                              </Field>
-                              <Field label="Initial password">
-                                <input
-                                  type="password"
-                                  name="password"
-                                  minLength={12}
-                                  required
-                                  autoComplete="new-password"
-                                />
-                              </Field>
-                              <p className="form-note">
-                                {data.judge_demo
-                                  ? "Demo members get fictional internal email addresses and cannot sign in outside this sandbox. Use the role controls to switch between the four sample teammates."
-                                  : "This creates an account directly. No invitation email is sent."}
-                              </p>
-                            </Form>
-                          ),
-                        })
-                      }
-                    >
-                      <Plus size={16} />
-                      Add member
-                    </button>
-                  )}
-                </div>
-                <div className="member-grid">
-                  {data.members.map((m) => (
-                    <article className="member-card" key={m.id}>
-                      <span className="avatar large">
-                        {m.name
-                          .split(" ")
-                          .map((s: string) => s[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </span>
-                      <h3>{m.name}</h3>
-                      <p>{m.email || "Workspace member"}</p>
-                      <span className="role-tag">{m.role}</span>
-                    </article>
-                  ))}
-                </div>
-              </section>
-              <section className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>Campaign access</h2>
-                    <p>
-                      Assignments are enforced by the API on every content
-                      request.
-                    </p>
-                  </div>
-                </div>
-                <div className="task-list">
-                  {data.campaigns.map((c) => (
-                    <div className="task-row" key={c.id}>
-                      <Layers size={24} />
+                  <section className="panel">
+                    <div className="panel-header">
                       <div>
-                        <h3>{c.name}</h3>
+                        <h2>Facts & rules</h2>
                         <p>
-                          {c.members
-                            .map(
-                              (id: string) =>
-                                data.members.find((m) => m.id === id)?.name,
-                            )
-                            .filter(Boolean)
-                            .join(", ") || "No partner assignments"}
+                          The exact values checks compare against, each tied to
+                          an approved source and owner.
                         </p>
                       </div>
                       {manager && (
                         <button
-                          className="button small"
+                          className="button"
+                          onClick={() => ruleForm()}
+                          disabled={!data.sources.length}
+                        >
+                          <Plus size={16} />
+                          Add rule
+                        </button>
+                      )}
+                    </div>
+                    <div className="table-scroll">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>RULE</th>
+                            <th>APPROVED VALUE</th>
+                            <th>SOURCE</th>
+                            <th>USED IN</th>
+                            <th>TYPE</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.rules.map((r) => (
+                            <tr key={r.id}>
+                              <td>
+                                <span className="rule-code">{r.code}</span>
+                                <b>{r.title}</b>
+                                <small className="block muted">
+                                  {r.subject}
+                                  {r.config?.plan ? ` · ${r.config.plan} plan` : ""}
+                                </small>
+                              </td>
+                              <td>{r.value}</td>
+                              <td>{sourceName(r.source_id)}</td>
+                              <td>
+                                <button
+                                  className="text-button"
+                                  onClick={() => {
+                                    setLineageRule(r.id);
+                                    setHubTab("Claim lineage");
+                                  }}
+                                >
+                                  {sourceUse(r.id)} item{sourceUse(r.id) === 1 ? "" : "s"}
+                                </button>
+                              </td>
+                              <td>
+                                <span className="channel">{r.kind}</span>
+                              </td>
+                              <td>
+                                {manager && (
+                                  <button
+                                    className="icon-button"
+                                    aria-label={"Edit " + r.code}
+                                    onClick={() => ruleForm(r)}
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </>
+              )}
+              {hubTab === "Brand assets" && (
+                <>
+                  <LogoRegister manager={manager} />
+                  <VisualChecks />
+                </>
+              )}
+              {hubTab === "Campaigns" && (
+                <CampaignView
+                  data={data}
+                  go={(v, id) => go(v, id || null)}
+                  manager={manager}
+                  setModal={setModal}
+                  submit={submitModal}
+                />
+              )}
+              {hubTab === "Team & roles" && (
+                <>
+                  <section className="panel">
+                    <div className="panel-header">
+                      <div>
+                        <h2>People & permissions</h2>
+                        <p>
+                          Roles are enforced by the API: creators draft,
+                          reviewers decide and approve, managers own Company
+                          Hub, partners see only assigned campaigns.
+                        </p>
+                      </div>
+                      {manager && (
+                        <button
+                          className="button"
                           onClick={() =>
                             setModal({
-                              title: "Assign " + c.name,
+                              title: "Add a team member",
                               body: (
                                 <Form
-                                  button="Grant access"
+                                  button="Create account"
                                   onSubmit={(v) =>
                                     submitModal(
-                                      "/campaigns/" + c.id + "/assign",
+                                      "/members",
                                       "POST",
                                       v,
-                                      "Campaign access granted",
+                                      "Account created. Share its password privately.",
                                     )
                                   }
                                 >
-                                  <Field label="Member">
-                                    <select name="user_id">
-                                      {data.members
-                                        .filter((m) => m.role === "partner")
-                                        .map((m) => (
-                                          <option key={m.id} value={m.id}>
-                                            {m.name}
-                                          </option>
-                                        ))}
+                                  <Field label="Full name">
+                                    <input name="name" required />
+                                  </Field>
+                                  <Field label="Email">
+                                    <input name="email" type="email" required />
+                                  </Field>
+                                  <Field label="Role">
+                                    <select name="role">
+                                      {["creator", "reviewer", "partner", "manager"].map((r) => (
+                                        <option key={r}>{r}</option>
+                                      ))}
                                     </select>
                                   </Field>
+                                  <Field label="Initial password">
+                                    <input
+                                      type="password"
+                                      name="password"
+                                      minLength={12}
+                                      required
+                                      autoComplete="new-password"
+                                    />
+                                  </Field>
+                                  <p className="form-note">
+                                    {data.judge_demo
+                                      ? "Demo members get fictional internal email addresses and cannot sign in outside this sandbox."
+                                      : "This creates the account directly. No invitation email is sent."}
+                                  </p>
                                 </Form>
                               ),
                             })
                           }
                         >
-                          Assign partner
-                          <Plus size={14} />
+                          <Plus size={16} />
+                          Add member
                         </button>
                       )}
                     </div>
-                  ))}
-                </div>
-              </section>
+                    <div className="member-grid">
+                      {data.members.map((m) => (
+                        <article className="member-card" key={m.id}>
+                          <span className="avatar large">
+                            {m.name
+                              .split(" ")
+                              .map((s: string) => s[0])
+                              .join("")
+                              .slice(0, 2)}
+                          </span>
+                          <h3>{m.name}</h3>
+                          <p>{m.email || "Workspace member"}</p>
+                          <span className="role-tag">{m.role}</span>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="panel">
+                    <div className="panel-header">
+                      <div>
+                        <h2>Campaign access</h2>
+                        <p>
+                          Assignments are enforced on every content request.
+                          Each organisation's data is isolated server-side.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="task-list">
+                      {data.campaigns.map((c) => (
+                        <div className="task-row" key={c.id}>
+                          <Layers size={24} />
+                          <div>
+                            <h3>{c.name}</h3>
+                            <p>
+                              {c.members
+                                .map(
+                                  (id: string) =>
+                                    data.members.find((m) => m.id === id)?.name,
+                                )
+                                .filter(Boolean)
+                                .join(", ") || "No partner assignments"}
+                            </p>
+                          </div>
+                          {manager && (
+                            <button
+                              className="button small"
+                              onClick={() =>
+                                setModal({
+                                  title: "Assign " + c.name,
+                                  body: (
+                                    <Form
+                                      button="Grant access"
+                                      onSubmit={(v) =>
+                                        submitModal(
+                                          "/campaigns/" + c.id + "/assign",
+                                          "POST",
+                                          v,
+                                          "Campaign access granted",
+                                        )
+                                      }
+                                    >
+                                      <Field label="Member">
+                                        <select name="user_id">
+                                          {data.members
+                                            .filter((m) => m.role === "partner")
+                                            .map((m) => (
+                                              <option key={m.id} value={m.id}>
+                                                {m.name}
+                                              </option>
+                                            ))}
+                                        </select>
+                                      </Field>
+                                    </Form>
+                                  ),
+                                })
+                              }
+                            >
+                              Assign partner
+                              <Plus size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              )}
+              {hubTab === "Source conflicts" && (
+                <ConflictView reloadKey={data.workspace.revision} />
+              )}
+              {hubTab === "Claim lineage" && (
+                <Lineage
+                  data={data}
+                  initialRule={lineageRule && data.rules.some((r) => r.id === lineageRule) ? lineageRule : undefined}
+                  onOpen={(id) => go("Scan & Detect", id)}
+                />
+              )}
             </>
           )}
-          {view === "Privacy & settings" && (
+          {view === "Trust & Audit" && (
             <>
-              <section className="privacy-hero">
-                <LockKeyhole size={32} />
-                <div>
-                  <h2>Human control. Visible boundaries.</h2>
-                  <p>
-                    Rules-only checks run on your API server. External AI stays
-                    off unless a manager enables a configured provider.
-                  </p>
-                </div>
-                <Badge
-                  value={
-                    data.workspace.settings.ai_enabled
-                      ? "AI enabled"
-                      : "Rules only"
-                  }
-                />
-              </section>
-              <div className="settings-grid">
-                <section className="panel settings-panel">
-                  <h2>AI & data handling</h2>
-                  <div className="setting-row">
+              <div className="module-tabs" role="tablist">
+                {TRUST_TABS.map((t) => (
+                  <button
+                    key={t}
+                    role="tab"
+                    aria-selected={trustTab === t}
+                    className={trustTab === t ? "active" : ""}
+                    onClick={() => setTrustTab(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              {trustTab === "Audit trail" && (
+                <section className="panel">
+                  <div className="panel-header">
                     <div>
-                      <b>AI review, OCR, logo comparison & translation</b>
+                      <h2>Workspace audit trail</h2>
                       <p>
-                        {data.ai_configured
-                          ? "Provider configured. Suggestions still need evidence validation and human review."
-                          : "No provider configured. Deterministic checks are available."}
+                        Every upload, fact change, finding decision, approval
+                        and setting change, newest first. Records cannot be
+                        edited from the app.
                       </p>
                     </div>
-                    <button
-                      className={
-                        "toggle " +
-                        (data.workspace.settings.ai_enabled ? "on" : "")
-                      }
-                      aria-label="Enable AI services"
-                      role="switch"
-                      aria-checked={!!data.workspace.settings.ai_enabled}
-                      disabled={!manager || busy}
-                      onClick={() =>
-                        action(
-                          "/settings",
-                          "PUT",
-                          { ai_enabled: !data.workspace.settings.ai_enabled },
-                          "AI policy updated",
-                        )
-                      }
-                    >
-                      <span />
-                    </button>
+                    <input
+                      className="audit-search"
+                      aria-label="Filter audit events"
+                      placeholder="Filter by action, record or person"
+                      value={auditQuery}
+                      onChange={(e) => setAuditQuery(e.target.value)}
+                    />
                   </div>
-                  <ul className="privacy-list">
-                    <li>
-                      <Check size={16} />
-                      No automatic publishing or approval.
-                    </li>
-                    <li>
-                      <Check size={16} />
-                      Email and phone masking before optional AI calls.
-                    </li>
-                    <li>
-                      <Check size={16} />
-                      Text review sends the draft and applicable rules.
-                    </li>
-                    <li>
-                      <Check size={16} />
-                      OCR and logo analysis send the selected images or PDF to
-                      the configured provider.
-                    </li>
-                  </ul>
-                  <p className="form-note">
-                    Masking is not complete anonymisation. Confirm the
-                    provider’s terms before using confidential content.
-                  </p>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>ACTION</th>
+                          <th>RECORD</th>
+                          <th>WHO</th>
+                          <th>DETAIL</th>
+                          <th>WHEN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditRows.map((a) => (
+                          <tr
+                            key={a.id}
+                            onClick={() =>
+                              a.detail?.content_id &&
+                              data.content.some((c) => c.id === a.detail.content_id) &&
+                              go("Verify & Review", a.detail.content_id, "history")
+                            }
+                          >
+                            <td>{a.action}</td>
+                            <td>{a.target}</td>
+                            <td>{a.actor}</td>
+                            <td className="muted">
+                              {a.detail?.reason ||
+                                (a.detail?.version ? `v${a.detail.version}` : "") ||
+                                (a.detail?.findings !== undefined
+                                  ? `${a.detail.findings} findings`
+                                  : "")}
+                            </td>
+                            <td className="muted">{new Date(a.created).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </section>
-                <AIStatus />
-                <section className="panel settings-panel">
-                  <h2>Workspace data</h2>
-                  <dl>
-                    <dt>Workspace</dt>
-                    <dd>{data.workspace.name}</dd>
-                    <dt>Your role</dt>
-                    <dd className="capitalize">{data.user.role}</dd>
-                    <dt>Authentication</dt>
-                    <dd>Server sessions · HTTP-only cookies</dd>
-                    <dt>AI provider</dt>
-                    <dd>
-                      {data.ai_configured
-                        ? `${data.ai_provider} configured`
-                        : "Not configured"}
-                    </dd>
-                    <dt>Record history</dt>
-                    <dd>Versioned content and approval snapshots</dd>
-                  </dl>
-                  {manager && (
-                    <button
-                      className="button"
-                      onClick={async () => {
-                        const r = await api("/export");
-                        download("brandora-workspace.json", r);
-                      }}
-                    >
-                      <Download size={16} />
-                      Export workspace
-                    </button>
+              )}
+              {trustTab === "Approval receipts" && (
+                <section className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Approval receipts</h2>
+                      <p>
+                        Each receipt preserves the content, reviewer, SHA-256
+                        hash and evidence versions at the moment of approval.
+                      </p>
+                    </div>
+                  </div>
+                  {data.approvals.length ? (
+                    <div className="receipt-list">
+                      {data.approvals.map((a) => (
+                        <button
+                          className="receipt-row"
+                          key={a.id}
+                          onClick={() => receiptModal(a)}
+                        >
+                          <span className="receipt-icon">
+                            <ShieldCheck size={23} />
+                          </span>
+                          <span>
+                            <b>{a.snapshot.title}</b>
+                            <small>
+                              v{a.version} · {a.snapshot.reviewer} ·{" "}
+                              {formatDate(a.created)}
+                            </small>
+                          </span>
+                          <code>{shortHash(a.content_hash)}</code>
+                          <ArrowUpRight size={18} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty icon={History} title="History begins with your first approval">
+                      Approve a reviewed version to create a receipt.
+                    </Empty>
                   )}
-                  <p className="form-note">
-                    Content deletion removes stored text and review notes while
-                    retaining receipt hashes and audit metadata. Backups require
-                    a separate retention policy.
-                  </p>
                 </section>
-              </div>
-              <div className="evidence-note">
-                <CircleHelp size={17} />
-                <span>
-                  Access is checked on every API request. Workspace managers
-                  control accounts, campaign assignments and AI settings.
-                </span>
-              </div>
+              )}
+              {trustTab === "Privacy & AI" && (
+                <>
+                  <section className="privacy-hero">
+                    <LockKeyhole size={32} />
+                    <div>
+                      <h2>Human control. Visible boundaries.</h2>
+                      <p>
+                        Rule checks run on the Brandora server. External AI
+                        (OCR, logo comparison, semantic suggestions,
+                        translation) stays off unless a manager enables it.
+                      </p>
+                    </div>
+                    <Badge
+                      value={
+                        data.workspace.settings.ai_enabled ? "AI enabled" : "Rules only"
+                      }
+                    />
+                  </section>
+                  <div className="settings-grid">
+                    <section className="panel settings-panel">
+                      <h2>AI & data handling</h2>
+                      <div className="setting-row">
+                        <div>
+                          <b>AI review, OCR, logo comparison & translation</b>
+                          <p>
+                            {data.ai_configured
+                              ? "Provider configured. AI output is never treated as proof and always needs human review."
+                              : "No provider configured. Deterministic checks are available."}
+                          </p>
+                        </div>
+                        <button
+                          className={
+                            "toggle " + (data.workspace.settings.ai_enabled ? "on" : "")
+                          }
+                          aria-label="Enable AI services"
+                          role="switch"
+                          aria-checked={!!data.workspace.settings.ai_enabled}
+                          disabled={!manager || busy}
+                          onClick={() =>
+                            action(
+                              "/settings",
+                              "PUT",
+                              { ai_enabled: !data.workspace.settings.ai_enabled },
+                              "AI policy updated",
+                            )
+                          }
+                        >
+                          <span />
+                        </button>
+                      </div>
+                      {!manager && (
+                        <p className="form-note">
+                          Only managers change this{data.judge_demo ? " — switch to Manager in the demo bar" : ""}.
+                        </p>
+                      )}
+                      <ul className="privacy-list">
+                        <li>
+                          <Check size={16} />
+                          No automatic publishing or approval.
+                        </li>
+                        <li>
+                          <Check size={16} />
+                          Email and phone masking before AI text review.
+                        </li>
+                        <li>
+                          <Check size={16} />
+                          Uploaded creatives are stored privately with their
+                          version for review and audit; deleting content removes
+                          them.
+                        </li>
+                        <li>
+                          <Check size={16} />
+                          Turning AI on or off sends affected content back for
+                          re-checking.
+                        </li>
+                      </ul>
+                    </section>
+                    <AIStatus />
+                    <section className="panel settings-panel">
+                      <h2>Workspace data</h2>
+                      <dl>
+                        <dt>Workspace</dt>
+                        <dd>{data.workspace.name}</dd>
+                        <dt>Your role</dt>
+                        <dd className="capitalize">{data.user.role}</dd>
+                        <dt>Authentication</dt>
+                        <dd>Server sessions · HTTP-only cookies</dd>
+                        <dt>Isolation</dt>
+                        <dd>Every query is scoped to this organisation</dd>
+                        <dt>AI provider</dt>
+                        <dd>
+                          {data.ai_configured ? `${data.ai_provider} configured` : "Not configured"}
+                        </dd>
+                      </dl>
+                      {manager && (
+                        <button
+                          className="button"
+                          onClick={async () => {
+                            const r = await api("/export");
+                            download("brandora-workspace.json", r);
+                          }}
+                        >
+                          <Download size={16} />
+                          Export workspace
+                        </button>
+                      )}
+                      <p className="form-note">
+                        Deleting content removes stored text, images and review
+                        notes while keeping receipt hashes and audit metadata.
+                      </p>
+                    </section>
+                  </div>
+                </>
+              )}
             </>
           )}
           <footer className="app-footer">
@@ -2005,7 +1742,7 @@ export default function App() {
       {busy && (
         <div className="working" role="status">
           <Loader2 size={15} className="spin" />
-          Saving changes…
+          Working…
         </div>
       )}
     </div>
@@ -2022,437 +1759,16 @@ function download(name: string, data: unknown) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function ContentLibrary({
-  items,
-  table,
-}: {
-  items: Row[];
-  table: (x: Row[]) => React.ReactNode;
-}) {
-  const [filter, setFilter] = useState("All content");
-  const groups = [
-    "All content",
-    "Draft",
-    "Needs changes",
-    "In review",
-    "Approved",
-    "Needs reassessment",
-  ];
-  return (
-    <section className="panel">
-      <div className="tabs">
-        {groups.map((g) => (
-          <button
-            key={g}
-            className={filter === g ? "active" : ""}
-            onClick={() => setFilter(g)}
-          >
-            {g}
-            <span>
-              {g === "All content"
-                ? items.length
-                : items.filter((i) => i.status === g).length}
-            </span>
-          </button>
-        ))}
-      </div>
-      {table(
-        filter === "All content"
-          ? items
-          : items.filter((c) => c.status === filter),
-      )}
-    </section>
-  );
-}
-
-function Editor({
-  item,
-  data,
-  busy,
-  action,
-  back,
-  receipt,
-  notify,
-  setModal,
-}: {
-  item: Row;
-  data: Data;
-  busy: boolean;
-  action: any;
-  back: () => void;
-  receipt: (r: Row) => void;
-  notify: (s: string) => void;
-  setModal: (m: Modal) => void;
-}) {
-  const [body, setBody] = useState(item.body),
-    [title, setTitle] = useState(item.title),
-    [evidence, setEvidence] = useState<string | null>(null);
-  const dirty = body !== item.body || title !== item.title,
-    canEdit =
-      data.user.role === "manager" ||
-      (["creator", "partner"].includes(data.user.role) &&
-        item.author_id === data.user.id),
-    canReview =
-      ["manager", "reviewer"].includes(data.user.role) &&
-      ![item.author_id, item.last_editor_id].includes(data.user.id);
-  const save = async () =>
-    action(
-      "/content/" + item.id,
-      "PUT",
-      { body, title, expected_version: item.version },
-      "New version saved",
-    );
-  const scanNow = async () => {
-    if (dirty) {
-      const saved = await save();
-      if (!saved) return;
-    }
-    await action(
-      "/content/" + item.id + "/scan",
-      "POST",
-      undefined,
-      "Evidence check complete",
-    );
-  };
-  const approvals = data.approvals.filter((a) => a.content_id === item.id);
-  return (
-    <>
-      <div className="editor-toolbar">
-        <button className="text-button" onClick={back}>
-          <ArrowLeft size={15} />
-          All content
-        </button>
-        <div>
-          <Badge value={item.status} />
-          <span className="version">
-            Version {item.version}
-            {dirty ? " · Unsaved changes" : ""}
-          </span>
-        </div>
-      </div>
-      <div className="editor-grid">
-        <section className="panel editor-paper">
-          <div className="paper-head">
-            <span className="channel">{item.channel}</span>
-            <span>
-              {data.campaigns.find((c) => c.id === item.campaign_id)?.name}
-            </span>
-            <MoreHorizontal size={18} />
-          </div>
-          <label className="sr-only" htmlFor="draft-title">
-            Content title
-          </label>
-          <input
-            id="draft-title"
-            className="draft-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={!canEdit}
-          />
-          <label className="draft-label" htmlFor="draft-body">
-            YOUR MESSAGE
-          </label>
-          <textarea
-            id="draft-body"
-            className="draft-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            maxLength={5000}
-            disabled={!canEdit}
-          />
-          <div className="paper-meta">
-            <span>{body.length} / 5,000 characters</span>
-            <span>Subject: {item.subject}</span>
-          </div>
-          <div className="editor-actions">
-            <button
-              className="button primary"
-              disabled={busy || !body.trim()}
-              onClick={scanNow}
-            >
-              <ScanLine size={16} />
-              {dirty ? "Save & check" : "Run evidence check"}
-            </button>
-            {canEdit && (
-              <button
-                className="button"
-                disabled={busy || !dirty}
-                onClick={save}
-              >
-                Save draft
-              </button>
-            )}
-          </div>
-          <div className="editor-note">
-            <LockKeyhole size={14} />
-            {item.scan_coverage}. Content is never published automatically.
-          </div>
-          <TranslationPanel
-            item={item}
-            canEdit={canEdit && !dirty}
-            canReview={canReview && !dirty}
-            enabled={!!data.workspace.settings.ai_enabled}
-            action={action}
-          />
-          <div className="review-actions">
-            <div>
-              <h3>Ready for a human decision?</h3>
-              <p>
-                Approval locks in this exact version and its supporting
-                evidence.
-              </p>
-            </div>
-            {canEdit && (
-              <button
-                className="button"
-                disabled={busy || dirty || !item.scan_hash}
-                onClick={() =>
-                  action(
-                    "/content/" + item.id + "/request-review",
-                    "POST",
-                    undefined,
-                    "Sent to the review desk",
-                  )
-                }
-              >
-                <Send size={15} />
-                Request review
-              </button>
-            )}
-            {canReview && (
-              <button
-                className="button primary"
-                disabled={busy || dirty || item.status !== "In review"}
-                onClick={() =>
-                  action(
-                    "/content/" + item.id + "/approve",
-                    "POST",
-                    undefined,
-                    "Exact version approved",
-                  )
-                }
-              >
-                <ShieldCheck size={16} />
-                Approve version
-              </button>
-            )}
-            {item.author_id === data.user.id && (
-              <small>You cannot approve your own content.</small>
-            )}
-          </div>
-          {approvals.length > 0 && (
-            <div className="editor-receipts">
-              <h4>Approval records</h4>
-              {approvals.map((a) => (
-                <button key={a.id} onClick={() => receipt(a)}>
-                  <ShieldCheck size={16} />
-                  Version {a.version} · {a.snapshot.reviewer}
-                  <ArrowUpRight size={15} />
-                </button>
-              ))}
-            </div>
-          )}
-          {data.user.role === "manager" && (
-            <button
-              className="text-button danger-text"
-              onClick={() =>
-                setModal({
-                  title: "Delete this content?",
-                  body: (
-                    <div className="form">
-                      <p>
-                        Stored draft text, version text and review notes will be
-                        removed. Receipt hashes and audit metadata remain. This
-                        cannot be undone.
-                      </p>
-                      <button
-                        className="button danger"
-                        onClick={async () => {
-                          const r = await action(
-                            "/content/" + item.id,
-                            "DELETE",
-                            undefined,
-                            "Content payload deleted",
-                          );
-                          if (r) {
-                            setModal(null);
-                            back();
-                          }
-                        }}
-                      >
-                        Delete content
-                      </button>
-                    </div>
-                  ),
-                })
-              }
-            >
-              <Trash2 size={14} />
-              Delete content payload
-            </button>
-          )}
-        </section>
-        <aside className="panel findings-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Evidence check</h2>
-              <p>
-                {item.findings.length} finding
-                {item.findings.length !== 1 ? "s" : ""} ·{" "}
-                {item.scan_hash ? "Current saved scan" : "Not scanned"}
-              </p>
-            </div>
-            <span className="scan-icon">
-              <ScanLine size={20} />
-            </span>
-          </div>
-          {dirty && (
-            <div className="inline-note">
-              Save and check your changes to refresh these findings.
-            </div>
-          )}
-          {item.findings.length === 0 ? (
-            <Empty
-              title={
-                item.scan_hash
-                  ? "No issues in checked rules"
-                  : "Let’s check your message"
-              }
-            >
-              {item.scan_hash
-                ? "No deterministic issues were found in the scoped register. Human review is still required."
-                : "Run an evidence check to see exact spans and their supporting sources."}
-            </Empty>
-          ) : (
-            <div className="findings-list">
-              {item.findings.map((f: Row) => (
-                <article
-                  className={"finding " + (f.resolved ? "resolved" : "")}
-                  key={f.id}
-                >
-                  <div className="finding-top">
-                    <Badge
-                      value={
-                        f.resolved
-                          ? "Human resolved"
-                          : f.outcome === "Evidence Gap"
-                            ? "Evidence Gap · Unverified"
-                            : f.outcome
-                      }
-                    />
-                    <span>{f.rule_code}</span>
-                  </div>
-                  <h3>{f.title}</h3>
-                  {f.span && <blockquote>“{f.span}”</blockquote>}
-                  <p>{f.message}</p>
-                  {f.suggestion && (
-                    <div className="suggestion">
-                      <small>SUGGESTED CORRECTION</small>
-                      <span>{f.suggestion}</span>
-                      {canEdit && (
-                        <button
-                          onClick={() => {
-                            if (f.span && !body.includes(f.span)) {
-                              notify("This text changed. Run a fresh check.");
-                              return;
-                            }
-                            setBody(
-                              f.span
-                                ? body.replace(f.span, f.suggestion)
-                                : body + " " + f.suggestion,
-                            );
-                          }}
-                        >
-                          Use suggestion
-                          <ArrowUpRight size={13} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {f.evidence && (
-                    <button
-                      className="evidence-link"
-                      onClick={() =>
-                        setEvidence(evidence === f.id ? null : f.id)
-                      }
-                    >
-                      <BookOpen size={14} />
-                      {f.evidence.title} · v{f.evidence.version}
-                      <ChevronDown size={14} />
-                    </button>
-                  )}
-                  {evidence === f.id && f.evidence && (
-                    <div className="evidence-excerpt">
-                      <small>APPROVED EXCERPT</small>
-                      <p>{f.evidence.excerpt}</p>
-                      <span>Owner: {f.evidence.owner}</span>
-                    </div>
-                  )}
-                  {canReview &&
-                    f.outcome === "Low Confidence" &&
-                    !f.resolved && (
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          setModal({
-                            title: "Record your review decision",
-                            body: (
-                              <Form
-                                button="Resolve with reason"
-                                onSubmit={async (v) => {
-                                  const r = await action(
-                                    "/content/" + item.id + "/resolve",
-                                    "POST",
-                                    { finding_id: f.id, reason: v.reason },
-                                    "Human resolution recorded",
-                                  );
-                                  if (r) setModal(null);
-                                }}
-                              >
-                                <p className="form-note">
-                                  Confirm the evidence and applicability before
-                                  resolving uncertainty. Your reason is retained
-                                  in the audit trail.
-                                </p>
-                                <Field label="Evidence and reasoning">
-                                  <textarea
-                                    name="reason"
-                                    rows={4}
-                                    minLength={10}
-                                    required
-                                  />
-                                </Field>
-                              </Form>
-                            ),
-                          })
-                        }
-                      >
-                        Resolve with a reason
-                        <ArrowRight size={14} />
-                      </button>
-                    )}
-                </article>
-              ))}
-            </div>
-          )}
-          <div className="finding-foot">
-            <ShieldCheck size={15} />A citation establishes traceability, not
-            independent truth.
-          </div>
-        </aside>
-      </div>
-    </>
-  );
-}
-
 function Lineage({
   data,
   onOpen,
+  initialRule,
 }: {
   data: Data;
   onOpen: (id: string) => void;
+  initialRule?: string;
 }) {
-  const [ruleId, setRuleId] = useState(data.rules[0]?.id || "");
+  const [ruleId, setRuleId] = useState(initialRule || data.rules[0]?.id || "");
   const rule = data.rules.find((r) => r.id === ruleId),
     source = data.sources.find((s) => s.id === rule?.source_id),
     deps = data.dependencies.filter((d) => d.rule_id === ruleId),
@@ -2842,7 +2158,7 @@ function CampaignView({
                 <button
                   className="icon-button"
                   aria-label={"Open " + c.title}
-                  onClick={() => go("Content studio", c.id)}
+                  onClick={() => go("Scan & Detect", c.id)}
                 >
                   <ArrowUpRight size={17} />
                 </button>
@@ -2856,221 +2172,6 @@ function CampaignView({
     </>
   );
 }
-function ImpactLab({
-  data,
-  manager,
-  ruleForm,
-}: {
-  data: Data;
-  manager: boolean;
-  ruleForm: (r: Row) => void;
-}) {
-  const [result, setResult] = useState<any>(null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  return (
-    <div className="impact-layout">
-      <section className="panel settings-panel">
-        <span className="feature-icon">
-          <FlaskConical size={26} />
-        </span>
-        <h2>Try the change first.</h2>
-        <p className="muted">
-          Replay a proposed value against stored content. Live sources and
-          approval records stay unchanged.
-        </p>
-        <Form
-          button={busy ? "Replaying…" : "Preview impact"}
-          busy={busy}
-          onSubmit={async (v) => {
-            setBusy(true);
-            try {
-              setResult(await api("/impact", "POST", v));
-              setError("");
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Field label="Fact or policy to change">
-            <select name="rule_id">
-              {data.rules.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.code} · {r.title} ({r.value})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Proposed value">
-            <input name="value" placeholder="e.g. 599" required />
-          </Field>
-        </Form>
-        <div className="dry-note">
-          <LockKeyhole size={16} />
-          Dry run · nothing will be published
-        </div>
-        {error && <div className="error">{error}</div>}
-      </section>
-      <section className="panel impact-results">
-        <div className="panel-header">
-          <div>
-            <h2>Change impact</h2>
-            <p>
-              {result
-                ? `${result.rule}: ${result.from} → ${result.to}`
-                : "A safe place to ask “what if?”"}
-            </p>
-          </div>
-          {result && <Badge value="Dry run" />}
-        </div>
-        {!result ? (
-          <Empty icon={GitBranch} title="See the connections before committing">
-            Choose an approved value and preview which content depends on it.
-          </Empty>
-        ) : (
-          <>
-            <div className="impact-summary">
-              <strong>{result.affected.length}</strong>
-              <span>content items connected to this change</span>
-            </div>
-            {result.affected.map((c: Row) => (
-              <div className="task-row" key={c.id}>
-                <FileText size={19} />
-                <div>
-                  <h3>{c.title}</h3>
-                  <p>
-                    {c.channel} · {c.before} findings now → {c.after} after
-                    change
-                  </p>
-                </div>
-                <Badge value={c.status} />
-              </div>
-            ))}
-            <p className="form-note padded">
-              {result.message} To publish, update the approved source excerpt
-              and then revise its rule in the rulebook.
-            </p>
-            {manager && (
-              <div className="padded">
-                <button
-                  className="button"
-                  onClick={() => {
-                    const r = data.rules.find((r) => r.code === result.rule);
-                    if (r) ruleForm(r);
-                  }}
-                >
-                  Open rule editor
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-    </div>
-  );
-}
-function Learning({
-  data,
-  ruleForm,
-  manager,
-}: {
-  data: Data;
-  ruleForm: (r: Row) => void;
-  manager: boolean;
-}) {
-  const groups = data.rules.map((r) => ({
-    ...r,
-    decisions: data.decisions.filter((d) => d.rule_id === r.id),
-    findings: data.content.flatMap((c) =>
-      c.findings.filter((f: Row) => f.rule_id === r.id),
-    ),
-  }));
-  return (
-    <>
-      <div className="learning-intro">
-        <Sparkles size={28} />
-        <div>
-          <h2>Better rules begin with better questions.</h2>
-          <p>
-            Patterns below come from recorded findings and human decisions. They
-            describe rules, never score people.
-          </p>
-        </div>
-      </div>
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <h2>Rule health</h2>
-            <p>Review repeated uncertainty before proposing a clearer rule.</p>
-          </div>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>RULE</th>
-                <th>CURRENT FINDINGS</th>
-                <th>HUMAN RESOLUTIONS</th>
-                <th>NEXT STEP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <span className="rule-code">{r.code}</span>
-                    <b>{r.title}</b>
-                  </td>
-                  <td>{r.findings.length}</td>
-                  <td>{r.decisions.length}</td>
-                  <td>
-                    {r.decisions.length
-                      ? "Review the recorded reasons"
-                      : "Collect review decisions"}
-                    {manager && (
-                      <button
-                        className="text-button"
-                        onClick={() => ruleForm(r)}
-                      >
-                        Review rule
-                        <ArrowUpRight size={13} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>What reviewers recorded</h2>
-        </div>
-        {data.decisions.length ? (
-          data.decisions.map((d) => (
-            <div className="decision-row" key={d.id}>
-              <Badge value={d.outcome} />
-              <p>{d.reason}</p>
-              <small>
-                {d.actor} · {formatDate(d.created)}
-              </small>
-            </div>
-          ))
-        ) : (
-          <Empty icon={Sparkles} title="Let real decisions lead the way">
-            Human resolutions will appear here. No patterns or improvements have
-            been invented.
-          </Empty>
-        )}
-      </section>
-    </>
-  );
-}
-
 function DocumentImport({ onExtract }: { onExtract: (record: Row) => void }) {
   const [busy, setBusy] = useState(false),
     [ocr, setOcr] = useState(false),
