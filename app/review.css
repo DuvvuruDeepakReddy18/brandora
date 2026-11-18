@@ -2126,3 +2126,20 @@ mark.ev-hit {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.app-shell .judge-demo .story-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4c415f;
+  background: #faf8ff;
+  border: 1px solid #c9bddf;
+  border-radius: 20px;
+  min-height: 34px;
+  font-size: 11px;
+  padding: 7px 11px;
+  text-decoration: none;
+}
+.app-shell .judge-demo .story-link:hover {
+  border-color: var(--brand);
+  background: #e3dcfc;
+}

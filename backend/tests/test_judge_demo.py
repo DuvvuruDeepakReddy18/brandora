@@ -31,7 +31,7 @@ def test_public_demo_works_when_legacy_production_demo_is_disabled(monkeypatch):
     assert client.post('/api/auth/demo/manager').status_code==404
     assert state['user']['role']=='creator' and state['judge_demo']
     assert len(state['content'])==5 and len(state['approvals'])==1 and state['tasks']
-    assert state['judge_demo']['ai_limit']==12
+    assert state['judge_demo']['ai_limit']==demo.AI_LIMIT
     assert client.cookies.get('brandora_session') is None
     assert client.post('/api/demo/start').status_code==200
     assert client.get('/api/workspace').json()['workspace']['id']==state['workspace']['id']
@@ -109,13 +109,14 @@ def test_demo_ai_cap_is_shared_across_role_switches(monkeypatch):
     client,state=visitor();switch(client,'manager')
     monkeypatch.setattr(ai,'available',lambda:True)
     assert client.put('/api/settings',json={'ai_enabled':True}).status_code==200
-    with Session.begin() as db:db.add(Quota(id=f'ai:{state["workspace"]["id"]}:{main.limits.day()}',count=12))
+    with Session.begin() as db:db.add(Quota(id=f'ai:{state["workspace"]["id"]}:{main.limits.day()}',count=demo.AI_LIMIT))
     switch(client,'creator')
     response=client.post('/api/content/'+state['content'][0]['id']+'/scan')
-    assert response.status_code==429
+    # The cap holds: no provider call is made, rule checks still complete and the result says AI is incomplete.
+    assert response.status_code==200 and response.json()['scan_coverage'].startswith('AI incomplete: the daily AI request limit')
     switch(client,'reviewer')
-    assert client.get('/api/intelligence/status').json()['requests_today']==12
-    assert client.get('/api/intelligence/status').json()['daily_limit']==12
+    assert client.get('/api/intelligence/status').json()['requests_today']==demo.AI_LIMIT
+    assert client.get('/api/intelligence/status').json()['daily_limit']==demo.AI_LIMIT
 
 def test_creation_cap_disabled_flag_and_origin_protection(monkeypatch):
     client=TestClient(main.app)
@@ -131,11 +132,12 @@ def test_demo_global_ai_cap_survives_reset(monkeypatch):
     monkeypatch.setattr(ai,'available',lambda:True)
     client.put('/api/settings',json={'ai_enabled':True})
     with Session.begin() as db:db.add(Quota(id=f'ai:demo-global:{main.limits.day()}',count=demo.AI_GLOBAL_LIMIT))
-    assert client.post('/api/content/'+state['content'][0]['id']+'/scan').status_code==429
+    limited=client.post('/api/content/'+state['content'][0]['id']+'/scan')
+    assert limited.status_code==200 and 'daily AI request limit' in limited.json()['scan_coverage']
     assert client.post('/api/demo/reset').status_code==200
     assert client.post('/api/demo/start').status_code==200
     state=switch(client,'manager');client.put('/api/settings',json={'ai_enabled':True})
-    assert client.post('/api/content/'+state['content'][0]['id']+'/scan').status_code==429
+    assert 'daily AI request limit' in client.post('/api/content/'+state['content'][0]['id']+'/scan').json()['scan_coverage']
     owner=TestClient(main.app);owner.post('/api/auth/demo/manager')
     assert owner.get('/api/intelligence/status').json()['daily_limit']==main.AI_DAILY_LIMIT
 
@@ -147,3 +149,12 @@ def test_demo_action_cap_blocks_writes_but_not_reading():
     assert client.post('/api/demo/role',json={'role':'manager'}).status_code==429
     assert client.get('/api/workspace').status_code==200
     assert client.post('/api/demo/exit').status_code==200
+
+
+def test_demo_starts_with_live_ai_when_a_provider_is_configured(monkeypatch):
+    monkeypatch.setattr(ai,'available',lambda:True)
+    client,state=visitor()
+    assert state['workspace']['settings']['ai_enabled'] is True
+    # Samples are seeded with rule checks first, so starting a demo makes no provider call.
+    assert all(c['scan_coverage']=='Rules only' for c in state['content'])
+    assert any(a['action']=='Updated AI policy' for a in state['activity'])

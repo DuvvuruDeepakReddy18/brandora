@@ -152,15 +152,26 @@ def visual_findings(creative):
 def reserve_semantic(db,actor):
     """Reserve the text-review request before a handler writes, so quota commits never wait on its transaction."""
     if not db.get(Workspace,actor.org_id).settings.get('ai_enabled'):return False
-    reserve_ai(db,actor);return True
+    try:reserve_ai(db,actor)
+    except HTTPException as exc:
+        if exc.status_code==429:return 'limit'
+        raise
+    return True
+AI_LIMIT_COVERAGE="AI incomplete: the daily AI request limit has been reached. Rule checks completed; retry tomorrow or have a manager turn AI off."
 def run_scan(db,c,user,ai_reserved=False):
     rules=org_rules(db,user);sources=org_sources(db,user)
     findings,deps=scan(c.body,c.subject,c.channel,rules,sources)
     coverage='Rules only';hidden=0
     ws=db.get(Workspace,user.org_id)
     if ws.settings.get('ai_enabled'):
-        if not ai_reserved:reserve_ai(db,user)
-        extra,coverage,hidden=ai.semantic(c.body,c.subject,c.channel,rules,sources)
+        # A reached daily limit degrades to rule checks and an explicit incomplete label instead of failing the scan.
+        limited=ai_reserved=='limit'
+        if not ai_reserved:
+            try:reserve_ai(db,user)
+            except HTTPException as exc:
+                if exc.status_code!=429:raise
+                limited=True
+        extra,coverage,hidden=([],AI_LIMIT_COVERAGE,0) if limited else ai.semantic(c.body,c.subject,c.channel,rules,sources)
         findings.extend(extra)
         for f in extra:
             ev=f['evidence']
@@ -315,6 +326,10 @@ def demo_start(request:Request,response:Response,db=Depends(database)):
         judge_demo.cleanup_expired(db)
         ws=Workspace(name='Inkloom AI · Judge demo',settings={'ai_enabled':False});db.add(ws);db.flush()
         users=judge_demo.populate(db,ws)
+        if ai.available():
+            # Live AI is on by default in demos. Samples are seeded first with rule checks, so entry stays fast.
+            ws.settings={**ws.settings,'ai_enabled':True}
+            audit(db,db.get(User,users['manager']),'Updated AI policy',ws.name,{'ai_enabled':True,'demo_default':True})
         token=secrets.token_urlsafe(40)
         visit=DemoVisit(id=digest(token),org_id=ws.id,users=users,active_role='creator',expires=(datetime.now(timezone.utc)+timedelta(hours=judge_demo.HOURS)).isoformat());db.add(visit);db.flush()
     response.set_cookie(judge_demo.COOKIE,token,httponly=True,secure=PRODUCTION,samesite='lax',max_age=judge_demo.HOURS*3600,path='/')

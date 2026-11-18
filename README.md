@@ -4,16 +4,24 @@
 
 Marketing teams publish ads with wrong prices, outdated trial periods, unsupported "No. 1" claims and the wrong logo. Brandora checks every ad, image, PDF or piece of copy against the company's **own approved records**, **marks each problem directly on the content** with its evidence, lets a **human reviewer decide**, helps **fix and re-check** it, **approves one exact version**, and keeps a **complete audit trail**. When an approved fact changes later, it finds every piece of content that relied on it.
 
+## Start with the one-minute product story
+
+Open the live app and, before anything else, press **Watch the crew work** under the headline. The landing page then plays itself from top to bottom: the four-robot Brand Crew, the camera flight over the island, the shelf of case files, the ink reveal of each corrected campaign, the asset workflows and the audit trail. It ends on **Explore demo**. Scroll, click or press any key to take over at any point. Prefer to scroll yourself? Just scroll to the end.
+
+Direct link that auto-plays the story: https://brandora-omega-three.vercel.app/brand-crew/index.html?tour=1 (it is also available inside the app as **Watch the product story**).
+
+![The Brandora landing page with the Brand Crew island, the headline and the Watch the crew work button](docs/landing-story.jpg)
+
+## Then try the product in three minutes (no login, no setup)
+
 ![An employee-submitted ad with six numbered findings marked on it, next to the evidence panel](docs/annotated-review.jpg)
 
-## Try it in three minutes (no login, no setup)
-
-1. Open the live app and choose **Explore demo**. You get a private, temporary copy of the fictional company **Inkloom AI**. It opens on an employee-submitted ad with **six numbered marks**.
+1. Press **Explore demo** at the end of the story (or in the top bar). You get a private, temporary copy of the fictional company **Inkloom AI**. It opens on an employee-submitted ad with **six numbered marks**.
 2. **Click any mark.** The right panel shows the submitted text next to the approved company record, the exact source excerpt and version, the confidence and the next step. A connector line links the mark to its explanation.
 3. **Decide as a reviewer:** switch to *Reviewer* in the demo bar and confirm, reject, request evidence or escalate. Every decision needs a reason and is logged.
 4. **Fix and approve:** switch to *Creator* → **Fix & approve** → **Apply all suggestions** → **Save corrected version & re-check** (it comes back clean) → **Request review**. Switch to *Reviewer* → **Approve this exact version**. Open **Original vs corrected** to see both side by side.
 5. **Change a fact:** switch to *Manager* → **Impact Monitor** → change the free trial from 14 to 7 days → *Preview impact* → *Publish change*. The old version is kept and every linked item, including approved ones, is flagged for reassessment.
-6. **Scan new content:** open **Scan & Detect** and press **Use this sample** on the *Festive offer brochure* (PDF) or *Partner social caption* (text). Both work with AI off and each card says what Brandora should find. With AI on (Manager → **Trust & Audit → Privacy & AI**), the *Wrong ad* and *Corrected ad* images are read by live OCR and logo comparison instead of sample data.
+6. **Scan new content:** open **Scan & Detect** and press **Use this sample**. The *Festive offer brochure* (PDF) and *Partner social caption* (text) are checked on the server, and each card says what Brandora should find. Live AI (Gemini) is **on by default** in the demo, so the *Wrong ad* and *Corrected ad* images are read by real OCR and logo comparison, and **Re-read with live AI** works on the sample ad straight away. A manager can turn AI off in **Trust & Audit → Privacy & AI**.
 
 The demo bar explains what the current person can and cannot do, ticks off the six guided steps as you complete them (including a Partner step that shows campaign isolation), offers a **Next** button, and has a **More to explore** row that jumps to every other feature (Company Hub records, importing a sample policy document, resolving a source conflict, tracing a fact, logos and colour checks, team and roles, audit trail, review report, translation). Wherever a role cannot do something, the screen says why and offers a one-click switch to the right person.
 
@@ -23,8 +31,8 @@ The demo bar explains what the current person can and cannot do, ticks off the s
 |---|---|---|---|
 | `brochure.pdf` | Scan & Detect | No | Wrong Starter price (₹799 vs ₹999), 30-day trial, "fastest" and "10,000+ teams" flagged for review; Professional price verified |
 | `social-post.txt` | Scan & Detect | No | Wrong product name "Ink Loom", ₹1,499 and 30 days contradicted, GST note to review, "best tool" flagged |
-| `creative.png` | Scan & Detect | Yes | The six problems in the sample ad, read by live OCR and logo comparison |
-| `corrected-creative.png` | Scan & Detect, or *Upload revised creative* in Fix & approve | Yes | Approved logo and correct copy; comes back clean with verified values |
+| `creative.png` | Scan & Detect | Yes (on by default) | The six problems in the sample ad, read by live OCR and logo comparison |
+| `corrected-creative.png` | Scan & Detect, or *Upload revised creative* in Fix & approve | Yes (on by default) | Approved logo and correct copy; comes back clean with verified values |
 | `billing-policy.txt` | Company Hub → Import document | No | Extracted text you check and register as a new approved source |
 | `scanned-source.pdf` | Company Hub → Import document (AI OCR) | Yes | The pricing policy transcribed from an image-only PDF |
 
@@ -67,7 +75,7 @@ Colours are consistent everywhere: **red** = confirmed contradiction or visual v
 - One-time owner setup (secret code), then the manager creates accounts with roles: **manager** (Company Hub, settings), **creator** (drafts and uploads), **reviewer** (decisions and approval), **partner** (only assigned campaigns).
 - Every query is scoped to the organisation on the server; partners are restricted to assigned campaigns by the API, not just hidden in the UI.
 - Uploaded creatives are stored privately with their content version for review and audit; deleting content removes them while keeping receipt hashes and audit metadata.
-- Limits: 3 MB uploads; images up to 8 megapixels; 30 AI requests per workspace per day (12 per demo session).
+- Limits: 3 MB uploads; images up to 8 megapixels; 30 AI requests per workspace per day (30 per demo session). If a daily limit or the provider stops the AI part of a check, the rule checks still complete and the result is marked *AI incomplete* with a **Retry check** button; approval waits for a complete check or for a manager to turn AI off.
 
 ## Architecture
 

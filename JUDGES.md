@@ -1,6 +1,10 @@
 # Evaluating Brandora
 
-Open https://brandora-omega-three.vercel.app and choose **Explore demo**. No email, password, setup code or API key is needed. If you are already signed in, use **Explore a separate demo**.
+Open https://brandora-omega-three.vercel.app.
+
+**First, about one minute:** press **Watch the crew work** under the headline. The landing page plays itself through the whole product story and stops on **Explore demo**. Scroll, click or press a key to take over. Auto-playing link: https://brandora-omega-three.vercel.app/brand-crew/index.html?tour=1
+
+**Then** choose **Explore demo**. No email, password, setup code or API key is needed. Live AI is on by default. If you are already signed in, use **Explore a separate demo**. Inside the app, **Watch the product story** in the demo bar replays the landing page in a new tab.
 
 Every browser gets its own temporary copy of **Inkloom AI**, a fictional B2B creative-workflow SaaS company. The demo opens directly on an employee-submitted advertisement with six problems marked on it.
 
@@ -19,7 +23,7 @@ The demo bar at the top switches between four teammates: creator, reviewer, mana
 2. **Decide (Reviewer).** Confirm the price finding with a reason. Mark the GST note as verified, or reject it with a reason. Request evidence for the 80% claim, which creates an owned task in Verify & Review. Try to reject a confirmed contradiction: it is refused, because it comes from an approved record.
 3. **Fix and approve (Creator, then Reviewer).** In **Fix & approve**, choose **Apply all suggestions**. The suggestions use approved values and approved-claim rewrites. Then **Save corrected version & re-check**: version 2 comes back clean, with green verified values. Choose **Request review**, switch to Reviewer and **Approve this exact version**. A receipt with a SHA-256 hash is issued. **Original vs corrected** shows version 1 with its marks next to the approved version 2.
 4. **Change a fact (Manager).** Open **Impact Monitor**, choose *Free trial*, enter 7, preview the impact, then publish. A new source version is created, the old one is kept, and every linked item is flagged for reassessment, with previously approved items marked High priority. Open a flagged item and choose **Re-check now** to see the new contradiction.
-5. **Live AI (Manager).** In **Trust & Audit → Privacy & AI**, enable AI. Then either click **Re-read with live AI** on the sample ad, or download the sample ad from the demo bar and upload it, or any creative, in **Scan & Detect**. Those findings come from real OCR and logo comparison. If the provider fails, the screen says so and nothing is saved.
+5. **Live AI (on by default).** Click **Re-read with live AI** on the sample ad, or use the wrong or corrected ad image in **Scan & Detect**, or upload any creative. Those findings come from real OCR and logo comparison. If the provider fails, the screen says so and nothing is saved; if a daily limit is reached, rule checks still run and the result is marked *AI incomplete* with **Retry check**. A manager can turn AI off in **Trust & Audit → Privacy & AI**.
 6. **Partner scope (Partner).** The partner sees only the assigned campaign. Internal content is hidden by the API.
 7. **Scan your own or sample content (Creator).** In **Scan & Detect**, press **Use this sample** on the brochure PDF or the social caption. Both work without AI, and each card says what should be found. With AI on, try the wrong or corrected ad images. You can also download any sample from the demo bar and drag it in.
 
@@ -36,5 +40,5 @@ The demo bar shows what the current person can and cannot do, ticks off each wal
 ## Demo limits
 
 - Sessions expire after two hours, and each visitor's data is isolated.
-- Each demo session has 12 AI requests per UTC day and 250 write actions. All demos share a daily AI cap. Session creation is rate-limited per client.
-- Use fictional data. Material is sent to the AI provider only after a manager enables AI and an AI feature is used.
+- Each demo session has 30 AI requests per UTC day and 250 write actions. All demos share a daily AI cap. Session creation is rate-limited per client.
+- Use fictional data. Live AI is on by default in demos, so uploaded images and checked text are sent to the configured provider (Gemini) when you scan. A manager can turn it off.

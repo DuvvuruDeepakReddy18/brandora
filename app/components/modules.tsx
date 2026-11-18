@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { Stage } from "./review-workspace";
 import { SwitchRole, sampleFile, useDemo } from "./demo-context";
+import { STORY_URL } from "./demo-tour";
 import {
   Action,
   Data,
@@ -176,6 +177,9 @@ export function HomeDashboard({ data, go, crew }: { data: Data; go: Go; crew: Re
               <button className="button primary" onClick={() => go("Scan & Detect", ad.id)}>
                 Open the marked-up ad <ArrowRight size={16} />
               </button>
+              <a className="button" href={STORY_URL} target="_blank" rel="noopener">
+                Watch the product story
+              </a>
               <span className={"status-pill s-" + ad.status.toLowerCase().replace(/\s+/g, "-")}>Now: {ad.status} · v{ad.version}</span>
             </div>
           </div>
@@ -421,7 +425,7 @@ export function ScanDetect({
         </p>
         <ul>
           <li><b>PDF, DOCX, TXT</b> or pasted text are read on the server and work with AI off.</li>
-          <li><b>Images</b> (PNG, JPEG, WebP) are read with AI OCR and logo comparison{data.user.role === "manager" ? "" : " — a manager turns AI on"}.</li>
+          <li><b>Images</b> (PNG, JPEG, WebP) are read with AI OCR and logo comparison{aiOn ? " (AI is on in this workspace)" : " — a manager turns AI on"}.</li>
         </ul>
       </div>
       {demo.active && (

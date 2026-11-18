@@ -8,8 +8,8 @@ from .models import *
 
 ENABLED=os.getenv('BRANDORA_EXPLORE_DEMO','1')=='1'
 HOURS=2
-AI_LIMIT=12
-AI_GLOBAL_LIMIT=int(os.getenv('BRANDORA_DEMO_AI_GLOBAL_LIMIT','80'))
+AI_LIMIT=30
+AI_GLOBAL_LIMIT=int(os.getenv('BRANDORA_DEMO_AI_GLOBAL_LIMIT','200'))
 ROLES=('creator','reviewer','manager','partner')
 COOKIE='brandora_demo_session'
 MODE='brandora_demo_mode'

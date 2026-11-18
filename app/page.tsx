@@ -618,7 +618,7 @@ export default function App() {
         impact: data.activity.some((a) =>
           ["Updated approved rule", "Published source version"].includes(a.action),
         ),
-        ai: !!data.workspace.settings.ai_enabled,
+        ai: data.creatives.some((c) => c.origin === "ai"),
         partner: !!seen.partner,
       }
     : {};
@@ -1145,10 +1145,11 @@ export default function App() {
               progress={tourProgress}
               onExplore={explore}
               onStep={async (step: TourStep) => {
+                const aiOn = !!data.workspace.settings.ai_enabled;
                 const role =
                   step === "review"
                     ? "reviewer"
-                    : step === "impact" || step === "ai"
+                    : step === "impact" || (step === "ai" && !aiOn)
                       ? "manager"
                       : step === "partner"
                         ? "partner"
@@ -1158,7 +1159,7 @@ export default function App() {
                 if (step === "review") go("Verify & Review", fixtureAd?.id || null, "review");
                 if (step === "fix") go("Fix & Approve", fixtureAd?.id || null, "fix");
                 if (step === "impact") go("Impact Monitor");
-                if (step === "ai") data.workspace.settings.ai_enabled ? go("Scan & Detect") : openSettings();
+                if (step === "ai") aiOn ? go("Scan & Detect") : openSettings();
                 if (step === "partner") {
                   go("Scan & Detect");
                   notify("Jordan sees only Spring launch content. The internal Asset Vault page is not returned by the server.");

@@ -6,8 +6,11 @@ import {
   Download,
   FlaskConical,
   LogOut,
+  PlayCircle,
   RotateCcw,
 } from "lucide-react";
+
+export const STORY_URL = "/brand-crew/index.html?tour=1";
 
 export type TourStep = "inspect" | "review" | "fix" | "impact" | "ai" | "partner";
 export type ExploreKey =
@@ -91,9 +94,9 @@ export const STEPS: { key: TourStep; title: string; as: string; text: string; ct
   {
     key: "ai",
     title: "Try live AI on an image",
-    as: "manager",
-    text: "Turn AI on, then use the sample ad images in Scan & Detect, or “Re-read with live AI” on the ad. Findings then come from real OCR and logo comparison.",
-    cta: "Turn AI on",
+    as: "creator",
+    text: "Live AI is on in this demo. In Scan & Detect, use the wrong or corrected ad image, or press “Re-read with live AI” on the ad. Findings then come from real OCR and logo comparison.",
+    cta: "Try an image",
   },
   {
     key: "partner",
@@ -155,6 +158,10 @@ export function DemoTour(props: Props) {
           ))}
         </div>
         <div className="judge-demo-actions">
+          <a className="story-link" href={STORY_URL} target="_blank" rel="noopener" title="Opens the landing page in a new tab and auto-plays it">
+            <PlayCircle size={14} />
+            Watch the product story
+          </a>
           <button disabled={props.busy} onClick={props.onReset}>
             <RotateCcw size={14} />
             Reset
@@ -203,12 +210,12 @@ export function DemoTour(props: Props) {
                 <b>{s.title}</b>
                 <small>as {s.as}</small>
                 <p>
-                  {s.key === "ai" && props.aiEnabled
-                    ? "AI is on. Use the sample ad images in Scan & Detect, or “Re-read with live AI” on the ad."
+                  {s.key === "ai" && !props.aiEnabled
+                    ? "A manager turned AI off. Switch to Manager and turn it back on in Trust & Audit → Privacy & AI, then use the sample ad images in Scan & Detect."
                     : s.text}
                 </p>
                 <button disabled={props.busy} onClick={() => props.onStep(s.key)}>
-                  {s.key === "ai" && props.aiEnabled ? "Try an image" : s.cta} <ArrowRight size={13} />
+                  {s.key === "ai" && !props.aiEnabled ? "Turn AI on" : s.cta} <ArrowRight size={13} />
                 </button>
               </div>
             );
@@ -243,7 +250,7 @@ export function DemoTour(props: Props) {
           ))}
         </div>
         <p className="judge-demo-footnote">
-          Live AI is capped at {props.aiLimit} requests per session per day and only runs after a manager turns it on. Reset gives you a fresh copy at any time.
+          Live AI (Gemini) is {props.aiEnabled ? "on" : "off"} in this demo and capped at {props.aiLimit} requests per session per day; a manager can switch it in Trust &amp; Audit. If the cap or the provider stops a check, rule checks still run and the screen says AI is incomplete. Reset gives you a fresh copy at any time.
         </p>
       </details>
     </section>

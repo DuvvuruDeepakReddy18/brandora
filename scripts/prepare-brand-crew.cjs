@@ -28,6 +28,67 @@ once("Start with the guided walkthrough, or prepare a demo-request file to share
 once("The claim checker on this standalone page runs locally in your browser. It does not upload your input or call an AI service. All campaigns, reviewer identities and performance figures shown here are fictional examples.", "The illustrative claim checker on this page runs locally and does not send your text to AI. The real workspace has separate accounts, scoped evidence, human approval and opt-in AI. The campaigns, reviewers, approvals and performance figures in this introduction are fictional examples.");
 once("      function frame(ms) {", '      function frame(ms) {\n        if (document.documentElement.dataset.hostModal === "true") {\n          last = ms;\n          rafId = requestAnimationFrame(frame);\n          return;\n        }');
 once("          s?.renderer.dispose();", "          s?.scene.traverse((object) => {\n            object.geometry?.dispose();\n            const materials = Array.isArray(object.material) ? object.material : [object.material];\n            for (const material of materials) {\n              if (!material) continue;\n              for (const value of Object.values(material)) if (value?.isTexture) value.dispose();\n              material.dispose();\n            }\n          });\n          s?.renderer.dispose();\n          s?.renderer.forceContextLoss();");
+// "Watch the crew work" becomes a full guided tour: one click glides through the whole
+// story to the final call to action, and any scroll, click or key press hands control back.
+once('id="watch-crew"', 'id="watch-crew" title="Auto-plays the whole story. Scroll, click or press any key to stop."');
+once('$("#watch-crew").onclick = () => goTo("world", 0.27, 1.8);', `let touring = false, tourPill = null;
+      const tourStops = ["wheel", "touchstart", "pointerdown", "keydown"];
+      function stopTour(finished = false) {
+        if (!touring) return;
+        touring = false;
+        tourStops.forEach((type) => window.removeEventListener(type, interruptTour, true));
+        if (lenis && !finished) { lenis.stop(); lenis.start(); }
+        tourPill?.remove();
+        tourPill = null;
+        if (finished) {
+          // Layout uses viewport units; realign if the window changed size during the tour.
+          const top = sectionEls.contact.getBoundingClientRect().top + scrollY;
+          if (lenis && Math.abs(top - scrollY) > 40) lenis.scrollTo(top, { duration: 1.2 });
+          const cta = $("#contact [data-demo]");
+          cta?.classList.add("tour-arrived");
+          setTimeout(() => cta?.classList.remove("tour-arrived"), 6000);
+        }
+      }
+      function interruptTour() { stopTour(false); }
+      function startTour() {
+        const target = sectionEls.contact;
+        if (!target) return goTo("world", 0.27, 1.8);
+        const end = target.getBoundingClientRect().top + scrollY;
+        if (!lenis || reduce) return goTo(target);
+        lenis.resize?.();
+        touring = true;
+        tourPill = document.createElement("div");
+        tourPill.className = "crew-tour-pill";
+        tourPill.setAttribute("role", "status");
+        tourPill.textContent = "Guided tour playing · scroll, click or press any key to stop";
+        document.body.append(tourPill);
+        const distance = Math.max(0, end - scrollY);
+        const duration = Math.min(95, Math.max(8, distance / (H * 0.42)));
+        lenis.scrollTo(end, {
+          duration,
+          lock: false,
+          easing: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+          onComplete: () => stopTour(true),
+        });
+        // Listeners attach after this click finishes, so the starting click does not stop the tour.
+        setTimeout(() => tourStops.forEach((type) => window.addEventListener(type, interruptTour, { capture: true, passive: true })), 0);
+      }
+      $("#watch-crew").onclick = () => startTour();
+      if (new URLSearchParams(location.search).get("tour") === "1") {
+        // Linked tours start from the top once the intro has played and the layout is measured.
+        if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+        const begin = performance.now();
+        const ready = () => {
+          const settled = lenis && performance.now() - begin > 3800 && document.documentElement.scrollHeight > innerHeight * 4;
+          if (settled || performance.now() - begin > 15000) {
+            lenis?.resize?.();
+            if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+            else window.scrollTo(0, 0);
+            setTimeout(startTour, 200);
+          } else setTimeout(ready, 250);
+        };
+        ready();
+      }`);
 const destination = path.join(root, "public/brand-crew/index.html");
 if (process.argv.includes("--check")) {
   if (!fs.existsSync(destination) || fs.readFileSync(destination, "utf8") !== html) throw new Error("Generated Brand Crew entry is stale. Run node scripts/prepare-brand-crew.cjs.");
