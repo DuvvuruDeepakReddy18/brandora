@@ -13,7 +13,20 @@ Marketing teams publish ads with wrong prices, outdated trial periods, unsupport
 3. **Decide as a reviewer:** switch to *Reviewer* in the demo bar and confirm, reject, request evidence or escalate. Every decision needs a reason and is logged.
 4. **Fix and approve:** switch to *Creator* → **Fix & approve** → **Apply all suggestions** → **Save corrected version & re-check** (it comes back clean) → **Request review**. Switch to *Reviewer* → **Approve this exact version**. Open **Original vs corrected** to see both side by side.
 5. **Change a fact:** switch to *Manager* → **Impact Monitor** → change the free trial from 14 to 7 days → *Preview impact* → *Publish change*. The old version is kept and every linked item, including approved ones, is flagged for reassessment.
-6. **Try your own content:** as Manager, enable AI in **Trust & Audit → Privacy & AI**, then upload the sample ad (download link in the demo bar) or any creative in **Scan & Detect**. Those findings come from live OCR and logo comparison, not sample data.
+6. **Scan new content:** open **Scan & Detect** and press **Use this sample** on the *Festive offer brochure* (PDF) or *Partner social caption* (text). Both work with AI off and each card says what Brandora should find. With AI on (Manager → **Trust & Audit → Privacy & AI**), the *Wrong ad* and *Corrected ad* images are read by live OCR and logo comparison instead of sample data.
+
+The demo bar explains what the current person can and cannot do, ticks off the six guided steps as you complete them (including a Partner step that shows campaign isolation), offers a **Next** button, and has a **More to explore** row that jumps to every other feature (Company Hub records, importing a sample policy document, resolving a source conflict, tracing a fact, logos and colour checks, team and roles, audit trail, review report, translation). Wherever a role cannot do something, the screen says why and offers a one-click switch to the right person.
+
+## Sample files (download from the demo bar or use them in place)
+
+| File | Use it in | Needs AI | What Brandora should find |
+|---|---|---|---|
+| `brochure.pdf` | Scan & Detect | No | Wrong Starter price (₹799 vs ₹999), 30-day trial, "fastest" and "10,000+ teams" flagged for review; Professional price verified |
+| `social-post.txt` | Scan & Detect | No | Wrong product name "Ink Loom", ₹1,499 and 30 days contradicted, GST note to review, "best tool" flagged |
+| `creative.png` | Scan & Detect | Yes | The six problems in the sample ad, read by live OCR and logo comparison |
+| `corrected-creative.png` | Scan & Detect, or *Upload revised creative* in Fix & approve | Yes | Approved logo and correct copy; comes back clean with verified values |
+| `billing-policy.txt` | Company Hub → Import document | No | Extracted text you check and register as a new approved source |
+| `scanned-source.pdf` | Company Hub → Import document (AI OCR) | Yes | The pricing policy transcribed from an image-only PDF |
 
 ## What is wrong in the sample ad, and how Brandora classifies it
 
@@ -75,7 +88,7 @@ npm run typecheck
 npm run build
 ```
 
-62 backend tests cover: the six sample findings and their evidence, Indian-format and plan-specific prices, typographic quotes, corrections clearing findings, reviewer-decision rules (authors cannot decide, contradictions cannot be dismissed), visual violations, dynamic creative scanning with a mocked provider, provider failure saving nothing, organisation isolation, self-approval prevention, stale scans, source-change invalidation and demo sandbox limits. Tests never call an external model.
+63 backend tests cover: the sample files scanning without AI, the six sample findings and their evidence, Indian-format and plan-specific prices, typographic quotes, corrections clearing findings, reviewer-decision rules (authors cannot decide, contradictions cannot be dismissed), visual violations, dynamic creative scanning with a mocked provider, provider failure saving nothing, organisation isolation, self-approval prevention, stale scans, source-change invalidation and demo sandbox limits. Tests never call an external model.
 
 Run locally: `.\Start-Brandora.ps1`, then open http://127.0.0.1:3200 and choose **Explore demo**. Set `GEMINI_API_KEY` in the API process to enable AI features (see `.env.example`).
 

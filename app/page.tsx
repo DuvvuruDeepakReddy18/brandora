@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { DemoTour } from "./components/demo-tour";
+import { DemoTour, type ExploreKey, type TourStep } from "./components/demo-tour";
+import { DemoContext, SwitchRole, sampleFile, useDemo } from "./components/demo-context";
 import { WorkspaceCrew } from "./components/workspace-crew";
 import { LandingPage } from "./components/brand-crew-landing";
 import { AIStatus } from "./components/intelligence";
@@ -104,6 +105,36 @@ const HUB_TABS = [
 ] as const;
 const TRUST_TABS = ["Audit trail", "Approval receipts", "Privacy & AI"] as const;
 const ITEM_VIEWS: View[] = ["Scan & Detect", "Verify & Review", "Fix & Approve"];
+const RULE_TEMPLATES = {
+  term: {
+    value: "Inkloom AI",
+    config: { variants: ["Ink Loom", "InkloomAI"] },
+    help: "Product name: the approved spelling is the value; wrong spellings listed under variants are flagged as contradictions.",
+  },
+  number: {
+    value: "999",
+    config: { metric: "price", plan: "Starter", qualifier: "GST", qualifier_review: true, qualifier_text: "+ GST" },
+    help: "Price or trial length: set metric to price or trial. Plan limits it to sentences naming that plan. A qualifier is text the price must carry; qualifier_review makes a missing one a reviewer decision instead of a contradiction.",
+  },
+  required: {
+    value: "Terms apply.",
+    config: { trigger: "free trial" },
+    help: "Required wording: whenever the trigger text appears, the value must appear too (for example a disclaimer).",
+  },
+  banned: {
+    value: "guaranteed results",
+    config: { replacement: "measurable results" },
+    help: "Prohibited wording: the value is flagged wherever it appears, with an optional approved replacement.",
+  },
+  substantiation: {
+    value: "Approved study required",
+    config: {
+      unsupported_terms: ["fastest creative platform in India"],
+      replacements: { "fastest creative platform in India": "a creative workspace built for fast-moving teams" },
+    },
+    help: "Unsupported claim: each listed claim is marked as an evidence gap (unverified, not false), with an optional approved rewrite.",
+  },
+} as const;
 function Badge({ value }: { value: string }) {
   const tone =
     /Contradiction|Gap|Unverified|changes|reassessment|conflict|withdrawn/i.test(
@@ -226,6 +257,7 @@ export default function App() {
     [trustTab, setTrustTab] = useState<(typeof TRUST_TABS)[number]>("Audit trail"),
     [auditQuery, setAuditQuery] = useState(""),
     [lineageRule, setLineageRule] = useState<string | null>(null),
+    [seen, setSeen] = useState<{ inspect?: boolean; partner?: boolean }>({}),
     [selected, setSelected] = useState<string | null>(null),
     [modal, setModal] = useState<Modal>(null),
     [toast, setToast] = useState(""),
@@ -240,6 +272,26 @@ export default function App() {
     [setupRequired, setSetupRequired] = useState(false),
     [signup, setSignup] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Remember walkthrough steps that leave no server record (viewing the ad, viewing as partner).
+  useEffect(() => {
+    if (!data?.judge_demo) return;
+    const key = "brandora-tour-" + data.workspace.id;
+    let stored: { inspect?: boolean; partner?: boolean } = {};
+    try {
+      stored = JSON.parse(sessionStorage.getItem(key) || "{}");
+    } catch {}
+    const fixture = data.content.find((c) =>
+      data.creatives?.some((x) => x.content_id === c.id && x.origin === "fixture"),
+    );
+    const next = {
+      inspect: stored.inspect || seen.inspect || (!!fixture && selected === fixture.id),
+      partner: stored.partner || seen.partner || data.user.role === "partner",
+    };
+    if (next.inspect !== !!seen.inspect || next.partner !== !!seen.partner) setSeen(next);
+    try {
+      sessionStorage.setItem(key, JSON.stringify(next));
+    } catch {}
+  }, [data, selected]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const media = window.matchMedia("(max-width:760px)");
     const update = () => setNarrow(media.matches);
@@ -553,6 +605,78 @@ export default function App() {
     setTrustTab("Privacy & AI");
     go("Trust & Audit");
   };
+  const fixtureAd = data.content.find((c) =>
+    data.creatives?.some((x) => x.content_id === c.id && x.origin === "fixture"),
+  );
+  const tourProgress: Partial<Record<TourStep, boolean>> = data.judge_demo
+    ? {
+        inspect: !!seen.inspect,
+        review:
+          !!fixtureAd &&
+          data.decisions.some((d) => d.content_id === fixtureAd.id && d.outcome !== "Comment"),
+        fix: !!fixtureAd && data.approvals.some((a) => a.content_id === fixtureAd.id && a.version >= 2),
+        impact: data.activity.some((a) =>
+          ["Updated approved rule", "Published source version"].includes(a.action),
+        ),
+        ai: !!data.workspace.settings.ai_enabled,
+        partner: !!seen.partner,
+      }
+    : {};
+  const openImport = () =>
+    setModal({
+      title: "Import an official document",
+      body: (
+        <DocumentImport
+          onExtract={(r) =>
+            sourceForm({
+              ...r,
+              id: "",
+              code: "",
+              owner: data.user.name,
+              status: "approved",
+              review_date: "",
+            })
+          }
+        />
+      ),
+    });
+  const explore = async (key: ExploreKey) => {
+    const need: Partial<Record<ExploreKey, string>> = {
+      import: "manager",
+      conflicts: "manager",
+      team: "manager",
+      samples: "creator",
+      translate: "creator",
+    };
+    if (need[key] && data.user.role !== need[key] && !(await changeDemoRole(need[key]!))) return;
+    const hub = (t: (typeof HUB_TABS)[number]) => {
+      setHubTab(t);
+      go("Company Hub");
+    };
+    if (key === "samples") go("Scan & Detect");
+    if (key === "hub") hub("Sources & facts");
+    if (key === "import") {
+      hub("Sources & facts");
+      setTimeout(openImport, 60);
+    }
+    if (key === "conflicts") hub("Source conflicts");
+    if (key === "lineage") hub("Claim lineage");
+    if (key === "logos") hub("Brand assets");
+    if (key === "team") hub("Team & roles");
+    if (key === "audit") {
+      setTrustTab("Audit trail");
+      go("Trust & Audit");
+    }
+    if (key === "report") {
+      go("Scan & Detect", fixtureAd?.id || null, "review");
+      notify("Use “Download report” above the ad to save an annotated HTML review.");
+    }
+    if (key === "translate") {
+      const draft = data.content.find((c) => c.title === "Welcome email") || fixtureAd;
+      go("Fix & Approve", draft?.id || null, "fix");
+      notify("Open “Translate this version (AI)” at the bottom of the draft panel. It needs AI turned on.");
+    }
+  };
   const sourceForm = (source?: Row) =>
     setModal({
       title: source?.id
@@ -665,7 +789,20 @@ export default function App() {
             </select>
           </Field>
           <Field label="Rule type">
-            <select name="kind" defaultValue={rule?.kind || "term"}>
+            <select
+              name="kind"
+              defaultValue={rule?.kind || "term"}
+              onChange={(e) => {
+                const form = e.currentTarget.form;
+                const kind = e.currentTarget.value as keyof typeof RULE_TEMPLATES;
+                const config = form?.elements.namedItem("config") as HTMLTextAreaElement | null;
+                const value = form?.elements.namedItem("value") as HTMLInputElement | null;
+                const help = form?.querySelector("[data-rule-help]");
+                if (config) config.value = JSON.stringify(RULE_TEMPLATES[kind].config, null, 2);
+                if (value && !rule) value.placeholder = RULE_TEMPLATES[kind].value;
+                if (help) help.textContent = RULE_TEMPLATES[kind].help;
+              }}
+            >
               {["term", "number", "required", "banned", "substantiation"].map(
                 (k) => (
                   <option key={k}>{k}</option>
@@ -674,7 +811,12 @@ export default function App() {
             </select>
           </Field>
           <Field label="Approved value / required text">
-            <input name="value" defaultValue={rule?.value} required />
+            <input
+              name="value"
+              defaultValue={rule?.value}
+              placeholder={RULE_TEMPLATES[(rule?.kind || "term") as keyof typeof RULE_TEMPLATES].value}
+              required
+            />
           </Field>
           <Field label="Matching configuration (JSON)">
             <textarea
@@ -682,18 +824,19 @@ export default function App() {
               name="config"
               rows={4}
               defaultValue={JSON.stringify(
-                rule?.config || { variants: [] },
+                rule?.config || RULE_TEMPLATES.term.config,
                 null,
                 2,
               )}
               required
             />
           </Field>
+          <p className="form-note rule-help" data-rule-help>
+            {RULE_TEMPLATES[(rule?.kind || "term") as keyof typeof RULE_TEMPLATES].help}
+          </p>
           <p className="form-note">
-            Number: metric “price” or “trial”, optional plan, qualifier and
-            qualifier_review. Term: variants. Substantiation: unsupported_terms
-            and optional replacements (approved rewrites). Optional channels
-            limits scope.
+            Choosing a rule type fills in a working example. Edit the words in
+            quotes; the approved value must also appear in the source excerpt.
           </p>
         </Form>
       ),
@@ -763,6 +906,9 @@ export default function App() {
       .includes(auditQuery.toLowerCase()),
   );
   return (
+    <DemoContext.Provider
+      value={{ active: !!data.judge_demo, role: data.user.role, switchRole: changeDemoRole }}
+    >
     <div className="app-shell" data-view={view}>
       <a href="#main" className="skip-link">
         Skip to content
@@ -996,20 +1142,27 @@ export default function App() {
                   ),
                 })
               }
-              onStep={async (step) => {
-                const ad = data.content.find((c) =>
-                  data.creatives?.some(
-                    (x) => x.content_id === c.id && x.origin === "fixture",
-                  ),
-                );
+              progress={tourProgress}
+              onExplore={explore}
+              onStep={async (step: TourStep) => {
                 const role =
-                  step === "review" ? "reviewer" : step === "impact" || step === "ai" ? "manager" : "creator";
+                  step === "review"
+                    ? "reviewer"
+                    : step === "impact" || step === "ai"
+                      ? "manager"
+                      : step === "partner"
+                        ? "partner"
+                        : "creator";
                 if (data.user.role !== role && !(await changeDemoRole(role))) return;
-                if (step === "inspect") go("Scan & Detect", ad?.id || null, "review");
-                if (step === "review") go("Verify & Review", ad?.id || null, "review");
-                if (step === "fix") go("Fix & Approve", ad?.id || null, "fix");
+                if (step === "inspect") go("Scan & Detect", fixtureAd?.id || null, "review");
+                if (step === "review") go("Verify & Review", fixtureAd?.id || null, "review");
+                if (step === "fix") go("Fix & Approve", fixtureAd?.id || null, "fix");
                 if (step === "impact") go("Impact Monitor");
-                if (step === "ai") openSettings();
+                if (step === "ai") data.workspace.settings.ai_enabled ? go("Scan & Detect") : openSettings();
+                if (step === "partner") {
+                  go("Scan & Detect");
+                  notify("Jordan sees only Spring launch content. The internal Asset Vault page is not returned by the server.");
+                }
               }}
             />
           ) : (
@@ -1105,6 +1258,13 @@ export default function App() {
           )}
           {view === "Company Hub" && (
             <>
+              {!manager && (
+                <div className="inline-warn hub-note">
+                  <BookOpen size={15} />
+                  <span>You can browse Company Hub. Only managers add or change approved records, logos and team members.</span>
+                  <SwitchRole role="manager" />
+                </div>
+              )}
               <div className="module-tabs" role="tablist">
                 {HUB_TABS.map((t) => (
                   <button
@@ -1127,28 +1287,7 @@ export default function App() {
                     </div>
                     {manager && (
                       <div className="editor-actions" style={{ marginTop: 0 }}>
-                        <button
-                          className="button"
-                          onClick={() =>
-                            setModal({
-                              title: "Import an official document",
-                              body: (
-                                <DocumentImport
-                                  onExtract={(r) =>
-                                    sourceForm({
-                                      ...r,
-                                      id: "",
-                                      code: "",
-                                      owner: data.user.name,
-                                      status: "approved",
-                                      review_date: "",
-                                    })
-                                  }
-                                />
-                              ),
-                            })
-                          }
-                        >
+                        <button className="button" onClick={openImport}>
                           <Upload size={16} />
                           Import document
                         </button>
@@ -1449,7 +1588,11 @@ export default function App() {
                 </>
               )}
               {hubTab === "Source conflicts" && (
-                <ConflictView reloadKey={data.workspace.revision} />
+                <ConflictView
+                  reloadKey={data.workspace.revision}
+                  manager={manager}
+                  onOpenSources={() => setHubTab("Sources & facts")}
+                />
               )}
               {hubTab === "Claim lineage" && (
                 <Lineage
@@ -1626,7 +1769,7 @@ export default function App() {
                       </div>
                       {!manager && (
                         <p className="form-note">
-                          Only managers change this{data.judge_demo ? " — switch to Manager in the demo bar" : ""}.
+                          Only managers change this. <SwitchRole role="manager" />
                         </p>
                       )}
                       <ul className="privacy-list">
@@ -1746,6 +1889,7 @@ export default function App() {
         </div>
       )}
     </div>
+    </DemoContext.Provider>
   );
 }
 
@@ -1856,7 +2000,15 @@ function Lineage({
     </section>
   );
 }
-function ConflictView({ reloadKey }: { reloadKey: number }) {
+function ConflictView({
+  reloadKey,
+  manager,
+  onOpenSources,
+}: {
+  reloadKey: number;
+  manager: boolean;
+  onOpenSources: () => void;
+}) {
   const [rows, setRows] = useState<Row[] | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -1900,9 +2052,18 @@ function ConflictView({ reloadKey }: { reloadKey: number }) {
               ))}
             </div>
             <p>
-              Ask the source owner to withdraw or correct the outdated value.
-              Content stays uncertain until the conflict is resolved.
+              While approved sources disagree, Brandora makes no factual verdict
+              on content that uses this value. To resolve it, a manager opens the
+              outdated price sheet in Sources &amp; facts, sets its status to
+              Withdrawn and publishes. Linked content is then re-checked.
             </p>
+            {manager ? (
+              <button className="button small" onClick={onOpenSources}>
+                Open Sources &amp; facts
+              </button>
+            ) : (
+              <SwitchRole role="manager" label="Switch to Manager to resolve it" />
+            )}
           </div>
         ))
       )}
@@ -1914,6 +2075,20 @@ function VisualChecks() {
     [palette, setPalette] = useState<any>(null),
     [error, setError] = useState(""),
     [uploading, setUploading] = useState(false);
+  const demo = useDemo();
+  const inspect = async (file: File) => {
+    setUploading(true);
+    setError("");
+    const f = new FormData();
+    f.append("file", file);
+    try {
+      setPalette(await api("/visual/image", "POST", f));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
   return (
     <div className="settings-grid">
       <section className="panel settings-panel">
@@ -1934,22 +2109,20 @@ function VisualChecks() {
             type="file"
             accept="image/png,image/jpeg"
             disabled={uploading}
-            onChange={async (e) => {
-              if (!e.target.files?.[0]) return;
-              setUploading(true);
-              setError("");
-              const f = new FormData();
-              f.append("file", e.target.files[0]);
-              try {
-                setPalette(await api("/visual/image", "POST", f));
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setUploading(false);
-              }
+            onChange={(e) => {
+              if (e.target.files?.[0]) inspect(e.target.files[0]);
             }}
           />
         </label>
+        {demo.active && (
+          <button
+            className="text-button"
+            disabled={uploading}
+            onClick={async () => inspect(await sampleFile("creative.png", "image/png"))}
+          >
+            Try it with the sample ad (no AI needed)
+          </button>
+        )}
         {palette && (
           <>
             <div className="palette">
@@ -2177,8 +2350,48 @@ function DocumentImport({ onExtract }: { onExtract: (record: Row) => void }) {
     [ocr, setOcr] = useState(false),
     [extracted, setExtracted] = useState<Row | null>(null),
     [error, setError] = useState("");
+  const demo = useDemo();
+  const extract = async (file: File, useOcr: boolean) => {
+    setBusy(true);
+    setError("");
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      setExtracted(await api(useOcr ? "/sources/ocr" : "/sources/extract", "POST", body));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div>
+      {demo.active && (
+        <div className="import-samples">
+          <b>Try a sample document</b>
+          <button
+            className="button small"
+            disabled={busy}
+            onClick={async () => {
+              setOcr(false);
+              extract(await sampleFile("billing-policy.txt", "text/plain"), false);
+            }}
+          >
+            Billing policy (text, no AI)
+          </button>
+          <button
+            className="button small"
+            disabled={busy}
+            onClick={async () => {
+              setOcr(true);
+              extract(await sampleFile("scanned-source.pdf", "application/pdf"), true);
+            }}
+          >
+            Scanned pricing policy (AI OCR)
+          </button>
+          <small>The text is extracted for you to check, then becomes an approved, versioned source when you register it.</small>
+        </div>
+      )}
       <p className="form-note">
         Extract text from a PDF, DOCX, TXT or Markdown file, then review it
         before approval. Maximum 3 MB, 20 PDF pages and 12,000 extracted
@@ -2206,25 +2419,8 @@ function DocumentImport({ onExtract }: { onExtract: (record: Row) => void }) {
           accept={ocr ? ".pdf,.png,.jpg,.jpeg,.webp" : ".pdf,.docx,.txt,.md"}
           aria-label="Document to extract"
           disabled={busy}
-          onChange={async (e) => {
-            if (!e.target.files?.[0]) return;
-            setBusy(true);
-            setError("");
-            const body = new FormData();
-            body.append("file", e.target.files[0]);
-            try {
-              setExtracted(
-                await api(
-                  ocr ? "/sources/ocr" : "/sources/extract",
-                  "POST",
-                  body,
-                ),
-              );
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
+          onChange={(e) => {
+            if (e.target.files?.[0]) extract(e.target.files[0], ocr);
           }}
         />
       </label>

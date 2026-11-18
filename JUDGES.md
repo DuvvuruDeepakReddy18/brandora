@@ -21,6 +21,9 @@ The demo bar at the top switches between four teammates: creator, reviewer, mana
 4. **Change a fact (Manager).** Open **Impact Monitor**, choose *Free trial*, enter 7, preview the impact, then publish. A new source version is created, the old one is kept, and every linked item is flagged for reassessment, with previously approved items marked High priority. Open a flagged item and choose **Re-check now** to see the new contradiction.
 5. **Live AI (Manager).** In **Trust & Audit → Privacy & AI**, enable AI. Then either click **Re-read with live AI** on the sample ad, or download the sample ad from the demo bar and upload it, or any creative, in **Scan & Detect**. Those findings come from real OCR and logo comparison. If the provider fails, the screen says so and nothing is saved.
 6. **Partner scope (Partner).** The partner sees only the assigned campaign. Internal content is hidden by the API.
+7. **Scan your own or sample content (Creator).** In **Scan & Detect**, press **Use this sample** on the brochure PDF or the social caption. Both work without AI, and each card says what should be found. With AI on, try the wrong or corrected ad images. You can also download any sample from the demo bar and drag it in.
+
+The demo bar shows what the current person can and cannot do, ticks off each walkthrough step, and offers **Next**. **More to explore** jumps to every other feature: Company Hub records, importing a sample policy document, resolving the Asset Vault source conflict, claim lineage, logos and colour checks, team and roles, the audit trail, the review report and translation. Wherever a role cannot do something, the screen explains why and offers a one-click switch to the right person.
 
 **Reset** starts a fresh demo. **Leave** returns to the sign-in page, or to your own workspace if you were signed in.
 

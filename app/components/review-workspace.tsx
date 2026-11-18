@@ -35,6 +35,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { TranslationPanel } from "./intelligence";
+import { SwitchRole, useDemo } from "./demo-context";
 import {
   Action,
   Data,
@@ -606,7 +607,7 @@ function FindingCard({
           </div>
           {!reviewerRole && !f.resolved && (
             <p className="decision-note">
-              Reviewers and managers record decisions{data.judge_demo ? " — switch to Reviewer in the demo bar to try it" : ""}.
+              Reviewers and managers record decisions. <SwitchRole role="reviewer" />
             </p>
           )}
           {reviewerRole && isAuthor && !f.resolved && (
@@ -876,6 +877,7 @@ export function ReviewWorkspace({
   const awaiting = unresolved.filter((f) => !f.review);
   // A check is current only for this exact text and the latest Company Hub revision.
   const stale = !item.scan_hash || item.scan_revision !== data.workspace.revision || item.status === "Draft";
+  const aiIncomplete = !stale && String(item.scan_coverage || "").startsWith("AI incomplete");
   const canEdit =
     data.user.role === "manager" ||
     (["creator", "partner"].includes(data.user.role) && item.author_id === data.user.id);
@@ -966,10 +968,12 @@ export function ReviewWorkspace({
         <div className="inline-warn">
           <AlertTriangle size={15} />
           {rereadError}
-          {data.user.role === "manager" && (
+          {data.user.role === "manager" ? (
             <button className="text-button" onClick={onSettings}>
               Open settings <ArrowRight size={13} />
             </button>
+          ) : (
+            <SwitchRole role="manager" label="Switch to Manager to enable AI" />
           )}
         </div>
       )}
@@ -984,6 +988,30 @@ export function ReviewWorkspace({
           </li>
         ))}
       </ol>
+      {aiIncomplete && (
+        <div className="inline-warn ai-retry">
+          <AlertTriangle size={15} />
+          <span>
+            <b>The AI part of this check did not finish</b> (the provider was busy or unavailable). Rule checks completed, but approval stays blocked until a complete check.
+          </span>
+          {data.user.role !== "partner" && (
+            <button
+              className="button small"
+              disabled={busy}
+              onClick={() => action(`/content/${item.id}/scan`, "POST", undefined, "Check re-run")}
+            >
+              Retry check
+            </button>
+          )}
+          {data.user.role === "manager" ? (
+            <button className="text-button" onClick={onSettings}>
+              Or turn AI off
+            </button>
+          ) : (
+            <SwitchRole role="manager" label="Manager can turn AI off" />
+          )}
+        </div>
+      )}
       <div className="stage-tabs" role="tablist">
         {(
           [
@@ -1248,6 +1276,7 @@ function FixStage({
     [edits, setEdits] = useState<Record<string, string>>({}),
     [done, setDone] = useState<Record<string, "applied" | "skipped">>({}),
     [celebrate, setCelebrate] = useState(false);
+  const demo = useDemo();
   const fixable = numbered.filter((f) => !f.resolved);
   const dirty = draft !== item.body;
   const isAuthor = [item.author_id, item.last_editor_id].includes(data.user.id),
@@ -1325,6 +1354,7 @@ function FixStage({
     { ok: scanned && allResolved, label: allResolved ? "Every finding fixed or resolved" : `${numbered.filter((f) => !f.resolved).length} finding(s) still open` },
     { ok: ["In review", "Approved"].includes(item.status), label: "Review requested by the author" },
     { ok: item.status === "Approved" || canApprove, label: "Independent reviewer (not the author or last editor)" },
+    ...(String(item.scan_coverage || "").startsWith("AI incomplete") ? [{ ok: false, label: "AI check incomplete: retry the check" }] : []),
   ];
   const fromCreative = !!(creative || original);
   return (
@@ -1367,11 +1397,18 @@ function FixStage({
                         <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={busy} onChange={(e) => e.target.files?.[0] && uploadRevision(e.target.files[0])} />
                       </label>
                     )}
+                    {demo.active && (
+                      <a className="text-button" href="/api/demo/assets/corrected-creative.png" download>
+                        Download a corrected sample ad to upload
+                      </a>
+                    )}
                     {!data.workspace.settings.ai_enabled && (
                       <p className="form-note">
                         Reading a revised image needs live AI.{" "}
-                        {data.user.role === "manager" && (
+                        {data.user.role === "manager" ? (
                           <button className="text-button" onClick={onSettings}>Enable it</button>
+                        ) : (
+                          <SwitchRole role="manager" label="Switch to Manager to enable it" />
                         )}
                       </p>
                     )}
@@ -1455,7 +1492,11 @@ function FixStage({
               )}
             </div>
           )}
-          {!canEdit && <p className="form-note">Only the author or a manager edits this draft. Reviewers decide on findings and approval.</p>}
+          {!canEdit && (
+            <p className="form-note">
+              Only the author or a manager edits this draft. Reviewers decide on findings and approval. <SwitchRole role="creator" />
+            </p>
+          )}
         </div>
         <div className="approval-box">
           <h3>Approval</h3>
@@ -1504,8 +1545,15 @@ function FixStage({
               <AlertTriangle size={14} /> Approval stays blocked until every finding is fixed or resolved with a reason.
             </p>
           )}
-          {item.status !== "Approved" && data.user.role === "creator" && item.status === "In review" && data.judge_demo && (
-            <p className="form-note">Switch to Reviewer in the demo bar to approve.</p>
+          {item.status === "In review" && !canApprove && (
+            <p className="form-note">
+              An independent reviewer approves this version. <SwitchRole role="reviewer" />
+            </p>
+          )}
+          {item.status !== "In review" && item.status !== "Approved" && !canEdit && scanned && allResolved && (
+            <p className="form-note">
+              The author requests review first. <SwitchRole role="creator" />
+            </p>
           )}
           <p className="form-note">
             Approval locks this exact version (SHA-256) with the evidence used. It does not publish anything; distribution is a separate, authorised step.

@@ -69,7 +69,7 @@ def conflict_key(rule):
     cfg=rule.config or {}
     return (rule.subject,cfg.get('metric'),cfg.get('qualifier',''),cfg.get('plan',''))
 
-CLAIM=re.compile(r"\b(?:guarantee\w*|fastest|best|leading|No\.\s?1\b|number one)\b|#1\b|\b\d+(?:\.\d+)?\s?%|\b\d+\s?x\s+(?:faster|more|better)\b",re.I)
+CLAIM=re.compile(r"\b(?:guarantee\w*|fastest|best|leading|No\.\s?1\b|number one)\b|#1\b|\b\d+(?:\.\d+)?\s?%|\b\d+\s?x\s+(?:faster|more|better)\b|\b\d{1,3}(?:,\d{2,3})+\+|\b\d+\+(?=\s)",re.I)
 
 def scan(text,subject,channel,rules,sources,hypothetical=()):
     findings=[]; dependencies={}; mapped_guarantees=[]

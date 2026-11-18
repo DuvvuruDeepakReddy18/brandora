@@ -23,6 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Stage } from "./review-workspace";
+import { SwitchRole, sampleFile, useDemo } from "./demo-context";
 import {
   Action,
   Data,
@@ -219,6 +220,43 @@ export function HomeDashboard({ data, go, crew }: { data: Data; go: Go; crew: Re
 }
 
 /* ---------- Scan & Detect ---------- */
+const SAMPLES = [
+  {
+    file: "brochure.pdf",
+    type: "application/pdf",
+    title: "Festive offer brochure",
+    channel: "Website",
+    kind: "PDF · works without AI",
+    expect: "Wrong Starter price and trial length; “fastest” and “10,000+ teams” flagged for review; the Professional price shows as verified.",
+  },
+  {
+    file: "social-post.txt",
+    type: "text/plain",
+    title: "Partner social caption",
+    channel: "Social",
+    kind: "Text file · works without AI",
+    expect: "Wrong product name (“Ink Loom”), wrong price and trial, a GST note to review and an unsupported “best tool” claim.",
+  },
+  {
+    file: "creative.png",
+    type: "image/png",
+    title: "Wrong ad image",
+    channel: "Advertisement",
+    kind: "Image · needs live AI",
+    expect: "Gemini reads the image and compares the logo; the same six problems are marked from real OCR, not sample data.",
+  },
+  {
+    file: "corrected-creative.png",
+    type: "image/png",
+    title: "Corrected ad image",
+    channel: "Advertisement",
+    kind: "Image · needs live AI",
+    expect: "Approved logo and correct copy: should come back clean, with the price and trial verified in green.",
+  },
+];
+const SAMPLE_TEXT =
+  "Inkloom AI is India's leading creative platform. Get the Starter plan for ₹799/month and try it free for 30 days. Over 5,000+ agencies switched last year.";
+
 const PHASES_IMAGE = ["File validated", "Text read with OCR", "Logo compared with approved reference", "Claims compared with Company Hub", "Findings marked on the creative"];
 const PHASES_DOC = ["File validated", "Text extracted", "Claims compared with Company Hub", "Findings marked on the text"];
 
@@ -242,8 +280,14 @@ export function ScanDetect({
     [phase, setPhase] = useState<"idle" | "running" | "done" | "failed">("idle"),
     [error, setError] = useState(""),
     [result, setResult] = useState<Row | null>(null),
-    [title, setTitle] = useState("");
+    [title, setTitle] = useState(""),
+    [channel, setChannel] = useState("Advertisement"),
+    [text, setText] = useState(""),
+    [loadingSample, setLoadingSample] = useState(""),
+    [sampleNote, setSampleNote] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const demo = useDemo();
   const subject = data.rules[0]?.subject || data.workspace.name.replace(/ · Judge demo$/, "");
   const isImage = !!file && /\.(png|jpe?g|webp)$/i.test(file.name);
   const aiOn = !!data.workspace.settings.ai_enabled;
@@ -269,6 +313,23 @@ export function ScanDetect({
     setError("");
     setResult(null);
     if (!title) setTitle(f.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").slice(0, 100));
+  };
+  const loadSample = async (sample: (typeof SAMPLES)[number]) => {
+    setLoadingSample(sample.file);
+    try {
+      const f = await sampleFile(sample.file, sample.type);
+      setMode("file");
+      choose(f);
+      setTitle(sample.title);
+      setChannel(sample.channel);
+      setSampleNote(`Expected: ${sample.expect}`);
+      requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (e) {
+      setError((e as Error).message);
+      setPhase("failed");
+    } finally {
+      setLoadingSample("");
+    }
   };
   const submitFile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -331,7 +392,7 @@ export function ScanDetect({
         </label>
         <label className="field">
           <span>Channel</span>
-          <select name="channel" defaultValue="Advertisement">
+          <select name="channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
             {["Advertisement", "Social", "Website", "Email"].map((c) => (
               <option key={c}>{c}</option>
             ))}
@@ -345,12 +406,48 @@ export function ScanDetect({
       <section className="panel">
         <div className="empty-mini">
           <p>Reviewers inspect and decide on content. Creators, partners and managers upload it.</p>
+          <SwitchRole role="creator" label="Switch to Creator (Alex) to upload" />
         </div>
         <RecentScans recent={recent} data={data} open={open} />
       </section>
     );
   return (
-    <div className="scan-grid">
+    <>
+    <section className="scan-intro">
+      <div>
+        <h2>What do I upload here?</h2>
+        <p>
+          Anything someone in the company wants to publish: an ad image, a social post, a brochure PDF, email or web copy. Brandora compares it with the approved records in Company Hub and marks what is wrong, unsupported or needs a human decision.
+        </p>
+        <ul>
+          <li><b>PDF, DOCX, TXT</b> or pasted text are read on the server and work with AI off.</li>
+          <li><b>Images</b> (PNG, JPEG, WebP) are read with AI OCR and logo comparison{data.user.role === "manager" ? "" : " — a manager turns AI on"}.</li>
+        </ul>
+      </div>
+      {demo.active && (
+        <div className="sample-grid">
+          {SAMPLES.map((sample) => {
+            const needsAI = sample.type.startsWith("image/");
+            return (
+              <article key={sample.file} className={"sample-card" + (needsAI && !aiOn ? " needs-ai" : "")}>
+                <span className={"sample-kind" + (needsAI ? " ai" : "")}>{sample.kind}</span>
+                <b>{sample.title}</b>
+                <p>{sample.expect}</p>
+                <div>
+                  <button className="button small primary" disabled={!!loadingSample || phase === "running"} onClick={() => loadSample(sample)}>
+                    {loadingSample === sample.file ? "Loading…" : "Use this sample"}
+                  </button>
+                  <a className="text-button" href={`/api/demo/assets/${sample.file}`} download>
+                    <Download size={13} /> Download
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+    <div className="scan-grid" ref={formRef}>
       <section className="panel scan-panel">
         <div className="stage-tabs inline" role="tablist">
           <button role="tab" aria-selected={mode === "file"} className={mode === "file" ? "active" : ""} onClick={() => { setMode("file"); setPhase("idle"); }}>
@@ -406,16 +503,19 @@ export function ScanDetect({
                   Reading text from images uses AI, which is switched off in this workspace.
                   {data.user.role === "manager" ? " Enable it, or paste the text instead." : " Ask a manager to enable it, or paste the text instead."}
                 </span>
-                {data.user.role === "manager" && (
+                {data.user.role === "manager" ? (
                   <button type="button" className="text-button" onClick={onSettings}>
                     Enable AI
                   </button>
+                ) : (
+                  <SwitchRole role="manager" label="Switch to Manager to enable AI" />
                 )}
                 <button type="button" className="text-button" onClick={() => setMode("text")}>
                   Paste text
                 </button>
               </div>
             )}
+            {sampleNote && file && <p className="sample-expect">{sampleNote}</p>}
             {fields}
             {isImage && logos.length > 0 && (
               <fieldset className="logo-options compact">
@@ -447,8 +547,13 @@ export function ScanDetect({
             <input type="hidden" name="language" value="en" />
             <label className="field">
               <span>Content</span>
-              <textarea name="body" rows={7} maxLength={5000} required placeholder="Paste the ad copy, post, email or page text…" />
+              <textarea name="body" rows={7} maxLength={5000} required value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the ad copy, post, email or page text…" />
             </label>
+            {demo.active && !text && (
+              <button type="button" className="text-button" onClick={() => { setText(SAMPLE_TEXT); setTitle("Agency email draft"); setChannel("Email"); }}>
+                Insert sample text (wrong price, wrong trial, two unsupported claims)
+              </button>
+            )}
             <button className="button primary" disabled={phase === "running"}>
               <ScanLine size={16} /> {phase === "running" ? "Checking…" : "Check against Company Hub"}
             </button>
@@ -505,30 +610,10 @@ export function ScanDetect({
             </div>
           )}
         </section>
-        {data.judge_demo && (
-          <section className="panel sample-files">
-            <div className="panel-header">
-              <div>
-                <h2>Try your own upload</h2>
-                <p>Download the sample ad, then upload it here with live AI to see findings generated from OCR instead of sample layout data.</p>
-              </div>
-            </div>
-            <div className="sample-links">
-              {[
-                ["creative.png", "Wrong Inkloom AI ad"],
-                ["logo.png", "Approved logo"],
-                ["scanned-source.pdf", "Scanned pricing policy"],
-              ].map(([f, label]) => (
-                <a key={f} href={`/api/demo/assets/${f}`} download>
-                  <Download size={13} /> {label}
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
         <RecentScans recent={recent} data={data} open={open} />
       </aside>
     </div>
+    </>
   );
 }
 function RecentScans({ recent, data, open }: { recent: Row[]; data: Data; open: (id: string) => void }) {
@@ -589,7 +674,11 @@ export function VerifyQueue({ data, go, action }: { data: Data; go: Go; action: 
             return n ? `${n} decision${n === 1 ? "" : "s"} needed` : c.status === "In review" ? "Approval" : "—";
           }}
         />
-        {!reviewer && <p className="form-note padded">Decisions are recorded by reviewers and managers{data.judge_demo ? ". Switch role in the demo bar." : "."}</p>}
+        {!reviewer && (
+          <p className="form-note padded">
+            Decisions are recorded by reviewers and managers. <SwitchRole role="reviewer" />
+          </p>
+        )}
       </section>
       <section className="panel">
         <div className="panel-header">
@@ -622,6 +711,7 @@ export function VerifyQueue({ data, go, action }: { data: Data; go: Go; action: 
                   <button
                     className="icon-button"
                     aria-label="Close resolved task"
+                    title="Close this task. Brandora refuses while the evidence gap is still in the content."
                     onClick={() => action("/tasks/" + t.id + "/close", "POST", undefined, "Task closed")}
                   >
                     <Check size={16} />
@@ -859,7 +949,9 @@ export function ImpactMonitor({
                     <GitBranch size={15} /> Publish change
                   </button>
                 ) : (
-                  <span className="form-note">Only managers publish fact changes{data.judge_demo ? " — switch to Manager in the demo bar" : ""}.</span>
+                  <span className="form-note">
+                    Only managers publish fact changes. <SwitchRole role="manager" />
+                  </span>
                 )}
               </div>
               {error && <p className="error">{error}</p>}
@@ -1030,6 +1122,11 @@ export function LogoRegister({ manager }: { manager: boolean }) {
         ))}
         {!logos.length && <p className="muted">No approved logo yet.</p>}
       </div>
+      {!manager && (
+        <p className="form-note padded">
+          Managers register and withdraw approved logos. <SwitchRole role="manager" />
+        </p>
+      )}
       {manager && (
         <form
           className="form padded logo-form"

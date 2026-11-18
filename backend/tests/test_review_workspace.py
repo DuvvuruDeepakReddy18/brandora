@@ -161,3 +161,20 @@ def test_rule_configuration_for_plans_and_rewrites_is_validated():
     assert client.post('/api/rules',json={**base,'config':{'unsupported_terms':['x'],'replacements':['not a map']}}).status_code==422
     assert client.post('/api/rules',json={**base,'config':{'unsupported_terms':['fastest launch'],'replacements':{'fastest launch':'a faster launch workflow'}}}).status_code==200
     assert client.post('/api/rules',json={**base,'code':'X2','kind':'number','value':'1999','config':{'metric':'price','qualifier_review':'yes'}}).status_code==422
+
+def test_sample_files_scan_without_ai_and_explain_themselves():
+    client,state=visitor();camp=state['campaigns'][0]['id']
+    for name in ('brochure.pdf','social-post.txt','corrected-creative.png','billing-policy.txt','creative.png','logo.png'):
+        assert client.get('/api/demo/assets/'+name).status_code==200,name
+    brochure=client.get('/api/demo/assets/brochure.pdf').content
+    r=client.post('/api/scan/upload',data={'title':'Festive brochure','campaign_id':camp,'subject':'Inkloom AI','channel':'Website'},files={'file':('brochure.pdf',brochure,'application/pdf')})
+    assert r.status_code==200,r.text
+    found={(f['rule_code'],f['outcome']) for f in r.json()['findings']}
+    assert {('P01','Verified Contradiction'),('F02','Verified Contradiction'),('REVIEW','Low Confidence')}<=found
+    assert any('10,000+' in f['span'] for f in r.json()['findings'])
+    social=client.get('/api/demo/assets/social-post.txt').content
+    r=client.post('/api/scan/upload',data={'title':'Partner caption','campaign_id':camp,'subject':'Inkloom AI','channel':'Social'},files={'file':('social-post.txt',social,'text/plain')})
+    assert r.status_code==200 and {('T01','Verified Contradiction'),('P02','Verified Contradiction'),('F02','Verified Contradiction')}<={(f['rule_code'],f['outcome']) for f in r.json()['findings']}
+    switch(client,'manager')
+    policy=client.post('/api/sources/extract',files={'file':('billing-policy.txt',client.get('/api/demo/assets/billing-policy.txt').content,'text/plain')})
+    assert policy.status_code==200 and 'Refunds are available within 7 days' in policy.json()['excerpt']
