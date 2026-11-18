@@ -1,23 +1,37 @@
-# Evaluate Brandora
+# Evaluating Brandora
 
-Open https://brandora-omega-three.vercel.app and choose **Explore demo**. No email, password, setup code or API key is required. If you are already signed in, use **Explore a separate demo**.
+Open https://brandora-omega-three.vercel.app and choose **Explore demo**. No email, password, setup code or API key is needed. If you are already signed in, use **Explore a separate demo**.
 
-Every browser gets its own temporary HarborDesk workspace. Fictional sources, six rules, five drafts, a source conflict, an evidence gap, a historical approval receipt and an approved logo are included. The demo starts with deterministic checking; live Gemini tools are available after you enable AI.
+Every browser gets its own temporary copy of **Inkloom AI**, a fictional B2B creative-workflow SaaS company. The demo opens directly on an employee-submitted advertisement with six problems marked on it.
 
-## Suggested walkthrough
+## The sample company's approved records (Company Hub)
 
-1. **Creator:** open **Launch announcement**. Replace the message with: `Meet HarborDesk. Try it free for 14 days. Plans start at INR 499/month, billed annually.` Choose **Save & check**, then **Request review**.
-2. **Reviewer:** switch using the demo controls. Open the draft in **Review desk**, inspect its evidence and approve the exact version. The creator cannot approve their own draft. **Time machine** shows the resulting receipt.
-3. **Manager:** inspect **Rulebook & sources**, **Source conflicts**, **Claim DNA** and **Impact lab**. A source change invalidates connected approvals; hypothetical replay does not change live records. Partner workspace permits member and campaign-assignment experiments inside this demo only.
-4. **Partner:** inspect the assigned campaign. The internal brand-strategy campaign is hidden by API authorization.
-5. **AI:** choose **Set up live AI** in the walkthrough, then enable it in **Privacy & settings**. Translate a saved draft in **Content studio**; the result saves separately and requires language review by another role. Download the creative and scanned PDF from the walkthrough. In **Visual checks**, select the preloaded approved logo and upload the creative for OCR/logo comparison. Import the scanned PDF through the source OCR workflow as manager. All outputs are actual provider responses and need human review.
+- Starter ₹999/month · Professional ₹1,999/month · Enterprise custom pricing · prices exclude GST · free trial 14 days
+- Approved claims: helps marketing teams organise creative workflows; a central workspace for campaign content; supports collaborative content review
+- No approved evidence for "the world's No. 1 creative platform" or "reduce marketing production time by 80%"
+- Approved logo: violet ink-drop mark with the dark "Inkloom AI" wordmark
 
-**Reset samples** starts a fresh demo. **Leave demo** returns to your existing signed-in workspace, or to the sign-in page for an anonymous visitor. Switching roles is an evaluation simulation of separate teammates; normal workspaces retain separate credentials.
+## Walkthrough (about five minutes)
 
-## Demo boundaries
+The demo bar at the top switches between four teammates: creator, reviewer, manager and partner. Permissions are enforced by the API for each role.
 
-- Sessions expire after two hours. Expired demo data is removed in bounded batches when new demos are opened; expiry blocks access immediately. Resets remove the requesting demo's data immediately.
-- Each demo has 12 AI requests per UTC day and 250 write actions. All demos share an 80-request daily AI cap, within the application's existing global cap. Session creation is capped at 12 per client address per hour and 200 per day across the app. Provider quota or availability can also limit calls. No result is fabricated when a provider fails.
-- Use fictional data. AI sends selected material to the configured provider only after it is enabled and invoked. Demo account emails are converted into internal fictional addresses; demo credentials cannot log into the normal application.
-- The owner's accounts, content, provider settings and session cookie are not copied into demo workspaces. Only server-side provider configuration is shared; demo limits apply separately.
-- `BRANDORA_EXPLORE_DEMO=0` disables new and existing demo access without changing normal authentication. The legacy development-only demo login remains disabled in production.
+1. **See the marks (Creator).** The ad shows six numbered marks: wrong logo (red, dashed), two evidence gaps (orange), wrong trial length and wrong price (red), and a GST note to review (yellow). Click a mark or a card to see the submitted content next to the approved record, the exact source excerpt and version, the confidence and the next step. Use the filters (Critical, Evidence gaps, Needs review, Visual) and **Hide annotations**. **Download report** saves an annotated HTML review.
+2. **Decide (Reviewer).** Confirm the price finding with a reason. Mark the GST note as verified, or reject it with a reason. Request evidence for the 80% claim, which creates an owned task in Verify & Review. Try to reject a confirmed contradiction: it is refused, because it comes from an approved record.
+3. **Fix and approve (Creator, then Reviewer).** In **Fix & approve**, choose **Apply all suggestions**. The suggestions use approved values and approved-claim rewrites. Then **Save corrected version & re-check**: version 2 comes back clean, with green verified values. Choose **Request review**, switch to Reviewer and **Approve this exact version**. A receipt with a SHA-256 hash is issued. **Original vs corrected** shows version 1 with its marks next to the approved version 2.
+4. **Change a fact (Manager).** Open **Impact Monitor**, choose *Free trial*, enter 7, preview the impact, then publish. A new source version is created, the old one is kept, and every linked item is flagged for reassessment, with previously approved items marked High priority. Open a flagged item and choose **Re-check now** to see the new contradiction.
+5. **Live AI (Manager).** In **Trust & Audit → Privacy & AI**, enable AI. Then either click **Re-read with live AI** on the sample ad, or download the sample ad from the demo bar and upload it, or any creative, in **Scan & Detect**. Those findings come from real OCR and logo comparison. If the provider fails, the screen says so and nothing is saved.
+6. **Partner scope (Partner).** The partner sees only the assigned campaign. Internal content is hidden by the API.
+
+**Reset** starts a fresh demo. **Leave** returns to the sign-in page, or to your own workspace if you were signed in.
+
+## What is real and what is sample data
+
+- Text findings in the sample ad are produced by the live rule engine against the Company Hub records above.
+- The text positions on the sample image and its logo finding are predefined sample data. They are labelled **DEMO SAMPLE** in the interface. **Re-read with live AI** replaces them with real OCR output as a new version.
+- Everything you upload or paste is analysed dynamically. Nothing is hardcoded to Inkloom AI.
+
+## Demo limits
+
+- Sessions expire after two hours, and each visitor's data is isolated.
+- Each demo session has 12 AI requests per UTC day and 250 write actions. All demos share a daily AI cap. Session creation is rate-limited per client.
+- Use fictional data. Material is sent to the AI provider only after a manager enables AI and an AI feature is used.

@@ -4,7 +4,7 @@ Target: the authenticated owner's new private Brandora GitHub repository and Ver
 
 Published: https://brandora-omega-three.vercel.app
 
-Repository: https://github.com/DuvvuruDeepakReddy18/brandora (private).
+Repository: https://github.com/DuvvuruDeepakReddy18/brandora (public).
 
 The current production deployment is `dpl_BKWqvefUWap9ZhC5FG5nRmE5q9Lk`, built from `4ae7a8958748fd872fb2833ab9394a8ddee81f11`. It includes credential-free, isolated judge demos and was promoted after CI and the hosted judge workflow passed. Later documentation/verification-script commits do not change that deployed application revision. See `docs/release.json` and the verification reports for exact results.
 

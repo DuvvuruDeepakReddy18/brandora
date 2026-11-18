@@ -1,80 +1,89 @@
-# Brandora
+# Brandora — the intelligence layer for brand trust
 
-[Live application](https://brandora-omega-three.vercel.app) · [Private GitHub repository](https://github.com/DuvvuruDeepakReddy18/brandora)
+**Live app:** https://brandora-omega-three.vercel.app · **Code:** https://github.com/DuvvuruDeepakReddy18/brandora · **Evaluator guide:** [JUDGES.md](JUDGES.md)
 
-The public entry is **Brandora — The Brand Crew**, with the four-robot interactive introduction, real login and isolated demo entry. The dashboard and all 13 internal pages continue its paper surfaces, cobalt controls, editorial typography and four crew colours. See [landing integration](docs/BRAND_CREW_INTEGRATION.md), [workspace design and verification](docs/WORKSPACE_THEME.md) and [landing release verification](docs/brand-crew-integration-verification.json). Previous design editions are retained as source history.
+Marketing teams publish ads with wrong prices, outdated trial periods, unsupported "No. 1" claims and the wrong logo. Brandora checks every ad, image, PDF or piece of copy against the company's **own approved records**, **marks each problem directly on the content** with its evidence, lets a **human reviewer decide**, helps **fix and re-check** it, **approves one exact version**, and keeps a **complete audit trail**. When an approved fact changes later, it finds every piece of content that relied on it.
 
-**Judges:** choose **Explore demo** for a private, temporary sample workspace with creator/reviewer/manager/partner switching. No credentials are needed. See [JUDGES.md](JUDGES.md) for the walkthrough and demo limits. Normal workspace login remains separate.
+![An employee-submitted ad with six numbered findings marked on it, next to the evidence panel](docs/annotated-review.jpg)
 
-For first access, choose **Create your workspace** and use the private code in the local `deployment-access.txt`. Create your own password, then enable AI in **Privacy & settings**. The setup code is not stored in this repository.
+## Try it in three minutes (no login, no setup)
 
-An evidence-connected brand governance application: draft, inspect, correct, request review and approve an exact version. Next.js/React/TypeScript frontend, FastAPI backend, PostgreSQL in production and SQLite for local development.
+1. Open the live app and choose **Explore demo**. You get a private, temporary copy of the fictional company **Inkloom AI**. It opens on an employee-submitted ad with **six numbered marks**.
+2. **Click any mark.** The right panel shows the submitted text next to the approved company record, the exact source excerpt and version, the confidence and the next step. A connector line links the mark to its explanation.
+3. **Decide as a reviewer:** switch to *Reviewer* in the demo bar and confirm, reject, request evidence or escalate. Every decision needs a reason and is logged.
+4. **Fix and approve:** switch to *Creator* → **Fix & approve** → **Apply all suggestions** → **Save corrected version & re-check** (it comes back clean) → **Request review**. Switch to *Reviewer* → **Approve this exact version**. Open **Original vs corrected** to see both side by side.
+5. **Change a fact:** switch to *Manager* → **Impact Monitor** → change the free trial from 14 to 7 days → *Preview impact* → *Publish change*. The old version is kept and every linked item, including approved ones, is flagged for reassessment.
+6. **Try your own content:** as Manager, enable AI in **Trust & Audit → Privacy & AI**, then upload the sample ad (download link in the demo bar) or any creative in **Scan & Detect**. Those findings come from live OCR and logo comparison, not sample data.
 
-## Product
+## What is wrong in the sample ad, and how Brandora classifies it
 
-All 13 proposed workspace areas have working implementations:
+| # | In the ad | Status | Why |
+|---|---|---|---|
+| 1 | Orange, stretched logo | **Visual brand violation** (red) | Does not match the approved Inkloom AI logo in Company Hub |
+| 2 | "The world's No. 1 creative platform" | **Evidence gap** (orange) | No approved evidence supports the ranking. Unverified, not declared false |
+| 3 | "Reduce your marketing production time by 80%" | **Evidence gap** (orange) | No approved study supports the 80% figure |
+| 4 | "30-day free trial" | **Confirmed contradiction** (red) | Pricing policy v1: free trial is 14 days |
+| 5 | "₹1,499 per month" for Professional | **Confirmed contradiction** (red) | Pricing policy v1: Professional is ₹1,999/month |
+| 6 | Price shown without GST note | **Needs human review** (yellow) | Policy says prices exclude GST; a reviewer decides whether this placement must say so |
 
-| Area | Implementation |
-| --- | --- |
-| Rulebook & Fact Vault | Approved source excerpts, owners, review dates, version history and scoped structured rules; text import from PDF/DOCX/TXT/Markdown. |
-| Evidence Gate | Deterministic checks plus optional Gemini/Anthropic semantic review. Exact source/claim spans are validated. Unsupported claims remain unverified. Untraceable AI responses block approval. |
-| Contradiction Hunter | Conflicting approved structured facts are surfaced for an owner decision, with no invented factual verdict. |
-| Claim DNA | Source → rule → content dependencies, including clean content, with targeted reassessment when evidence changes. |
-| Knowledge Gaps | Evidence-owner tasks generated from unsupported mapped claims. High-risk gaps cannot be dismissed into approval. |
-| Visual Guardian | Palette and selected-colour contrast; Gemini image/PDF OCR; approved logo reference register; logo match/modified/not-found/uncertain comparisons with location overlays; suggested alt text. |
-| Approval Integrity | Separate author/reviewer, last-editor restriction, current scan and evidence checks, SHA-256 receipts and immutable approval snapshots. |
-| Campaign Consistency | Cross-channel checking against one scoped source register. |
-| Impact Lab | Hypothetical rule replay with clearly labelled projections; live source and approval state is unchanged. |
-| Time Machine | Historical approval snapshots, source versions, content history and audit trail. |
-| Learning Loop | Actual rule-level findings and human review reasons, without fabricated trends or personal scoring. |
-| Partner Workspace | Manager-provisioned role accounts and explicitly assigned campaign access, enforced by the API. |
-| Privacy Centre | Workspace AI switch, provider/usage visibility, data export, content-payload redaction and retained audit metadata. |
+Colours are consistent everywhere: **red** = confirmed contradiction or visual violation, **orange** = evidence gap, **yellow** = needs human review, **blue** = AI suggestion, **green** = verified against an approved source. Red is never used just because AI is unsure.
 
-Translation supports English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali, Marathi, Gujarati, Spanish, French, German, Portuguese, Arabic, Japanese, Korean and Chinese. Approved names, numeric facts and contact details are protected by placeholders; missing placeholders or changed numeric values reject the result. Review the translation and English back-translation before saving a separate draft. A reviewer other than the author/last editor must record a language review before approval, including translations into English.
+## The six modules
 
-AI is assistance, not independent truth. OCR can misread text; logo comparison is visual similarity, not legal authenticity; back-translation does not establish linguistic correctness. All generated content and extracted sources require human review. Full-workspace historical reconstruction, automated publishing, email notifications and semantic resolution of arbitrary contradictory documents are outside this release.
+| Module | What it does |
+|---|---|
+| **01 Company Hub** | The source of truth: pricing and plans, approved claims, policies, evidence library, approved logos, campaigns, team roles. Versioned records with owners and review dates; document import (PDF, DOCX, TXT, scanned PDF via OCR); source-conflict detection; "used in N items" lineage for every fact. |
+| **02 Scan & Detect** | Drag-and-drop upload of ads, social creatives, brochures and documents, or paste copy. Images are read with OCR and compared with approved logos; text is compared with Company Hub. Findings are marked on the content with page/image coordinates. Clear processing states; failures are reported, never shown as a successful scan. |
+| **03 Verify & Review** | Review queue plus the annotated review workspace: submitted vs approved side by side, source excerpt and version, and reviewer actions (confirm, mark verified, reject, request evidence, escalate, comment). Evidence requests and escalations become owned tasks. |
+| **04 Fix & Approve** | Accept, edit or skip each suggested correction (approved values, approved-claim rewrites), save a new version, re-check it, request review and approve. Only an independent reviewer can approve; approval binds to a SHA-256 hash of the exact version and issues a receipt. Approval never publishes anything. |
+| **05 Impact Monitor** | Change an approved fact with a dry-run preview first. Publishing creates a new source version, keeps the old one and flags every linked item with priority and owner. Receipts answer "what was approved at the time?" |
+| **06 Trust & Audit** | Searchable audit trail (uploads, fact changes, decisions, approvals, settings), approval receipts, AI and privacy controls, workspace export. |
 
-## Run locally
+## How decisions are made, and what Brandora refuses to do
 
-Use Node 22+ and Python 3.12:
+- **Deterministic first.** Prices (including ₹1,999 and lakh formats like ₹1,00,000), plan-specific prices, trial lengths, product names and mapped claims are checked by a rule engine against approved records. Each finding carries the source ID, version and exact excerpt.
+- **Evidence gaps are not "false".** A claim with no approved support is marked *Unverified* and must be supported, rewritten or removed. Unmapped superlatives and percentages ("best", "No. 1", "40%") are flagged for human review, never auto-judged.
+- **AI assists, people decide.** Gemini reads text from images (OCR), compares logos and suggests wording issues. AI suggestions must cite an approved excerpt exactly or they are rejected; AI confidence is never treated as proof.
+- **No silent success.** If OCR or the AI provider fails, nothing is saved and the screen says so, offering manual review instead.
+- **Demo vs real is labelled.** In the sample ad, text findings come from the live rule engine; the text positions and the logo finding are predefined sample data and are labelled as such. **Re-read with live AI** analyses the same image for real. Uploaded content is always analysed dynamically.
+- **Brandora does not edit images.** Corrections to a creative are shown as a text-and-layout draft with the approved logo, clearly labelled. To approve the visual itself, upload the revised creative and it is re-checked.
+- **Approval is human and exact.** Authors and last editors cannot approve their own work; any edit or source change invalidates the approval and requires a re-check.
+
+## Real organisations
+
+- One-time owner setup (secret code), then the manager creates accounts with roles: **manager** (Company Hub, settings), **creator** (drafts and uploads), **reviewer** (decisions and approval), **partner** (only assigned campaigns).
+- Every query is scoped to the organisation on the server; partners are restricted to assigned campaigns by the API, not just hidden in the UI.
+- Uploaded creatives are stored privately with their content version for review and audit; deleting content removes them while keeping receipt hashes and audit metadata.
+- Limits: 3 MB uploads; images up to 8 megapixels; 30 AI requests per workspace per day (12 per demo session).
+
+## Architecture
+
+- **Frontend:** Next.js 16, React 19, TypeScript. The public landing page ("The Brand Crew") is unchanged; the workspace uses the same theme.
+- **Backend:** FastAPI with validated request models, server-side access checks and transactional persistence. PostgreSQL (Neon) in production, SQLite locally.
+- **AI:** Gemini 3.5 Flash-Lite for OCR, logo comparison, semantic suggestions and translation, called only from the server with structured, validated outputs and a 55-second deadline. Anthropic is supported for text-only features.
+- **Deployment:** Vercel Services (Next.js + FastAPI) with sensitive environment variables.
+- Key files: rule engine `backend/engine.py`, API `backend/main.py`, demo company `backend/demo.py`, review workspace `app/components/review-workspace.tsx`, modules `app/components/modules.tsx`.
+
+## Verify it yourself
 
 ```powershell
 npm ci
 python -m venv .venv-app
 .\.venv-app\Scripts\python.exe -m pip install -r backend/requirements-lock.txt
-.\Start-Brandora.ps1
-```
-
-Open http://127.0.0.1:3200. The startup script launches hidden loopback-only processes and writes `api*.log` and `web*.log`. Alternatively run `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8200` and `npm run dev` in separate terminals with the virtual environment activated.
-
-Local records persist in `data/brandora.db`. The four legacy demo accounts and HarborDesk examples are fictional. The shared development login is disabled in production; **Explore demo** uses separate, expiring visitor workspaces instead. Local browser verification may leave the launch draft at approved version 2; create another draft to repeat the workflow.
-
-Set the backend environment variables from `.env.example` in the API process. Next.js `.env.local` is not automatically loaded by Python. Gemini defaults to `gemini-3.5-flash-lite`; set `GEMINI_API_KEY`, then enable AI services as a manager. The key stays on the server. Anthropic remains supported for text review/translation when its key and model are configured; image/PDF features currently require Gemini.
-
-## Data and request boundaries
-
-- AI sends only applicable text context or the image/PDF explicitly selected for analysis. Text review masks email and phone details. OCR files cannot be masked before recognition. Uploaded originals are not retained by Brandora; resized approved logo references are stored privately in PostgreSQL. Provider retention is governed by the provider account's terms.
-- Default AI limits: 30 requests/workspace/day and 200 requests/application/day, UTC. Counts are committed atomically in the database before inference, including failed calls. These are request caps, not guaranteed currency budgets; configure a provider billing limit separately if needed.
-- Uploads: 3 MB; images at most 8 megapixels for AI, 4 megapixels for palette checks; scanned PDFs at most 10 pages. Ordinary PDF text extraction accepts up to 20 pages. Extracted text is bounded to 12,000 characters.
-- Production uses persistent PostgreSQL, secure HTTP-only session cookies, origin checks, database-backed login throttling, private tenant queries and workspace mutation locks. First-user setup requires a secret and closes after the first account is created. Managers provision subsequent users. Password recovery is administrative, not email-based.
-- Content deletion redacts its saved payloads, translation results and receipt bodies while preserving audit identifiers. Separately saved translated drafts are separate content records and can be deleted individually.
-
-## Verification
-
-```powershell
 .\.venv-app\Scripts\python.exe -m pytest backend/tests -q
 npm run typecheck
 npm run build
 ```
 
-The regression suite never calls an external model and uses an isolated temporary database. See [VERIFICATION.md](VERIFICATION.md) for observed results. `scripts/verify_provider.py` is an explicit opt-in live check using synthetic fixtures only. `scripts/verify_postgres.py` uses a unique disposable schema in the configured database and removes only that schema afterward.
+62 backend tests cover: the six sample findings and their evidence, Indian-format and plan-specific prices, typographic quotes, corrections clearing findings, reviewer-decision rules (authors cannot decide, contradictions cannot be dismissed), visual violations, dynamic creative scanning with a mocked provider, provider failure saving nothing, organisation isolation, self-approval prevention, stale scans, source-change invalidation and demo sandbox limits. Tests never call an external model.
 
-## Deployment
+Run locally: `.\Start-Brandora.ps1`, then open http://127.0.0.1:3200 and choose **Explore demo**. Set `GEMINI_API_KEY` in the API process to enable AI features (see `.env.example`).
 
-See [DEPLOYMENT.md](DEPLOYMENT.md). `vercel.json` composes the Next.js frontend and FastAPI backend as Vercel Services (currently beta). Production persistence is a dedicated Neon database on the existing free plan. PostgreSQL is required; the application refuses ephemeral production SQLite. A standalone API Dockerfile is also included.
+## Honest limits
 
-GitHub CI verifies the API, TypeScript and production build. Secrets, `.vercel`, local database files and `deployment-access.txt` are excluded from source control and deployment uploads. No real user data from the local demo or proposal is uploaded.
+- OCR can misread text; logo comparison is visual similarity, not proof of authenticity; text positions on images are estimated within each OCR line.
+- Brandora does not track who saw published content, so it reports "previously approved" content as high priority rather than inventing exposure numbers.
+- No email notifications or automatic publishing; account recovery is administrator-operated.
+- Functional and provider verification only; no penetration test or load certification.
 
-This release has functional and provider verification, not a penetration-test or large-scale load-certification claim. Operating it requires monitoring provider/cloud quotas, restoring backups when needed, managing users and reviewing AI outputs. The engineering tests are not the proposal's planned user study or held-out product evaluation.
-
-AI assistance disclosure: Codex assisted planning, implementation, testing and deployment. Framework and package dependencies are declared in the lockfiles. The submitted proposal and Google Drive folder were not modified by this implementation.
+AI assistance disclosure: Codex and Claude Code assisted planning, implementation, testing and deployment. Dependencies are declared in the lockfiles. Details of the earlier release are in [DEPLOYMENT.md](DEPLOYMENT.md) and [VERIFICATION.md](VERIFICATION.md).
