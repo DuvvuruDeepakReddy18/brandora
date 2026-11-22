@@ -165,8 +165,15 @@ def passing_colour(fg,bg,target):
     return ''
 
 GENERIC_ALT=re.compile(r'^(?:an?\s+)?(?:image|picture|photo|graphic|banner|img|screenshot|ad|advert|creative|logo|untitled|dsc|slide)?[\s_\-\d.]*(?:\.(?:png|jpe?g|webp|gif))?$',re.I)
-def access(regions,images,rules,sources,subject,channel):
-    """Accessibility findings from measured text regions and images, each citing the approved accessibility standard."""
+def overlaps(box,other,share=0.5):
+    """True when at least `share` of box lies inside other (both [y0,x0,y1,x1] on a 0-1000 grid)."""
+    y0,x0,y1,x1=box;a,b,c,d=other
+    inter=max(0,min(y1,c)-max(y0,a))*max(0,min(x1,d)-max(x0,b))
+    return inter>=share*max(1,(y1-y0)*(x1-x0))
+
+def access(regions,images,rules,sources,subject,channel,logos=()):
+    """Accessibility findings from measured text regions and images, each citing the approved accessibility standard.
+    Text inside a logo is exempt from contrast, as in WCAG (logotypes have no contrast requirement)."""
     findings=[];deps=[]
     for rule in rules:
         if rule.kind!='accessibility' or not applies(rule,subject,channel):continue
@@ -183,6 +190,7 @@ def access(regions,images,rules,sources,subject,channel):
             for r in regions:
                 c=r.get('contrast')
                 if not c or not r.get('text'):continue
+                if any(r.get('page',0)==l.get('page',0) and overlaps(r['box'],l['box']) for l in logos if l.get('box')):continue
                 pt=r.get('size_pt') or (r.get('px',0)*0.75)
                 big=pt>=float(cfg.get('large_pt',18)) or (r.get('bold') and pt>=float(cfg.get('large_bold_pt',14)))
                 target=large if big else normal

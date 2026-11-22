@@ -215,6 +215,6 @@
     "V01",
     "A01"
   ],
-  "engine_sha256": "d42a2b55a1037c557bf2ec0723cca405cc1d06c75b085f042b5988648eda09cf",
+  "engine_sha256": "f39524b9e0059dd9ae3eff5e84d5417740b0e1d8b125d19f6d2a8c8d99718c9f",
   "method": "Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value or words. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity."
 }

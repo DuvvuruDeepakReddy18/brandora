@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
-from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access
+from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access, sentence_bounds
 from . import ai, intelligence, limits, documents, evaluation, insights, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
@@ -174,6 +174,26 @@ def record_findings(db,c,findings):
         if f['id'] in seen:continue
         db.add(FindingEvent(org_id=c.org_id,content_id=c.id,version=c.version,finding_id=f['id'],rule_id=f.get('rule_id',''),rule_code=f.get('rule_code',''),outcome=f['outcome'],title=f['title'],span=(f.get('span') or '')[:500],
             content_title=c.title,channel=c.channel,subject=c.subject,campaign=campaign.name if campaign else '',team=team,body=c.body))
+def masked_sentence(text,start,end):
+    """The sentence around a finding with the finding's own words masked: the 'position' of a judgement call."""
+    a,b=sentence_bounds(text,start,end)
+    return ' '.join((text[a:start]+'§'+text[end:b]).split()).casefold()
+def carry_judgements(db,c,findings):
+    """A reviewer's accept/reject on a judgement call (needs review, tone, accessibility) carries to a later version of
+    the same content when the same rule raises the same question with the surrounding wording unchanged.
+    Approval of the new version still needs an independent reviewer, and the carried decision is labelled."""
+    if c.version<=1:return
+    events=[e for e in db.scalars(select(FindingEvent).where(FindingEvent.content_id==c.id,FindingEvent.version<c.version,FindingEvent.review.in_(('Verified by reviewer','AI finding rejected'))).order_by(FindingEvent.version.desc())) if e.body and e.span]
+    for f in findings:
+        if f.get('resolved') or f['outcome'] not in DISMISSIBLE or not f.get('span') or f.get('end',0)<=f.get('start',0) or not f.get('evidence'):continue
+        here=masked_sentence(c.body,f['start'],f['end'])
+        for e in events:
+            at=e.body.find(e.span)
+            if e.rule_id!=f['rule_id'] or e.title!=f['title'] or at<0 or masked_sentence(e.body,at,at+len(e.span))!=here:continue
+            reason=f'{e.review_reason} (carried over from version {e.version}: same rule, same surrounding wording)'
+            f['resolved']=True;f['resolution']=reason;f['carried_from']=e.version
+            f['review']={'state':e.review,'by':e.review_by or 'Reviewer','at':e.created,'reason':reason,'carried_from':e.version}
+            break
 AI_LIMIT_COVERAGE="AI incomplete: the daily AI request limit has been reached. Rule checks completed; retry tomorrow or have a manager turn AI off."
 def run_scan(db,c,user,ai_reserved=False):
     rules=org_rules(db,user);sources=org_sources(db,user)
@@ -199,7 +219,7 @@ def run_scan(db,c,user,ai_reserved=False):
     visual=visual_findings(creative) if creative else []
     findings.extend(visual)
     if creative:
-        measured,access_deps=access(creative.regions or [],creative_images(creative),rules,sources,c.subject,c.channel)
+        measured,access_deps=access(creative.regions or [],creative_images(creative),rules,sources,c.subject,c.channel,creative.logos or [])
         findings.extend(measured)
         for d in access_deps:
             if not any(x['rule_id']==d['rule_id'] for x in deps):deps.append(d)
@@ -216,6 +236,7 @@ def run_scan(db,c,user,ai_reserved=False):
         if not p:continue
         if p.get('review_log'):f['review_log']=p['review_log']
         if (p.get('review') or {}).get('state') in ('Confirmed','Needs evidence','Escalated'):f['review']=p['review']
+    carry_judgements(db,c,findings)
     db.execute(delete(Dependency).where(Dependency.content_id==c.id))
     for d in deps:db.add(Dependency(content_id=c.id,**d))
     c.findings=findings;c.scan_hash=digest(c.body);c.scan_revision=ws.revision;c.updated=now()
@@ -1001,7 +1022,7 @@ def finding_decision(id:str,finding_id:str,data:FindingDecision,actor=Depends(us
     if creative:creative.findings=[dict(x) for x in findings]
     if data.action in REVIEW_STATES:
         for event in db.scalars(select(FindingEvent).where(FindingEvent.content_id==c.id,FindingEvent.version==c.version,FindingEvent.finding_id==f['id'])):
-            event.review=REVIEW_STATES[data.action];event.review_reason=data.reason[:500]
+            event.review=REVIEW_STATES[data.action];event.review_reason=data.reason[:500];event.review_by=actor.name
     db.add(Decision(org_id=actor.org_id,content_id=c.id,rule_id=f.get('rule_id') or f.get('rule_code',''),actor=actor.name,reason=data.reason,outcome=REVIEW_STATES.get(data.action,'Comment')))
     audit(db,actor,REVIEW_ACTIONS[data.action],c.title,{'content_id':c.id,'finding_id':f['id'],'version':c.version,'reason':data.reason[:200]})
     return row(c)

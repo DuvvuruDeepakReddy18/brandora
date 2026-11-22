@@ -187,6 +187,48 @@ def test_stale_replay_cannot_be_applied():
     assert client.post(f"/api/rule-proposals/{proposal['id']}/apply", json={'note': 'Applying a stale replay.'}).status_code == 409
 
 
+def test_judgement_call_carries_to_the_corrected_version_and_it_can_be_approved():
+    """Following the documented walkthrough: the reviewer accepts the GST question, the creator fixes the price."""
+    client, state = visitor()
+    ad = item(state, demo.AD_TITLE)
+    gst = next(f for f in ad['findings'] if f['title'] == 'Check the pricing qualification')
+    switch(client, 'reviewer')
+    assert client.post(f"/api/content/{ad['id']}/findings/{gst['id']}/decision", json={'action': 'verify', 'reason': 'The ad footer carries the GST note.'}).status_code == 200
+    switch(client, 'creator')
+    body = ad['body'].replace('₹1,499 per month', '₹1,999 per month').replace('30-day', '14-day')
+    body = body.replace("The world's No. 1 creative platform", 'The central workspace for campaign content').replace('Reduce your marketing production time by 80%', 'Organise your creative workflows in one place')
+    assert client.put(f"/api/content/{ad['id']}", json={'body': body, 'title': ad['title'], 'expected_version': ad['version']}).status_code == 200
+    rescanned = client.post(f"/api/content/{ad['id']}/scan").json()
+    carried = [f for f in rescanned['findings'] if f.get('carried_from')]
+    assert carried and all(f['resolved'] for f in rescanned['findings']), [f['title'] for f in rescanned['findings']]
+    assert carried[0]['review']['by'] == 'Sam Rivera' and 'carried over from version 1' in carried[0]['resolution']
+    assert client.post(f"/api/content/{ad['id']}/request-review").status_code == 200
+    switch(client, 'reviewer')
+    assert client.post(f"/api/content/{ad['id']}/approve").status_code == 200
+
+
+def test_changed_wording_does_not_inherit_a_judgement():
+    client, state = visitor()
+    ad = item(state, demo.AD_TITLE)
+    gst = next(f for f in ad['findings'] if f['title'] == 'Check the pricing qualification')
+    switch(client, 'reviewer')
+    client.post(f"/api/content/{ad['id']}/findings/{gst['id']}/decision", json={'action': 'verify', 'reason': 'The ad footer carries the GST note.'})
+    switch(client, 'creator')
+    body = ad['body'].replace('Get our Professional plan for ₹1,499 per month.', 'Professional now costs ₹1,999 per month for every team.')
+    client.put(f"/api/content/{ad['id']}", json={'body': body, 'title': ad['title'], 'expected_version': ad['version']})
+    rescanned = client.post(f"/api/content/{ad['id']}/scan").json()
+    gst2 = next(f for f in rescanned['findings'] if f['title'] == 'Check the pricing qualification')
+    assert not gst2['resolved'] and not gst2.get('carried_from')
+
+
+def test_logo_text_is_exempt_from_contrast():
+    from backend.engine import access, contrast_ratio
+    rules, sources = evaluation.register()
+    region = {'text': 'ik inkloom', 'start': 0, 'end': 10, 'page': 0, 'box': [50, 50, 150, 400], 'px': 30, 'contrast': {'fg': '#ffb27a', 'bg': '#fff8ee', 'ratio': contrast_ratio('#ffb27a', '#fff8ee'), 'method': 'test'}}
+    assert access([region], [], rules, sources, demo.COMPANY, 'Advertisement')[0]
+    assert not access([region], [], rules, sources, demo.COMPANY, 'Advertisement', [{'box': [48, 48, 160, 420]}])[0]
+
+
 def test_decisions_are_recorded_in_finding_history():
     client, state = visitor()
     ad = item(state, demo.AD_TITLE)

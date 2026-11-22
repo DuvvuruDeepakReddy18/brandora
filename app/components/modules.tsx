@@ -136,7 +136,7 @@ function QueueTable({
 export function HomeDashboard({ data, go, crew }: { data: Data; go: Go; crew: React.ReactNode }) {
   const open = data.content.flatMap((c) => (c.findings || []).filter((f: Row) => !f.resolved).map((f: Row) => ({ ...f, c })));
   const awaitingDecision = open.filter((f) => !f.review);
-  const toCorrect = open.filter((f) => ["critical", "gap", "visual"].includes(outcomeMeta(f).group) || f.review?.state === "Confirmed");
+  const toCorrect = open.filter((f) => ["critical", "gap", "visual", "tone", "access"].includes(outcomeMeta(f).group) || f.review?.state === "Confirmed");
   const inReview = data.content.filter((c) => c.status === "In review");
   const reassess = data.content.filter((c) => c.status === "Needs reassessment");
   const ad = data.judge_demo ? data.content.find((c) => data.creatives?.some((x) => x.content_id === c.id && x.origin === "fixture")) : null;
@@ -145,7 +145,7 @@ export function HomeDashboard({ data, go, crew }: { data: Data; go: Go; crew: Re
   const cards = [
     { icon: ScanLine, n: data.content.length, label: "Scan new content", note: "Upload an ad, image, PDF or copy", go: () => go("Scan & Detect"), cta: "Upload" },
     { icon: ClipboardCheck, n: awaitingDecision.length, label: "Pending human reviews", note: `Findings awaiting a reviewer decision across ${new Set(awaitingDecision.map((f) => f.c.id)).size} item(s)`, go: () => go("Verify & Review", firstItem(awaitingDecision)), cta: "Review" },
-    { icon: Wand2, n: toCorrect.length, label: "Issues awaiting correction", note: "Contradictions, evidence gaps and visual violations", go: () => go("Fix & Approve", firstItem(toCorrect), "fix"), cta: "Fix" },
+    { icon: Wand2, n: toCorrect.length, label: "Issues awaiting correction", note: "Contradictions, evidence gaps, visual, tone and accessibility issues", go: () => go("Fix & Approve", firstItem(toCorrect), "fix"), cta: "Fix" },
     { icon: ShieldCheck, n: inReview.length, label: "Awaiting approval", note: "Review requested by the author", go: () => go("Fix & Approve", inReview[0]?.id || null, "fix"), cta: "Approve" },
     { icon: GitBranch, n: reassess.length, label: "Changed facts to reassess", note: "Content linked to an updated approved record", go: () => go("Impact Monitor"), cta: "Reassess" },
     { icon: History, n: data.activity.length, label: "Recent audit activity", note: data.activity[0] ? `${data.activity[0].action} · ${data.activity[0].actor}` : "No activity yet", go: () => go("Trust & Audit"), cta: "Audit" },

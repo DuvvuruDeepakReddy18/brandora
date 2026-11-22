@@ -843,7 +843,7 @@ export default function App() {
                 if (help) help.textContent = RULE_TEMPLATES[kind].help;
               }}
             >
-              {["term", "number", "required", "banned", "substantiation"].map(
+              {Object.keys(RULE_TEMPLATES).map(
                 (k) => (
                   <option key={k}>{k}</option>
                 ),

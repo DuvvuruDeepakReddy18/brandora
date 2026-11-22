@@ -72,7 +72,7 @@ def draw_ad(corrected=False):
     for i,(text,xy,size,bold) in enumerate(copy):
         colour='white' if i==5 else ('#17133a' if bold else '#3a3358')
         lines.append(write(d,xy,text,size,colour,bold=bold))
-    write(d,(1000,846),'inkloom.ai',22,'#8a7f73')
+    write(d,(1000,846),'inkloom.ai',22,'#5f574e')
     def norm(box,pad=6):
         x0,y0,x1,y1=box;return [max(0,round((y0-pad)*1000/H)),max(0,round((x0-pad)*1000/W)),min(1000,round((y1+pad)*1000/H)),min(1000,round((x1+pad)*1000/W))]
     out=io.BytesIO();ad.save(out,format='PNG')
@@ -193,7 +193,7 @@ BRAND='The approved product name is Inkloom AI. Use the approved Inkloom AI logo
 CLAIMS='Approved claims: Inkloom AI helps marketing teams organise creative workflows. Inkloom AI provides a central workspace for campaign content. Inkloom AI supports collaborative content review.'
 EVIDENCE='No approved study or ranking supports “the world’s No. 1 creative platform” or “reduce your marketing production time by 80%”. Superiority and quantified performance claims need an approved study before use.'
 VOICE='Inkloom AI brand voice guide: write like a calm, expert colleague. Avoid hype words such as “revolutionary”, “game-changing”, “mind-blowing” and “magic”. Avoid pressure phrases such as “act now”, “hurry” and “last chance”. Never promise “instant results” or call an offer “risk-free”. Prefer “use” to “utilise” or “leverage”, and “affordable” to “cheap”. Use at most one exclamation mark in a piece of content. In emails and social posts, do not write whole words in capitals, except acronyms such as GST and AI. Keep sentences under 30 words.'
-ACCESSIBILITY='Accessibility standard (WCAG 2.2 AA, Inkloom AI edition): text needs a contrast ratio of at least 4.5:1 against its background. Large text (18 pt and above, or 14 pt bold) needs at least 3:1. Body text in documents and slides should be at least 9 pt. Every image needs alt text that describes what it shows and why it is there; file names and words like “image” or “banner” are not alt text.'
+ACCESSIBILITY='Accessibility standard (WCAG 2.2 AA, Inkloom AI edition): text needs a contrast ratio of at least 4.5:1 against its background. Large text (18 pt and above, or 14 pt bold) needs at least 3:1. Body text in documents and slides should be at least 9 pt. Every image needs alt text that describes what it shows and why it is there; file names and words like “image” or “banner” are not alt text. Text that is part of a logo is exempt from the contrast requirement.'
 
 # One register, used by every demo workspace and by the labelled evaluation set (backend/evaluation.py).
 SOURCES=[('pricing','Pricing & plans policy','Product team',PRICING),('brand','Brand identity guidelines','Brand team',BRAND),('claims','Approved claims register','Brand team',CLAIMS),
@@ -318,7 +318,7 @@ def seed_history(db,ws,users):
             review=decisions.get(f['rule_code'],'')
             db.add(FindingEvent(org_id=ws.id,content_id='',version=1,finding_id=f['id'],rule_id=f['rule_id'],rule_code=f['rule_code'],outcome=f['outcome'],title=f['title'],span=f['span'][:500],
                 content_title=f'{campaign} · {channel.lower()} draft (fictional history)',channel=channel,subject=COMPANY,campaign=campaign,team=team,body=text,
-                review=review,review_reason=reason if review else '',fictional=1,created=created))
+                review=review,review_reason=reason if review else '',review_by='Reviewer (fictional)' if review else '',fictional=1,created=created))
 
 def remove_visit(db,visit):
     """Only records owned by a server-created demo visit are eligible for cleanup."""

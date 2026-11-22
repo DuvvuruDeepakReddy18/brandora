@@ -243,6 +243,7 @@ class FindingEvent(Base):
     body: Mapped[str]=mapped_column(Text,default='')
     review: Mapped[str]=mapped_column(String,default='')
     review_reason: Mapped[str]=mapped_column(Text,default='')
+    review_by: Mapped[str]=mapped_column(String,default='')
     fictional: Mapped[int]=mapped_column(Integer,default=0)
     created: Mapped[str]=mapped_column(String,default=now)
 
@@ -277,3 +278,5 @@ with engine.begin() as connection:
     creative_columns={c['name'] for c in inspect(connection).get_columns('creatives')}
     if 'page_count' not in creative_columns:connection.execute(text('ALTER TABLE creatives ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1'))
     if 'images' not in creative_columns:connection.execute(text("ALTER TABLE creatives ADD COLUMN images JSON NOT NULL DEFAULT '[]'"))
+    event_columns={c['name'] for c in inspect(connection).get_columns('finding_events')}
+    if 'review_by' not in event_columns:connection.execute(text("ALTER TABLE finding_events ADD COLUMN review_by VARCHAR NOT NULL DEFAULT ''"))
