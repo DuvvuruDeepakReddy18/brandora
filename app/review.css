@@ -12,6 +12,10 @@
   --t-green-bg: #e2f3e7;
   --t-grey: #8a857c;
   --t-grey-bg: #ece8e0;
+  --t-violet: #8b2fc9;
+  --t-violet-bg: #f5e8fd;
+  --t-teal: #0f7c86;
+  --t-teal-bg: #def4f5;
 }
 .tone-red { --tone: var(--t-red); --tone-bg: var(--t-red-bg); }
 .tone-orange { --tone: var(--t-orange); --tone-bg: var(--t-orange-bg); }
@@ -19,6 +23,8 @@
 .tone-blue { --tone: var(--t-blue); --tone-bg: var(--t-blue-bg); }
 .tone-green { --tone: var(--t-green); --tone-bg: var(--t-green-bg); }
 .tone-grey { --tone: var(--t-grey); --tone-bg: var(--t-grey-bg); }
+.tone-violet { --tone: var(--t-violet); --tone-bg: var(--t-violet-bg); }
+.tone-teal { --tone: var(--t-teal); --tone-bg: var(--t-teal-bg); }
 
 /* ---- Navigation ---- */
 .app-shell .logo-home {
@@ -707,6 +713,16 @@
 .anno-text.tone-blue {
   background: var(--t-blue-bg);
   border-bottom: 2px dotted var(--t-blue);
+}
+.anno-text.tone-violet {
+  background: var(--t-violet-bg);
+  border-bottom: 2px solid var(--t-violet);
+  border-radius: 3px;
+}
+.anno-text.tone-teal {
+  background: var(--t-teal-bg);
+  outline: 1.5px dashed var(--t-teal);
+  border-radius: 3px;
 }
 .anno-text.tone-green,
 .verified-text {

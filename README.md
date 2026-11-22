@@ -4,6 +4,16 @@
 
 Marketing teams publish ads with wrong prices, outdated trial periods, unsupported "No. 1" claims and the wrong logo. Brandora checks every ad, image, PDF or piece of copy against the company's **own approved records**, **marks each problem directly on the content** with its evidence, lets a **human reviewer decide**, helps **fix and re-check** it, **approves one exact version**, and keeps a **complete audit trail**. When an approved fact changes later, it finds every piece of content that relied on it.
 
+## New in Round 3
+
+| Commitment | Where to see it | What it shows |
+|---|---|---|
+| **Measured, trustworthy findings + tone & messaging** | Trust & Audit → **Reliability** | 80 labelled items (40 development, 40 held-out, 22 clean controls) run through the production engine. Held-out: **96.2% precision, 86.2% recall, 50/50 valid citations, 1 of 22 clean controls flagged**, with every miss explained. CI fails if scores drop or [`docs/reliability.json`](docs/reliability.json) is stale. Tone & messaging findings (violet) cite the approved Brand voice guide. |
+| **Every format, page by page, with accessibility** | Scan & Detect → *Festive brochure · 10-page PDF* and *Partner sales deck · 6 slides* | PDFs and PowerPoint decks rendered page by page with page navigation, thumbnails with per-page finding counts, and zoom. Accessibility findings (teal) are measured: real text contrast vs WCAG 4.5:1 / 3:1 with the ratio, small text in points, missing or unhelpful alt text. Documents are revised by uploading the corrected file. |
+| **From repeated mistakes to clearer guidelines** | Company Hub → **Guideline insights** | Recurring mistakes by rule, channel, campaign and team (never individuals); rules flagged as possibly unclear from reviewer overrides and needs-review volume; a clarified rule replayed on history (predicted vs actual reviewer decisions) and applied only by a different manager, with an audit record. Seeded history is fictional and labelled. |
+
+Code: [`backend/evaluation.py`](backend/evaluation.py) and [`backend/eval/dataset.json`](backend/eval/dataset.json) · [`backend/documents.py`](backend/documents.py) (PDF and PowerPoint pages, measured contrast) · tone and accessibility checks in [`backend/engine.py`](backend/engine.py) · [`backend/insights.py`](backend/insights.py) (insights and replay) · screens in [`app/components/round3.tsx`](app/components/round3.tsx).
+
 ## Start with the one-minute product story
 
 Open the live app and, before anything else, press **Watch the crew work** under the headline. The landing page then plays itself from top to bottom: the four-robot Brand Crew, the camera flight over the island, the shelf of case files, the ink reveal of each corrected campaign, the asset workflows and the audit trail. It ends on **Explore demo**. Scroll, click or press any key to take over at any point. Prefer to scroll yourself? Just scroll to the end.
@@ -31,6 +41,9 @@ The demo bar explains what the current person can and cannot do, ticks off the s
 |---|---|---|---|
 | `brochure.pdf` | Scan & Detect | No | Wrong Starter price (₹799 vs ₹999), 30-day trial, "fastest" and "10,000+ teams" flagged for review; Professional price verified |
 | `social-post.txt` | Scan & Detect | No | Wrong product name "Ink Loom", ₹1,499 and 30 days contradicted, GST note to review, "best tool" flagged |
+| `festive-brochure-10-pages.pdf` | Scan & Detect | No | Marks on 9 of 10 pages: wrong Starter price and trial, “Ink Loom”, hype and pressure wording, two low-contrast texts (2.02:1 and 1.76:1) and 6 pt small print |
+| `festive-brochure-corrected.pdf` | Fix & approve → *Upload revised file* on the brochure | No | Version 2 of the brochure with every finding fixed in the file: comes back clean |
+| `partner-deck.pptx` | Scan & Detect | No | Unsupported ranking claims, a wrong Professional price, a missing and an unhelpful alt text on slide 4, a 2.32:1 subtitle, “game-changing” and too many exclamation marks |
 | `creative.png` | Scan & Detect | Yes (on by default) | The six problems in the sample ad, read by live OCR and logo comparison |
 | `corrected-creative.png` | Scan & Detect, or *Upload revised creative* in Fix & approve | Yes (on by default) | Approved logo and correct copy; comes back clean with verified values |
 | `billing-policy.txt` | Company Hub → Import document | No | Extracted text you check and register as a new approved source |
@@ -47,18 +60,18 @@ The demo bar explains what the current person can and cannot do, ticks off the s
 | 5 | "₹1,499 per month" for Professional | **Confirmed contradiction** (red) | Pricing policy v1: Professional is ₹1,999/month |
 | 6 | Price shown without GST note | **Needs human review** (yellow) | Policy says prices exclude GST; a reviewer decides whether this placement must say so |
 
-Colours are consistent everywhere: **red** = confirmed contradiction or visual violation, **orange** = evidence gap, **yellow** = needs human review, **blue** = AI suggestion, **green** = verified against an approved source. Red is never used just because AI is unsure.
+Colours are consistent everywhere: **red** = confirmed contradiction or visual violation, **orange** = evidence gap, **yellow** = needs human review, **blue** = AI suggestion, **violet** = tone & messaging, **teal** = accessibility, **green** = verified against an approved source. Red is never used just because AI is unsure.
 
 ## The six modules
 
 | Module | What it does |
 |---|---|
-| **01 Company Hub** | The source of truth: pricing and plans, approved claims, policies, evidence library, approved logos, campaigns, team roles. Versioned records with owners and review dates; document import (PDF, DOCX, TXT, scanned PDF via OCR); source-conflict detection; "used in N items" lineage for every fact. |
-| **02 Scan & Detect** | Drag-and-drop upload of ads, social creatives, brochures and documents, or paste copy. Images are read with OCR and compared with approved logos; text is compared with Company Hub. Findings are marked on the content with page/image coordinates. Clear processing states; failures are reported, never shown as a successful scan. |
+| **01 Company Hub** | The source of truth: pricing and plans, approved claims, brand voice guide, accessibility standard, policies, evidence library, approved logos, campaigns, team roles. Versioned records with owners and review dates; document import (PDF, DOCX, TXT, scanned PDF via OCR); source-conflict detection; "used in N items" lineage for every fact; **Guideline insights** with clarified-rule replay and approval. |
+| **02 Scan & Detect** | Drag-and-drop upload of ads, social creatives, multi-page PDFs, PowerPoint decks and documents, or paste copy. Images are read with OCR and compared with approved logos; PDFs and decks are read from the file page by page; text is compared with Company Hub; contrast, text size and alt text are measured. Findings are marked on each page. Clear processing states; failures are reported, never shown as a successful scan. |
 | **03 Verify & Review** | Review queue plus the annotated review workspace: submitted vs approved side by side, source excerpt and version, and reviewer actions (confirm, mark verified, reject, request evidence, escalate, comment). Evidence requests and escalations become owned tasks. |
 | **04 Fix & Approve** | Accept, edit or skip each suggested correction (approved values, approved-claim rewrites), save a new version, re-check it, request review and approve. Only an independent reviewer can approve; approval binds to a SHA-256 hash of the exact version and issues a receipt. Approval never publishes anything. |
 | **05 Impact Monitor** | Change an approved fact with a dry-run preview first. Publishing creates a new source version, keeps the old one and flags every linked item with priority and owner. Receipts answer "what was approved at the time?" |
-| **06 Trust & Audit** | Searchable audit trail (uploads, fact changes, decisions, approvals, settings), approval receipts, AI and privacy controls, workspace export. |
+| **06 Trust & Audit** | Searchable audit trail (uploads, fact changes, decisions, approvals, rule clarifications, settings), approval receipts, the measured **Reliability** report, AI and privacy controls, workspace export. |
 
 ## How decisions are made, and what Brandora refuses to do
 
@@ -96,7 +109,7 @@ npm run typecheck
 npm run build
 ```
 
-63 backend tests cover: the sample files scanning without AI, the six sample findings and their evidence, Indian-format and plan-specific prices, typographic quotes, corrections clearing findings, reviewer-decision rules (authors cannot decide, contradictions cannot be dismissed), visual violations, dynamic creative scanning with a mocked provider, provider failure saving nothing, organisation isolation, self-approval prevention, stale scans, source-change invalidation and demo sandbox limits. Tests never call an external model.
+76 backend tests cover the Round 3 work (the reliability thresholds and that the published report is current, tone checks and their channel scoping, the 10-page brochure and deck with page-specific findings and measured ratios, PDF and PowerPoint uploads without AI, alt text as part of the reviewed version, revising a document by uploading the corrected file, insights that group by team and never name people, and the propose → replay → approve flow including self-approval and stale-replay refusals) as well as: the sample files scanning without AI, the six sample findings and their evidence, Indian-format and plan-specific prices, typographic quotes, corrections clearing findings, reviewer-decision rules (authors cannot decide, contradictions cannot be dismissed), visual violations, dynamic creative scanning with a mocked provider, provider failure saving nothing, organisation isolation, self-approval prevention, stale scans, source-change invalidation and demo sandbox limits. Tests never call an external model.
 
 Run locally: `.\Start-Brandora.ps1`, then open http://127.0.0.1:3200 and choose **Explore demo**. Set `GEMINI_API_KEY` in the API process to enable AI features (see `.env.example`).
 

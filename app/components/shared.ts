@@ -72,13 +72,13 @@ export async function api(path: string, method = "GET", body?: unknown) {
 }
 
 /* One visual language for every finding: colour, label, confidence and next step. */
-export type Tone = "red" | "orange" | "yellow" | "blue" | "green" | "grey";
+export type Tone = "red" | "orange" | "yellow" | "blue" | "violet" | "teal" | "green" | "grey";
 export function outcomeMeta(f: Row): {
   tone: Tone;
   label: string;
   confidence: string;
   next: string;
-  group: "critical" | "gap" | "review" | "visual" | "info";
+  group: "critical" | "gap" | "review" | "visual" | "tone" | "access" | "info";
 } {
   if (f.resolved)
     return {
@@ -120,6 +120,28 @@ export function outcomeMeta(f: Row): {
       next: "Remove the claim, rewrite it with an approved claim, or request evidence.",
       group: "gap",
     };
+  if (f.outcome === "Tone Issue")
+    return {
+      tone: "violet",
+      label: "Tone & messaging",
+      confidence: "Rule-based · cites the approved brand voice guide",
+      next: f.suggestion
+        ? "Accept the suggested wording, or a reviewer accepts it in context with a reason."
+        : "Rewrite this in the brand voice, or a reviewer accepts it in context with a reason.",
+      group: "tone",
+    };
+  if (f.outcome === "Accessibility")
+    return {
+      tone: "teal",
+      label: "Accessibility",
+      confidence: f.measure?.ratio
+        ? `Measured · ${f.measure.ratio}:1 against a ${f.measure.target}:1 minimum`
+        : "Measured against the approved accessibility standard",
+      next: String(f.title).startsWith("Alt text")
+        ? "Write alt text that says what the image shows and why it is there."
+        : "Fix it in the design file and upload the revision, or a reviewer records an exemption.",
+      group: "access",
+    };
   if (f.engine === "AI-assisted")
     return {
       tone: "blue",
@@ -154,10 +176,16 @@ export const formatTime = (s: string) =>
     minute: "2-digit",
   });
 
-/* Findings in reading order. Visual findings sort by their box, text findings by position. */
+/* The page a finding sits on: its own page, or the page of the text region its span falls in. */
+export function findingPage(f: Row, creative?: Row | null): number {
+  if (typeof f.page === "number") return f.page;
+  const r = creative?.regions?.find((x: Row) => f.start < x.end && f.end > x.start);
+  return r?.page ?? 0;
+}
+/* Findings in reading order: page by page, then top to bottom. */
 export function orderedFindings(item: Row, creative?: Row | null): Row[] {
   const regionY = (f: Row) => {
-    if (f.kind === "visual") return f.box?.[0] ?? 0;
+    if (f.box && (f.kind === "visual" || f.kind === "access")) return f.box[0] ?? 0;
     const r = creative?.regions?.find(
       (x: Row) => f.start < x.end && f.end > x.start,
     );
@@ -165,10 +193,12 @@ export function orderedFindings(item: Row, creative?: Row | null): Row[] {
   };
   return [...(item.findings || [])].sort((a, b) =>
     creative
-      ? regionY(a) - regionY(b) || a.start - b.start
+      ? findingPage(a, creative) - findingPage(b, creative) || regionY(a) - regionY(b) || a.start - b.start
       : a.start - b.start || (a.kind === "visual" ? -1 : 1),
   );
 }
+export const DOCUMENT_ORIGINS = ["pdf", "pdf-ocr", "pptx"];
+export const isDocument = (creative?: Row | null) => !!creative && DOCUMENT_ORIGINS.includes(creative.origin);
 
 export function contentCreative(data: Data, item: Row): Row | null {
   return (

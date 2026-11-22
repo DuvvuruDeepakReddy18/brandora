@@ -1,0 +1,211 @@
+"""Round 3: measured reliability, tone and messaging, page-by-page documents with accessibility, guideline insights."""
+import json
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+from backend import main, demo, evaluation
+from backend.engine import scan
+from backend.models import Session, Quota
+
+
+@pytest.fixture(autouse=True)
+def demo_limits(monkeypatch):
+    monkeypatch.setattr(demo, 'ENABLED', True)
+    with Session.begin() as db:
+        db.execute(delete(Quota).where(Quota.id.like('demo:%')))
+
+
+def visitor():
+    client = TestClient(main.app, base_url='https://testserver')
+    assert client.post('/api/demo/start').status_code == 200
+    return client, client.get('/api/workspace').json()
+
+
+def switch(client, role):
+    assert client.post('/api/demo/role', json={'role': role}).status_code == 200
+    return client.get('/api/workspace').json()
+
+
+def item(state, title):
+    return next(c for c in state['content'] if c['title'] == title)
+
+
+# ---------- 1. Measured reliability ----------
+def test_reliability_meets_thresholds_and_published_report_is_current():
+    report = evaluation.evaluate()
+    assert report['dataset']['items'] == 80 and report['dataset']['splits'] == {'dev': 40, 'heldout': 40}
+    assert report['dataset']['clean_controls'] >= 20
+    assert report['splits']['dev']['precision'] >= 0.95 and report['splits']['dev']['recall'] >= 0.95
+    assert report['splits']['heldout']['precision'] >= 0.9 and report['splits']['heldout']['recall'] >= 0.8
+    assert report['citations']['rate'] == 1.0 and report['citations']['checked'] >= 40
+    assert report['clean_controls']['false_alarm_rate'] <= 0.1
+    assert all(f['why'] for f in report['failures'] if f['split'] == 'heldout')
+    published = json.loads(evaluation.REPORT.read_text(encoding='utf-8'))
+    assert published == json.loads(json.dumps(report, ensure_ascii=False)), 'Run python -m backend.evaluation --write and commit docs/reliability.json'
+
+
+def test_reliability_endpoint_requires_sign_in():
+    assert TestClient(main.app, base_url='https://testserver').get('/api/reliability').status_code == 401
+    client, _ = visitor()
+    body = client.get('/api/reliability').json()
+    assert body['overall']['tp'] > 50 and body['failures']
+
+
+# ---------- Tone and messaging ----------
+def test_tone_checks_cite_the_voice_guide_and_respect_channels():
+    rules, sources = evaluation.register()
+    text = 'HURRY! Our revolutionary editor gives instant results!! Leverage it today.'
+    social = scan(text, demo.COMPANY, 'Social', rules, sources)[0]
+    titles = sorted(f['title'] for f in social if f['rule_code'] == 'V01')
+    assert titles.count('Off-brand wording') == 2 and 'Off-message promise' in titles and 'Use the preferred term' in titles
+    assert 'Words written in capitals' in titles and 'Too many exclamation marks' in titles
+    for f in social:
+        if f['rule_code'] == 'V01':
+            assert f['outcome'] == 'Tone Issue' and f['evidence']['rule_value'] in demo.VOICE
+    preferred = next(f for f in social if f['title'] == 'Use the preferred term')
+    assert preferred['span'] == 'Leverage' and preferred['suggestion'] == 'Use'
+    website = scan(text, demo.COMPANY, 'Website', rules, sources)[0]
+    assert not any(f['title'] == 'Words written in capitals' for f in website)
+
+
+def test_tone_finding_can_be_accepted_by_a_reviewer_but_not_by_the_author():
+    client, state = visitor()
+    deck = item(state, demo.DECK_TITLE)
+    tone = next(f for f in deck['findings'] if f['outcome'] == 'Tone Issue')
+    assert client.post(f"/api/content/{deck['id']}/findings/{tone['id']}/decision", json={'action': 'verify', 'reason': 'Approved launch slide wording.'}).status_code == 403
+    switch(client, 'reviewer')
+    r = client.post(f"/api/content/{deck['id']}/findings/{tone['id']}/decision", json={'action': 'verify', 'reason': 'Partner slide may use this phrase per the campaign brief.'})
+    assert r.status_code == 200
+    contradiction = next(f for f in deck['findings'] if f['outcome'] == 'Verified Contradiction')
+    assert client.post(f"/api/content/{deck['id']}/findings/{contradiction['id']}/decision", json={'action': 'reject', 'reason': 'Trying to dismiss a contradiction.'}).status_code == 409
+
+
+# ---------- 2. Page by page, with accessibility ----------
+def test_ten_page_brochure_and_deck_have_page_specific_marks_and_measured_contrast():
+    client, state = visitor()
+    brochure, deck = item(state, demo.BROCHURE_TITLE), item(state, demo.DECK_TITLE)
+    creatives = {c['content_id']: c for c in state['creatives']}
+    assert len(creatives[brochure['id']]['pages']) == 10 and len(creatives[deck['id']]['pages']) == 6
+    pages = {f['page'] for f in brochure['findings']}
+    assert len(pages) >= 7 and all(isinstance(p, int) for p in pages)
+    contrast = [f for f in brochure['findings'] if f['title'] == 'Low text contrast']
+    assert {f['page'] for f in contrast} == {0, 5}
+    assert all(f['measure']['ratio'] < f['measure']['target'] and f['measure']['fg'].startswith('#') for f in contrast)
+    assert any(f['title'] == 'Very small text' and f['page'] == 9 and f['measure']['size_pt'] == 6 for f in brochure['findings'])
+    alt = sorted(f['title'] for f in deck['findings'] if f['page'] == 3)
+    assert alt == ['Alt text is not helpful', 'Alt text missing']
+    assert any(f['title'] == 'Low text contrast' and f['measure']['ratio'] == 2.32 for f in deck['findings'])
+    page = client.get(creatives[brochure['id']]['pages'][5]['image_url'])
+    assert page.status_code == 200 and page.headers['content-type'] == 'image/jpeg' and page.content[:2] == b'\xff\xd8'
+    ad = item(state, demo.AD_TITLE)
+    assert len(ad['findings']) == 6 and not any(f['outcome'] == 'Accessibility' for f in ad['findings'])
+
+
+def test_uploaded_pdf_and_pptx_are_read_page_by_page_without_ai():
+    client, state = visitor()
+    camp = state['campaigns'][0]['id']
+    for name, mime, pages in (('festive-brochure-10-pages.pdf', 'application/pdf', 10), ('partner-deck.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 6)):
+        blob = client.get(f'/api/demo/assets/{name}').content
+        r = client.post('/api/scan/upload', data={'title': 'Upload ' + name, 'campaign_id': camp, 'subject': 'Inkloom AI', 'channel': 'Advertisement'}, files={'file': (name, blob, mime)})
+        assert r.status_code == 200, r.text
+        uploaded = r.json()
+        assert uploaded['findings'] and all('page' in f for f in uploaded['findings'] if f.get('end', 0) > f.get('start', 0) or f.get('kind') == 'access')
+        creative = next(c for c in client.get('/api/workspace').json()['creatives'] if c['content_id'] == uploaded['id'])
+        assert creative['page_count'] == pages and len(creative['pages']) == pages
+        assert client.get(creative['pages'][-1]['image_url']).status_code == 200
+
+
+def test_alt_text_is_part_of_the_reviewed_version():
+    client, state = visitor()
+    ad = item(state, demo.AD_TITLE)
+    creative = next(c for c in state['creatives'] if c['content_id'] == ad['id'])
+    r = client.put(f"/api/creatives/{creative['id']}/alt-text", json={'alt_text': 'banner', 'expected_version': ad['version']})
+    assert r.status_code == 200, r.text
+    assert any(f['title'] == 'Alt text is not helpful' for f in r.json()['findings'])
+    good = 'Inkloom AI spring launch advertisement with headline, free trial offer, price and Start free today button.'
+    r = client.put(f"/api/creatives/{creative['id']}/alt-text", json={'alt_text': good, 'expected_version': ad['version']})
+    assert not any(f['outcome'] == 'Accessibility' for f in r.json()['findings'])
+    switch(client, 'reviewer')
+    assert client.put(f"/api/creatives/{creative['id']}/alt-text", json={'alt_text': good, 'expected_version': ad['version']}).status_code == 403
+
+
+# ---------- 3. Guideline insights and clarified rules ----------
+def test_insights_flag_the_unclear_rule_and_hide_people():
+    client, state = visitor()
+    assert client.get('/api/insights').status_code == 403
+    tips = client.get('/api/insights/tips').json()
+    assert any(t['rule_code'] == 'F02' for t in tips)
+    switch(client, 'reviewer')
+    data = client.get('/api/insights').json()
+    assert data['summary']['fictional'] > 30 and data['summary']['decisions'] > 30
+    assert data['recurring'][0]['count'] >= data['recurring'][-1]['count']
+    unclear = next(u for u in data['unclear'] if u['rule_code'] == 'P02')
+    assert unclear['channel'] == 'Email' and 'Email' not in unclear['suggestion']['config']['qualifier_channels']
+    teams = {t['name'] for t in data['by_team']}
+    assert teams <= {'Internal team', 'Partner agencies'}
+    assert 'Alex Morgan' not in json.dumps(data) and 'Jordan Lee' not in json.dumps(data)
+
+
+def test_clarified_rule_is_replayed_then_applied_only_by_a_different_manager():
+    client, _ = visitor()
+    state = switch(client, 'manager')
+    unclear = next(u for u in client.get('/api/insights').json()['unclear'] if u['rule_code'] == 'P02')
+    body = {'rule_id': unclear['rule_id'], 'rationale': 'Email footers already carry the GST note.', 'config': unclear['suggestion']['config']}
+    own = client.post('/api/rule-proposals', json=body).json()
+    assert client.post(f"/api/rule-proposals/{own['id']}/apply", json={'note': 'Applying without a replay.'}).status_code == 409
+    client.post(f"/api/rule-proposals/{own['id']}/replay")
+    assert client.post(f"/api/rule-proposals/{own['id']}/apply", json={'note': 'Approving my own proposal.'}).status_code == 403
+    client.post(f"/api/rule-proposals/{own['id']}/discard", json={'note': 'Superseded by the reviewer proposal.'})
+    switch(client, 'reviewer')
+    proposal = client.post('/api/rule-proposals', json=body).json()
+    replayed = client.post(f"/api/rule-proposals/{proposal['id']}/replay").json()['replay']
+    assert replayed['decided'] == 14 and replayed['agreement_before'] < 0.5 and replayed['agreement_after'] == 1.0 and replayed['confirmed_missed'] == 0
+    assert client.post(f"/api/rule-proposals/{proposal['id']}/apply", json={'note': 'Reviewers cannot apply.'}).status_code == 403
+    switch(client, 'manager')
+    applied = client.post(f"/api/rule-proposals/{proposal['id']}/apply", json={'note': 'Replay matches every reviewer decision.'})
+    assert applied.status_code == 200 and applied.json()['status'] == 'Applied'
+    state = client.get('/api/workspace').json()
+    rule = next(r for r in state['rules'] if r['code'] == 'P02')
+    assert rule['config']['qualifier_channels'] == unclear['suggestion']['config']['qualifier_channels']
+    event = next(a for a in state['activity'] if a['action'] == 'Applied clarified rule')
+    assert event['detail']['proposer'] != event['detail']['approver'] and event['detail']['replay']['agreement_after'] == 1.0
+    rules, sources = evaluation.register()
+    email = scan('Professional costs ₹1,999/month.', demo.COMPANY, 'Email', [type(rules[0])(**{**vars(rules[1]), 'config': rule['config']})], sources)[0]
+    assert not email
+
+
+def test_stale_replay_cannot_be_applied():
+    client, _ = visitor()
+    switch(client, 'reviewer')
+    unclear = next(u for u in client.get('/api/insights').json()['unclear'] if u['rule_code'] == 'P02')
+    proposal = client.post('/api/rule-proposals', json={'rule_id': unclear['rule_id'], 'rationale': 'Email footers already carry the GST note.', 'config': unclear['suggestion']['config']}).json()
+    client.post(f"/api/rule-proposals/{proposal['id']}/replay")
+    state = switch(client, 'manager')
+    rule = next(r for r in state['rules'] if r['code'] == 'P02')
+    edit = {k: rule[k] for k in ('source_id', 'code', 'title', 'kind', 'value', 'subject')}
+    assert client.put(f"/api/rules/{rule['id']}", json={**edit, 'config': {**rule['config'], 'qualifier_text': 'plus GST'}}).status_code == 200
+    assert client.post(f"/api/rule-proposals/{proposal['id']}/apply", json={'note': 'Applying a stale replay.'}).status_code == 409
+
+
+def test_decisions_are_recorded_in_finding_history():
+    client, state = visitor()
+    ad = item(state, demo.AD_TITLE)
+    gst = next(f for f in ad['findings'] if f['title'] == 'Check the pricing qualification')
+    switch(client, 'reviewer')
+    client.post(f"/api/content/{ad['id']}/findings/{gst['id']}/decision", json={'action': 'confirm', 'reason': 'The ad must show + GST.'})
+    p02 = next(r for r in client.get('/api/insights').json()['recurring'] if r['rule_code'] == 'P02')
+    assert p02['confirmed'] == 6
+
+
+def test_document_is_revised_by_uploading_the_corrected_file():
+    client, state = visitor()
+    brochure = item(state, demo.BROCHURE_TITLE)
+    edit = client.put(f"/api/content/{brochure['id']}", json={'body': brochure['body'].replace('799', '999'), 'title': brochure['title'], 'expected_version': brochure['version']})
+    assert edit.status_code == 409 and 'upload the revised file' in edit.json()['detail']
+    fixed = client.get('/api/demo/assets/festive-brochure-corrected.pdf').content
+    r = client.post(f"/api/content/{brochure['id']}/creative", data={'expected_version': str(brochure['version'])}, files={'file': ('festive-brochure-corrected.pdf', fixed, 'application/pdf')})
+    assert r.status_code == 200, r.text
+    revised = r.json()
+    assert revised['version'] == brochure['version'] + 1 and revised['findings'] == [], [f['title'] + ' ' + f['span'] for f in revised['findings']]
+    creative = next(c for c in client.get('/api/workspace').json()['creatives'] if c['content_id'] == brochure['id'] and c['version'] == revised['version'])
+    assert creative['page_count'] == 10

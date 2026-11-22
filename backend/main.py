@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
-from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount
-from . import ai, intelligence, limits, demo as judge_demo
+from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access
+from . import ai, intelligence, limits, documents, evaluation, insights, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
 PRODUCTION=os.getenv('BRANDORA_ENV')=='production'
@@ -157,6 +157,23 @@ def reserve_semantic(db,actor):
         if exc.status_code==429:return 'limit'
         raise
     return True
+DOCUMENT_ORIGINS=('pdf','pdf-ocr','pptx')
+def creative_images(creative):
+    """Images whose alt text is checked: the creative itself, or each picture in a deck. PDF figures need a tagged PDF."""
+    if creative.origin=='pptx':return list(creative.images or [])
+    if creative.origin in DOCUMENT_ORIGINS:return []
+    return [{'page':0,'box':None,'alt':creative.alt_text,'name':creative.name,'label':'This creative'}]
+def team_of(db,c):
+    author=db.get(User,c.author_id)
+    return 'Partner agencies' if author and author.role=='partner' else 'Internal team'
+def record_findings(db,c,findings):
+    """Keep each finding once per exact version, with the text it was raised on, for insights and rule replays."""
+    seen=set(db.scalars(select(FindingEvent.finding_id).where(FindingEvent.content_id==c.id,FindingEvent.version==c.version)))
+    campaign=db.get(Campaign,c.campaign_id);team=team_of(db,c)
+    for f in findings:
+        if f['id'] in seen:continue
+        db.add(FindingEvent(org_id=c.org_id,content_id=c.id,version=c.version,finding_id=f['id'],rule_id=f.get('rule_id',''),rule_code=f.get('rule_code',''),outcome=f['outcome'],title=f['title'],span=(f.get('span') or '')[:500],
+            content_title=c.title,channel=c.channel,subject=c.subject,campaign=campaign.name if campaign else '',team=team,body=c.body))
 AI_LIMIT_COVERAGE="AI incomplete: the daily AI request limit has been reached. Rule checks completed; retry tomorrow or have a manager turn AI off."
 def run_scan(db,c,user,ai_reserved=False):
     rules=org_rules(db,user);sources=org_sources(db,user)
@@ -172,6 +189,8 @@ def run_scan(db,c,user,ai_reserved=False):
                 if exc.status_code!=429:raise
                 limited=True
         extra,coverage,hidden=([],AI_LIMIT_COVERAGE,0) if limited else ai.semantic(c.body,c.subject,c.channel,rules,sources)
+        # An AI suggestion that repeats a rule finding (same rule, overlapping text) is not shown twice.
+        extra=[e for e in extra if not any(f['rule_id']==e['rule_id'] and f['start']<e['end'] and e['start']<f['end'] for f in findings)]
         findings.extend(extra)
         for f in extra:
             ev=f['evidence']
@@ -179,6 +198,17 @@ def run_scan(db,c,user,ai_reserved=False):
     creative=current_creative(db,c)
     visual=visual_findings(creative) if creative else []
     findings.extend(visual)
+    if creative:
+        measured,access_deps=access(creative.regions or [],creative_images(creative),rules,sources,c.subject,c.channel)
+        findings.extend(measured)
+        for d in access_deps:
+            if not any(x['rule_id']==d['rule_id'] for x in deps):deps.append(d)
+    if creative:
+        # Text findings carry the page their span sits on, so multi-page documents can be navigated by finding.
+        for f in findings:
+            if f.get('page') is None and f.get('end',0)>f.get('start',0):
+                region=next((r for r in creative.regions or [] if f['start']<r['end'] and f['end']>r['start']),None)
+                if region:f['page']=region.get('page',0)
     previous={f['id']:f for f in (c.findings or [])}
     for f in findings:
         # Reviewer notes stay attached to an unchanged finding across a rescan of the same version.
@@ -196,6 +226,7 @@ def run_scan(db,c,user,ai_reserved=False):
     for task in open_tasks:task.status='Superseded by rescan'
     for f in findings:
         if f['outcome']=='Evidence Gap':db.add(Task(org_id=user.org_id,content_id=c.id,title=f'Substantiate: {f["span"][:100]}',owner=f['evidence']['owner']))
+    record_findings(db,c,findings)
     audit(db,user,'Scanned content',c.title,{'content_id':c.id,'version':c.version,'findings':len(findings),'visual':len(visual),'coverage':coverage,'hidden':hidden})
     return row(c)
 
@@ -222,15 +253,20 @@ class SourceInput(BaseModel):
         return v
 class RuleInput(BaseModel):
     source_id:str;code:str=Field(min_length=1,max_length=20);title:str=Field(min_length=2,max_length=100)
-    kind:Literal['term','number','required','banned','substantiation']
+    kind:Literal['term','number','required','banned','substantiation','tone','accessibility']
     value:str=Field(min_length=1,max_length=300);subject:str=Field(min_length=1,max_length=80)
     config:dict=Field(default_factory=dict)
     @field_validator('config')
     @classmethod
     def bounded(cls,v):
         if len(json.dumps(v))>4000:raise ValueError('Configuration is too large.')
-        for key in ('variants','unsupported_terms','channels'):
+        for key in ('variants','unsupported_terms','channels','qualifier_channels','shouting_channels','allow_caps'):
             if key in v and (not isinstance(v[key],list) or any(not isinstance(x,str) or not x or len(x)>300 for x in v[key]) or len(v[key])>30):raise ValueError('Use a bounded list of text values.')
+        for key in ('avoid','messaging','preferred','cite'):
+            if key in v and (not isinstance(v[key],dict) or len(v[key])>40 or any(not isinstance(a,str) or not a or not isinstance(b,str) or len(a)>300 or len(b)>300 for a,b in v[key].items())):raise ValueError(f'{key} must map text to text.')
+        for key,(low,high) in {'max_exclamations':(0,20),'max_sentence_words':(5,200),'contrast_normal':(1,21),'contrast_large':(1,21),'large_pt':(1,200),'large_bold_pt':(1,200),'min_pt':(1,72)}.items():
+            if key in v and (isinstance(v[key],bool) or not isinstance(v[key],(int,float)) or not low<=v[key]<=high):raise ValueError(f'{key} must be a number from {low} to {high}.')
+        if 'shouting' in v and not isinstance(v['shouting'],bool):raise ValueError('shouting must be true or false.')
         for key in ('metric','qualifier','trigger','replacement','plan','qualifier_text'):
             if key in v and (not isinstance(v[key],str) or len(v[key])>300):raise ValueError('Rule conditions must be text of at most 300 characters.')
         if 'qualifier_review' in v and not isinstance(v['qualifier_review'],bool):raise ValueError('qualifier_review must be true or false.')
@@ -365,6 +401,12 @@ def demo_asset(name:str,actor=Depends(user),db=Depends(database)):
     mime,blob=item
     return Response(blob,media_type=mime,headers={'Content-Disposition':f'attachment; filename="brandora-{name}"'})
 
+def creative_payload(db,cr):
+    data=dict(row(cr,('image',)),image_url=f'/api/creatives/{cr.id}/image' if cr.image else '')
+    if cr.origin in DOCUMENT_ORIGINS:
+        data['pages']=[{'index':p.page,'width':p.width,'height':p.height,'image_url':f'/api/creatives/{cr.id}/pages/{p.page}/image'} for p in db.scalars(select(CreativePage).where(CreativePage.creative_id==cr.id).order_by(CreativePage.page)) if p.image]
+    else:data['pages']=[{'index':0,'width':cr.width,'height':cr.height,'image_url':data['image_url']}] if cr.image else []
+    return data
 @app.get('/api/workspace')
 def workspace(actor=Depends(user),db=Depends(database)):
     items=visible_content(db,actor);ids={c.id for c in items}
@@ -379,7 +421,7 @@ def workspace(actor=Depends(user),db=Depends(database)):
       'members':[row(u,('password',)) for u in users] if actor.role=='manager' else [{'id':u.id,'name':u.name,'role':u.role} for u in users],
       'campaigns':[row(c) for c in campaigns], 'sources':[dict(row(s),current=current(s)) for s in sources.values()], 'rules':[row(r) for r in rules],
       'content':[dict(row(c),status=status(db,c),verified=verified_spans(c.body,c.subject,c.channel,rules,sources)) for c in items],
-      'creatives':[dict(row(cr,('image',)),image_url=f'/api/creatives/{cr.id}/image' if cr.image else '') for cr in db.scalars(select(Creative).where(Creative.org_id==actor.org_id).order_by(Creative.created.desc())) if cr.content_id in ids],
+      'creatives':[creative_payload(db,cr) for cr in db.scalars(select(Creative).where(Creative.org_id==actor.org_id).order_by(Creative.created.desc())) if cr.content_id in ids],
       'approvals':[row(a) for a in db.scalars(select(Approval).where(Approval.org_id==actor.org_id).order_by(Approval.created.desc())) if a.content_id in ids],
       'dependencies':[row(d) for d in db.scalars(select(Dependency).join(Content,Content.id==Dependency.content_id).where(Content.org_id==actor.org_id)) if d.content_id in ids],
       'tasks':[row(t) for t in db.scalars(select(Task).where(Task.org_id==actor.org_id)) if t.content_id in ids],
@@ -448,6 +490,8 @@ def content_create(data:Draft,actor=Depends(user),db=Depends(database)):
 def content_edit(id:str,data:EditDraft,actor=Depends(user),db=Depends(database)):
     c=get(db,Content,id,actor);content_allowed(c,actor)
     if data.expected_version!=c.version:fail(409,'This draft changed. Reload before saving.')
+    attached=current_creative(db,c)
+    if attached and attached.origin in DOCUMENT_ORIGINS:fail(409,'This content is a PDF or PowerPoint file. Apply the corrections in the file and upload the revised file; Brandora re-checks it page by page.')
     c.body=data.body;c.title=data.title;c.last_editor_id=actor.id;c.version+=1;c.status='Draft';c.scan_revision=0;c.findings=[];c.language_review={};c.updated=now()
     db.add(ContentVersion(content_id=c.id,version=c.version,body=c.body));audit(db,actor,'Saved new content version',c.title,{'content_id':c.id,'version':c.version});return row(c)
 @app.post('/api/content/{id}/scan')
@@ -466,7 +510,7 @@ def resolve(id:str,data:DecisionInput,actor=Depends(user),db=Depends(database)):
     if actor.id in (c.author_id,c.last_editor_id):fail(403,'The author or last editor cannot resolve their own review.')
     findings=[dict(f) for f in c.findings];f=next((f for f in findings if f['id']==data.finding_id),None)
     if not f:fail(404,'Finding not found.')
-    if f['outcome']!='Low Confidence':fail(409,'Correct the content or approved source and rescan. Evidence gaps and contradictions cannot be dismissed into approval.')
+    if f['outcome'] not in ('Low Confidence','Tone Issue','Accessibility'):fail(409,'Correct the content or approved source and rescan. Evidence gaps and contradictions cannot be dismissed into approval.')
     if not f.get('evidence') or f['title'] in ('Source needs review','Approved sources disagree'):
         fail(409,'Resolve the source or claim mapping in the rulebook and rescan before approving.')
     f['resolved']=True;f['resolution']=data.reason;c.findings=findings
@@ -486,7 +530,8 @@ def approve(id:str,actor=Depends(user),db=Depends(database)):
     for dep in deps:
         s=db.get(Source,dep.source_id)
         if not current(s) or s.version!=dep.source_version:fail(409,'A source changed or expired. Rescan first.')
-    a=Approval(org_id=actor.org_id,content_id=c.id,reviewer_id=actor.id,version=c.version,content_hash=digest(c.body),snapshot={'title':c.title,'body':c.body,'reviewer':actor.name,'coverage':c.scan_coverage,'language':c.language,'language_review':c.language_review,'policy_revision':ws.revision,'dependencies':[dict(row(dep),source_title=db.get(Source,dep.source_id).title,rule_value=db.get(Rule,dep.rule_id).value) for dep in deps]})
+    approved_creative=current_creative(db,c)
+    a=Approval(org_id=actor.org_id,content_id=c.id,reviewer_id=actor.id,version=c.version,content_hash=digest(c.body),snapshot={'title':c.title,'body':c.body,'alt_text':approved_creative.alt_text if approved_creative else '','pages':approved_creative.page_count if approved_creative else 0,'reviewer':actor.name,'coverage':c.scan_coverage,'language':c.language,'language_review':c.language_review,'policy_revision':ws.revision,'dependencies':[dict(row(dep),source_title=db.get(Source,dep.source_id).title,rule_value=db.get(Rule,dep.rule_id).value) for dep in deps]})
     db.add(a);db.flush();c.status='Approved';c.updated=now();audit(db,actor,'Approved exact version',c.title,{'content_id':c.id,'receipt_id':a.id,'version':c.version});return row(a)
 @app.get('/api/content/{id}/history')
 def content_history(id:str,actor=Depends(user),db=Depends(database)):
@@ -501,7 +546,10 @@ def content_delete(id:str,actor=Depends(user),db=Depends(database)):
     for t in db.scalars(select(Translation).where(Translation.org_id==actor.org_id)):
         if t.content_id==id or t.saved_content_id==id:t.result={'deleted':True}
     c.language_review={}
-    for cr in db.scalars(select(Creative).where(Creative.content_id==id)):cr.image='';cr.regions=[];cr.findings=[];cr.alt_text='';cr.name='Deleted creative'
+    for cr in db.scalars(select(Creative).where(Creative.content_id==id)):
+        cr.image='';cr.regions=[];cr.findings=[];cr.alt_text='';cr.name='Deleted creative';cr.images=[]
+        for page in db.scalars(select(CreativePage).where(CreativePage.creative_id==cr.id)):page.image=''
+    for event in db.scalars(select(FindingEvent).where(FindingEvent.content_id==id)):event.body='';event.span='';event.content_title='Deleted content';event.review_reason=''
     for event in db.scalars(select(Audit).where(Audit.org_id==actor.org_id)):
         if event.detail.get('content_id')==id:event.target='Deleted content'
     db.execute(delete(Dependency).where(Dependency.content_id==id));audit(db,actor,'Deleted content payload',id,{'content_id':id});return {'ok':True}
@@ -779,9 +827,49 @@ async def read_creative(db,actor,blob,refs):
 
 def new_creative(db,actor,c,blob,name,origin,regions,logos,warnings,alt_text):
     with Image.open(io.BytesIO(blob)) as image:width,height=image.size
+    if regions:regions=documents.measure_raster(blob,regions)
     cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image=base64.b64encode(blob).decode(),width=width,height=height,origin=origin,regions=regions,logos=logos,warnings=warnings[:12],alt_text=alt_text[:600],
         provider=f'{ai.provider()} · {ai.model()}' if origin=='ai' else 'Sample layout data',sha256=hashlib.sha256(blob).hexdigest(),created_by=actor.name)
     db.add(cr);db.flush();return cr
+
+DOCUMENT_NOTES={'pdf':'Pages rendered from the PDF. Text positions, sizes and colours come from the file; backgrounds are sampled from the rendered page.',
+    'pdf-ocr':'Scanned PDF: each page was read with AI OCR. Text positions are AI estimates; contrast is sampled from the page image.',
+    'pptx':'Slides drawn by Brandora from the deck file (text boxes, fills and pictures). Fonts and effects are approximated; text colours, fills and sizes come from the file.'}
+def new_document(db,actor,c,name,origin,pages,regions,images):
+    """A multi-page document or deck tied to one exact content version. Each page is stored and served separately."""
+    first=pages[0]
+    cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image='',width=first['width'],height=first['height'],origin=origin,regions=regions,logos=[],warnings=[DOCUMENT_NOTES[origin]],
+        alt_text='',provider='Rule engine · no AI' if origin!='pdf-ocr' else f'{ai.provider()} · {ai.model()}',sha256=digest(name+c.body),created_by=actor.name,page_count=len(pages),images=images)
+    db.add(cr);db.flush()
+    for i,page in enumerate(pages):
+        image=page['image'] if isinstance(page['image'],str) else base64.b64encode(page['image']).decode()
+        db.add(CreativePage(org_id=actor.org_id,creative_id=cr.id,page=i,image=image,width=page['width'],height=page['height']))
+    return cr
+
+async def read_document(db,actor,blob,extension):
+    """Return (origin, pages, regions, images, body) for a PDF or PowerPoint file, or None for other documents."""
+    try:
+        if extension=='pptx':
+            pages,lines,images=await run_in_threadpool(documents.read_pptx,blob);origin='pptx'
+        else:
+            pages,lines=await run_in_threadpool(documents.read_pdf,blob);images=[];origin='pdf'
+    except documents.DocumentError as exc:fail(422,str(exc))
+    body,placed=documents.join_lines(lines)
+    if not body.strip() and extension=='pdf':
+        # A scanned PDF has no text layer: read each rendered page with AI OCR, then measure contrast on the pixels.
+        if not db.get(Workspace,actor.org_id).settings.get('ai_enabled'):fail(422,'This PDF has no text layer. A manager can turn on AI in Trust & Audit to read scanned pages with OCR, or paste the text instead. Nothing was saved.')
+        if len(pages)>5:fail(422,'Scanned PDFs are read with AI one page at a time. Upload at most 5 pages. Nothing was saved.')
+        ocr=[]
+        for i,page in enumerate(pages):
+            reserve_ai(db,actor,vision=True)
+            try:result=await run_in_threadpool(intelligence.inspect_visual,page['image'],[])
+            except ai.ProviderError as error:fail(502,f'Processing failed on page {i+1}: {error} Nothing was saved.')
+            lines=[{'text':r['text'],'box':list(r['box']),'page':i} for r in result['ocr']['regions'] if str(r.get('text','')).strip()]
+            ocr+=documents.measure_raster(page['image'],lines)
+        body,placed=documents.join_lines(ocr);origin='pdf-ocr'
+    if not body.strip():fail(422,'No readable text was found in this file. Nothing was saved.')
+    if len(body)>5000:fail(422,'The document text exceeds 5,000 characters. Upload a shorter section.')
+    return origin,pages,placed,images,body
 
 @app.post('/api/scan/upload')
 async def scan_upload(file:UploadFile=File(...),title:str=Form(min_length=2,max_length=120),campaign_id:str=Form(...),subject:str=Form(min_length=1,max_length=80),channel:str=Form(default='Advertisement'),reference_ids:str=Form(default='[]'),actor=Depends(user),db=Depends(database)):
@@ -790,11 +878,14 @@ async def scan_upload(file:UploadFile=File(...),title:str=Form(min_length=2,max_
     name=file.filename or 'upload';extension=name.lower().rsplit('.',1)[-1]
     blob=await file.read(3_000_001)
     if len(blob)>3_000_000:fail(413,'Use a file no larger than 3 MB.')
+    document=None
     if extension in IMAGE_TYPES:
         refs=logo_refs(db,actor,reference_ids)
         try:blob=intelligence.normalize_image(blob)
         except ValueError as exc:fail(422,str(exc))
         body,regions,logos,warnings,alt_text=await read_creative(db,actor,blob,refs)
+    elif extension in ('pdf','pptx'):
+        document=await read_document(db,actor,blob,extension);body=document[4]
     elif extension in DOCUMENT_TYPES:
         try:text=document_text(blob,name)
         except HTTPException as exc:
@@ -804,19 +895,31 @@ async def scan_upload(file:UploadFile=File(...),title:str=Form(min_length=2,max_
             except ai.ProviderError as error:fail(502,f'Processing failed: {error} Nothing was saved.')
         body=text.strip()
         if len(body)>5000:fail(422,'The document text exceeds 5,000 characters. Upload a shorter section.')
-    else:fail(422,'Use PNG, JPEG, WebP, PDF, DOCX, TXT or Markdown.')
+    else:fail(422,'Use PNG, JPEG, WebP, PDF, PowerPoint (.pptx), DOCX, TXT or Markdown.')
     reserved=reserve_semantic(db,actor)
     c=Content(org_id=actor.org_id,author_id=actor.id,campaign_id=campaign_id,title=title,channel=channel,subject=subject,body=body);db.add(c);db.flush()
     db.add(ContentVersion(content_id=c.id,version=1,body=body))
     if extension in IMAGE_TYPES:new_creative(db,actor,c,blob,name,'ai',regions,logos,warnings,alt_text)
-    audit(db,actor,'Uploaded content for scanning',c.title,{'content_id':c.id,'file':name[:120],'kind':'image' if extension in IMAGE_TYPES else 'document','sha256':hashlib.sha256(blob).hexdigest()})
+    if document:new_document(db,actor,c,name,document[0],document[1],document[2],document[3])
+    audit(db,actor,'Uploaded content for scanning',c.title,{'content_id':c.id,'file':name[:120],'kind':'image' if extension in IMAGE_TYPES else ('pages' if document else 'document'),'pages':len(document[1]) if document else 1,'sha256':hashlib.sha256(blob).hexdigest()})
     return run_scan(db,c,actor,reserved)
 
 @app.post('/api/content/{id}/creative')
 async def creative_revision(id:str,expected_version:int=Form(...),reference_ids:str=Form(default='[]'),reuse:str=Form(default=''),file:UploadFile|None=File(default=None),actor=Depends(user),db=Depends(database)):
-    """Upload a revised creative, or re-read a stored one with live AI. Either way it becomes a new exact version."""
+    """Upload a revised creative or document, or re-read a stored image with live AI. Each becomes a new exact version."""
     c=get(db,Content,id,actor);content_allowed(c,actor)
     if c.version!=expected_version:fail(409,'This content changed. Reload before adding a creative.')
+    extension=((file.filename if file else '') or '').lower().rsplit('.',1)[-1]
+    if not reuse and file and extension in ('pdf','pptx'):
+        blob=await file.read(3_000_001)
+        if len(blob)>3_000_000:fail(413,'Use a file no larger than 3 MB.')
+        origin,pages,placed,images,body=await read_document(db,actor,blob,extension)
+        reserved=reserve_semantic(db,actor)
+        c.body=body;c.last_editor_id=actor.id;c.version+=1;c.status='Draft';c.scan_revision=0;c.findings=[];c.language_review={};c.updated=now()
+        db.add(ContentVersion(content_id=c.id,version=c.version,body=body))
+        new_document(db,actor,c,file.filename or 'document',origin,pages,placed,images)
+        audit(db,actor,'Uploaded revised document',c.title,{'content_id':c.id,'version':c.version,'pages':len(pages),'sha256':hashlib.sha256(blob).hexdigest()})
+        return run_scan(db,c,actor,reserved)
     if reuse:
         previous=get(db,Creative,reuse,actor)
         if previous.content_id!=c.id or not previous.image:fail(404,'Creative not found.')
@@ -824,7 +927,7 @@ async def creative_revision(id:str,expected_version:int=Form(...),reference_ids:
     else:
         if not file:fail(422,'Choose an image.')
         name=file.filename or 'creative'
-        if name.lower().rsplit('.',1)[-1] not in IMAGE_TYPES:fail(422,'Use a PNG, JPEG or WebP image.')
+        if name.lower().rsplit('.',1)[-1] not in IMAGE_TYPES:fail(422,'Use a PNG, JPEG or WebP image, or a PDF or PowerPoint file.')
         try:blob=intelligence.normalize_image(await file.read(3_000_001))
         except ValueError as exc:fail(422,str(exc))
     refs=logo_refs(db,actor,reference_ids)
@@ -842,9 +945,34 @@ def creative_image(id:str,actor=Depends(user),db=Depends(database)):
     if not cr.image:fail(404,'This creative was deleted.')
     return Response(base64.b64decode(cr.image),media_type='image/jpeg')
 
+@app.get('/api/creatives/{id}/pages/{page}/image')
+def creative_page_image(id:str,page:int,actor=Depends(user),db=Depends(database)):
+    cr=get(db,Creative,id,actor);get(db,Content,cr.content_id,actor)
+    p=db.scalar(select(CreativePage).where(CreativePage.creative_id==cr.id,CreativePage.page==page))
+    if not p or not p.image:fail(404,'This page is not available.')
+    if p.image.startswith('fixture:'):
+        _,key,index=p.image.split(':');blob=judge_demo.fixture_page(key,int(index))
+        if blob is None:fail(404,'This page is not available.')
+    else:blob=base64.b64decode(p.image)
+    return Response(blob,media_type='image/jpeg',headers={'Cache-Control':'private, max-age=3600'})
+
+class AltTextInput(BaseModel):
+    alt_text:str=Field(default='',max_length=600);expected_version:int=Field(ge=1)
+@app.put('/api/creatives/{id}/alt-text')
+def creative_alt_text(id:str,data:AltTextInput,actor=Depends(user),db=Depends(database)):
+    """Alt text is part of the deliverable: changing it ends any approval and re-checks the exact version."""
+    cr=get(db,Creative,id,actor);c=get(db,Content,cr.content_id,actor);content_allowed(c,actor)
+    if c.version!=data.expected_version or cr.version!=c.version:fail(409,'This content changed. Reload before editing alt text.')
+    if cr.origin in DOCUMENT_ORIGINS:fail(422,'Alt text for pictures in a document is set in the file itself. Update the file and upload it again.')
+    reserved=reserve_semantic(db,actor)
+    cr.alt_text=' '.join(data.alt_text.split());c.last_editor_id=actor.id;c.status='Draft';c.updated=now()
+    audit(db,actor,'Updated alt text',c.title,{'content_id':c.id,'version':c.version,'alt_text':cr.alt_text[:200]})
+    return run_scan(db,c,actor,reserved)
+
 class FindingDecision(BaseModel):
     action:Literal['confirm','verify','reject','request_evidence','escalate','comment']
     reason:str=Field(min_length=3,max_length=1000)
+DISMISSIBLE=('Low Confidence','Tone Issue','Accessibility')
 REVIEW_STATES={'confirm':'Confirmed','verify':'Verified by reviewer','reject':'AI finding rejected','request_evidence':'Needs evidence','escalate':'Escalated'}
 REVIEW_ACTIONS={'confirm':'Confirmed finding','verify':'Marked finding verified','reject':'Rejected AI finding','request_evidence':'Requested evidence','escalate':'Escalated finding','comment':'Commented on finding'}
 
@@ -858,7 +986,7 @@ def finding_decision(id:str,finding_id:str,data:FindingDecision,actor=Depends(us
         if actor.id in (c.author_id,c.last_editor_id):fail(403,'The author or last editor cannot decide on their own content. Ask another reviewer.')
     if data.action in ('verify','reject'):
         if f.get('resolved'):fail(409,'This finding already has a recorded resolution.')
-        if f['outcome']!='Low Confidence':fail(409,'Confirmed contradictions, evidence gaps and visual violations come from approved records. Correct the content, or update the approved record in Company Hub, then rescan.')
+        if f['outcome'] not in DISMISSIBLE:fail(409,'Confirmed contradictions, evidence gaps and visual violations come from approved records. Correct the content, or update the approved record in Company Hub, then rescan.')
         if not f.get('evidence') or f['title'] in ('Source needs review','Approved sources disagree'):fail(409,'This claim has no approved mapping. Map it in Company Hub or remove it, then rescan.')
         if len(data.reason.strip())<10:fail(422,'Record a reason of at least 10 characters.')
         f['resolved']=True;f['resolution']=data.reason
@@ -871,9 +999,91 @@ def finding_decision(id:str,finding_id:str,data:FindingDecision,actor=Depends(us
     c.findings=findings
     creative=current_creative(db,c)
     if creative:creative.findings=[dict(x) for x in findings]
+    if data.action in REVIEW_STATES:
+        for event in db.scalars(select(FindingEvent).where(FindingEvent.content_id==c.id,FindingEvent.version==c.version,FindingEvent.finding_id==f['id'])):
+            event.review=REVIEW_STATES[data.action];event.review_reason=data.reason[:500]
     db.add(Decision(org_id=actor.org_id,content_id=c.id,rule_id=f.get('rule_id') or f.get('rule_code',''),actor=actor.name,reason=data.reason,outcome=REVIEW_STATES.get(data.action,'Comment')))
     audit(db,actor,REVIEW_ACTIONS[data.action],c.title,{'content_id':c.id,'finding_id':f['id'],'version':c.version,'reason':data.reason[:200]})
     return row(c)
+
+# --- Measured reliability, guideline insights and clarified rules ---
+@app.get('/api/reliability')
+def reliability(actor=Depends(user)):
+    """The labelled evaluation, re-run by the same engine the product uses (and by CI on every push)."""
+    return evaluation.evaluate()
+
+def history(db,actor):
+    return list(db.scalars(select(FindingEvent).where(FindingEvent.org_id==actor.org_id).order_by(FindingEvent.created)))
+
+def proposal_row(db,p):
+    rule=db.get(Rule,p.rule_id)
+    return dict(row(p),rule_code=rule.code if rule else '',rule_title=rule.title if rule else '',current_value=rule.value if rule else '',current_config=rule.config if rule else {},
+        stale=p.status in ('Draft','Replayed') and bool(p.replay) and rule is not None and p.replay.get('rule_hash')!=insights.rule_hash(rule))
+
+@app.get('/api/insights')
+def insights_view(actor=Depends(user),db=Depends(database)):
+    require(actor,'manager','reviewer')
+    events=history(db,actor);rules=org_rules(db,actor)
+    proposals=[proposal_row(db,p) for p in db.scalars(select(RuleProposal).where(RuleProposal.org_id==actor.org_id).order_by(RuleProposal.created.desc()))]
+    decided=sum(bool(e.review) for e in events)
+    return {**insights.build(events,rules),'proposals':proposals,
+        'summary':{'findings':len(events),'decisions':decided,'fictional':sum(e.fictional for e in events),'since':events[0].created if events else None,'content':len({(e.content_id or e.content_title,e.version) for e in events})}}
+
+@app.get('/api/insights/tips')
+def insights_tips(actor=Depends(user),db=Depends(database)):
+    return insights.tips(history(db,actor),org_rules(db,actor))
+
+class ProposalInput(BaseModel):
+    rule_id:str;rationale:str=Field(min_length=10,max_length=1000)
+    value:str=Field(default='',max_length=300);config:dict=Field(default_factory=dict)
+
+@app.post('/api/rule-proposals')
+def proposal_create(data:ProposalInput,actor=Depends(user),db=Depends(database)):
+    require(actor,'manager','reviewer');r=get(db,Rule,data.rule_id,actor)
+    try:checked=RuleInput(source_id=r.source_id,code=r.code,title=r.title,kind=r.kind,value=data.value or r.value,subject=r.subject,config=data.config)
+    except ValueError as exc:fail(422,f'The clarified rule is not valid: {exc}')
+    if checked.value==r.value and checked.config==(r.config or {}):fail(422,'The clarified rule is identical to the current rule.')
+    p=RuleProposal(org_id=actor.org_id,rule_id=r.id,proposer_id=actor.id,proposer=actor.name,rationale=data.rationale,value=checked.value,config=checked.config,base_hash=insights.rule_hash(r))
+    db.add(p);db.flush();audit(db,actor,'Proposed rule clarification',r.title,{'proposal_id':p.id,'rule':r.code,'rationale':data.rationale[:200]})
+    return proposal_row(db,p)
+
+@app.post('/api/rule-proposals/{id}/replay')
+def proposal_replay(id:str,actor=Depends(user),db=Depends(database)):
+    require(actor,'manager','reviewer');p=get(db,RuleProposal,id,actor)
+    if p.status not in ('Draft','Replayed'):fail(409,'This proposal was already decided.')
+    r=get(db,Rule,p.rule_id,actor)
+    result=insights.replay(history(db,actor),r,p.value,p.config,org_sources(db,actor),visible_content(db,actor))
+    p.replay=result;p.status='Replayed'
+    audit(db,actor,'Replayed rule clarification on history',r.title,{'proposal_id':p.id,'decided':result['decided'],'agreement_before':result['agreement_before'],'agreement_after':result['agreement_after'],'confirmed_missed':result['confirmed_missed']})
+    return proposal_row(db,p)
+
+class ProposalDecision(BaseModel):
+    note:str=Field(min_length=10,max_length=1000)
+
+@app.post('/api/rule-proposals/{id}/apply')
+def proposal_apply(id:str,data:ProposalDecision,actor=Depends(user),db=Depends(database)):
+    """Only a manager who did not propose it can apply a clarified rule, and only after a current replay."""
+    require(actor,'manager');p=get(db,RuleProposal,id,actor)
+    if p.status!='Replayed':fail(409,'Replay the clarified rule on history before applying it.')
+    if p.proposer_id==actor.id:fail(403,'A different manager must approve a rule clarification you proposed.')
+    r=get(db,Rule,p.rule_id,actor);s=get(db,Source,r.source_id,actor)
+    if p.replay.get('rule_hash')!=insights.rule_hash(r):fail(409,'The rule changed after this replay. Replay it again first.')
+    before={'value':r.value,'config':r.config}
+    r.value=p.value;r.config=p.config;s.version+=1;bump(db,actor)
+    affected=invalidate(db,actor,s.id)+invalidate(db,actor,subject=r.subject,rule_id=r.id);snapshot_source(db,s)
+    p.status='Applied';p.decided_by=actor.name;p.decision_note=data.note;p.decided=now()
+    p.replay={**p.replay,'previous_value':before['value'],'previous_config':before['config']}
+    audit(db,actor,'Applied clarified rule',r.title,{'proposal_id':p.id,'rule':r.code,'before':before,'after':{'value':r.value,'config':r.config},'proposer':p.proposer,'approver':actor.name,'note':data.note[:300],
+        'replay':{k:p.replay.get(k) for k in ('decided','agreement_before','agreement_after','confirmed_missed','overrides_removed')},'source_version':s.version,'affected':list(set(affected))})
+    return proposal_row(db,p)
+
+@app.post('/api/rule-proposals/{id}/discard')
+def proposal_discard(id:str,data:ProposalDecision,actor=Depends(user),db=Depends(database)):
+    require(actor,'manager');p=get(db,RuleProposal,id,actor)
+    if p.status in ('Applied','Discarded'):fail(409,'This proposal was already decided.')
+    p.status='Discarded';p.decided_by=actor.name;p.decision_note=data.note;p.decided=now()
+    audit(db,actor,'Discarded rule clarification',db.get(Rule,p.rule_id).title,{'proposal_id':p.id,'note':data.note[:300]})
+    return proposal_row(db,p)
 
 def seed():
     if not DEMO:return

@@ -8,6 +8,7 @@ import "@fontsource/newsreader/500.css";
 import "./globals.css";
 import "./workspace-theme.css";
 import "./review.css";
+import "./round3.css";
 export const metadata: Metadata = {
   title: "Brandora — A clear path from claim to confidence",
   description:

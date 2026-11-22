@@ -16,6 +16,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Download,
   Eye,
@@ -33,6 +35,8 @@ import {
   Trash2,
   Upload,
   Wand2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { TranslationPanel } from "./intelligence";
 import { SwitchRole, useDemo } from "./demo-context";
@@ -45,8 +49,10 @@ import {
   api,
   contentCreative,
   download,
+  findingPage,
   formatDate,
   formatTime,
+  isDocument,
   orderedFindings,
   originalCreative,
   outcomeMeta,
@@ -54,15 +60,17 @@ import {
 } from "./shared";
 
 export type Stage = "review" | "fix" | "compare" | "history";
-type Filter = "all" | "critical" | "gap" | "review" | "visual" | "verified";
+type Filter = "all" | "critical" | "gap" | "review" | "tone" | "access" | "visual" | "verified";
 type Numbered = Row & { n: number };
-type Rect = { y0: number; x0: number; y1: number; x1: number };
+type Rect = { y0: number; x0: number; y1: number; x1: number; page?: number };
 
 const TONE_RANK: Record<Tone, number> = {
   red: 5,
   orange: 4,
   yellow: 3,
+  teal: 3,
   blue: 2,
+  violet: 2,
   green: 1,
   grey: 0,
 };
@@ -71,6 +79,8 @@ const FILTERS: [Filter, string][] = [
   ["critical", "Critical"],
   ["gap", "Evidence gaps"],
   ["review", "Needs review"],
+  ["tone", "Tone & messaging"],
+  ["access", "Accessibility"],
   ["visual", "Visual"],
   ["verified", "Verified"],
 ];
@@ -102,9 +112,9 @@ function offsetFraction(text: string, index: number) {
 /* Character offsets inside one OCR region map onto its box, weighted by glyph width. */
 function rectsFor(f: Row, creative: Row | null): Rect[] {
   if (!creative) return [];
-  if (f.kind === "visual") {
+  if (f.kind === "visual" || (f.kind === "access" && f.box)) {
     const [y0, x0, y1, x1] = f.box || [0, 0, 0, 0];
-    return y1 > y0 && x1 > x0 ? [{ y0, x0, y1, x1 }] : [];
+    return y1 > y0 && x1 > x0 ? [{ y0, x0, y1, x1, page: f.page ?? 0 }] : [];
   }
   if (!f.span) return [];
   return (creative.regions || [])
@@ -119,6 +129,7 @@ function rectsFor(f: Row, creative: Row | null): Rect[] {
       return {
         y0,
         y1,
+        page: r.page ?? 0,
         x0: Math.max(0, x0 + w * offsetFraction(text, a) - (a > 0 ? 8 : 0)),
         x1: Math.min(1000, x0 + w * offsetFraction(text, b) + (b < len ? 8 : 0)),
       };
@@ -181,7 +192,7 @@ function Chip({ f }: { f: Row }) {
   );
 }
 
-/* ---------- Annotated content: image creative or text ---------- */
+/* ---------- Annotated content: image creative, multi-page document, or text ---------- */
 function CreativeCanvas({
   creative,
   findings,
@@ -191,6 +202,10 @@ function CreativeCanvas({
   show,
   filter,
   compact = false,
+  page: pageProp,
+  onPage,
+  zoom: zoomProp,
+  onZoom,
 }: {
   creative: Row;
   findings: Numbered[];
@@ -200,81 +215,256 @@ function CreativeCanvas({
   show: boolean;
   filter: Filter;
   compact?: boolean;
+  page?: number;
+  onPage?: (n: number) => void;
+  zoom?: number;
+  onZoom?: (z: number) => void;
 }) {
+  const [ownPage, setOwnPage] = useState(0),
+    [ownZoom, setOwnZoom] = useState(1);
+  const pages: Row[] = creative.pages?.length
+    ? creative.pages
+    : [{ index: 0, width: creative.width, height: creative.height, image_url: creative.image_url }];
+  const page = Math.min(pageProp ?? ownPage, pages.length - 1);
+  const setPage = (n: number) => (onPage ? onPage(n) : setOwnPage(n));
+  const zoom = zoomProp ?? ownZoom;
+  const setZoom = (z: number) => (onZoom ? onZoom(z) : setOwnZoom(z));
+  const current = pages[page] || pages[0];
   const visible = findings.filter((f) => passes(f, filter));
   const stacked: Record<string, number> = {};
   const greens = filter === "all" || filter === "verified" ? verified : [];
-  const notFound = findings.find(
-    (f) => f.kind === "visual" && !rectsFor(f, creative).length,
+  const unlocated = visible.filter(
+    (f) => (f.kind === "visual" || f.kind === "access") && !f.span && !rectsFor(f, creative).length,
   );
+  const onPageList = (n: number) => visible.filter((f) => findingPage(f, creative) === n);
+  const worst = (list: Row[]) =>
+    list.map((f) => outcomeMeta(f).tone).sort((a, b) => TONE_RANK[b] - TONE_RANK[a])[0];
+  const here = (r: Rect) => (r.page ?? 0) === page;
   return (
     <div className={"canvas-wrap " + (compact ? "compact" : "")}>
-      <div
-        className="creative-canvas"
-        style={{ aspectRatio: `${creative.width || 4} / ${creative.height || 3}` }}
-      >
-        <img src={creative.image_url} alt={creative.alt_text || "Submitted creative"} draggable={false} />
-        {show &&
-          greens.map((v) =>
-            rectsFor(v, creative).map((r, k) => (
-              <span
-                key={v.id + k}
-                className="anno-box tone-green verified-box"
-                style={boxStyle(r)}
-                title={`Verified · ${v.title} matches ${v.evidence?.title}`}
-              />
-            )),
-          )}
-        {show &&
-          visible.map((f) => {
-            const meta = outcomeMeta(f);
-            return rectsFor(f, creative).map((r, k) => {
-              const key = [r.y0, r.x0, r.y1, r.x1].map(Math.round).join(":");
-              const stack = (stacked[key] = (stacked[key] ?? -1) + 1);
-              const grown = { y0: r.y0 - stack * 9, x0: r.x0 - stack * 6, y1: r.y1 + stack * 9, x1: r.x1 + stack * 6 };
-              return (
-              <button
-                key={f.id + k}
-                className={
-                  "anno-box tone-" +
-                  meta.tone +
-                  (selected === f.id ? " selected" : "") +
-                  (meta.tone === "red" && !f.resolved ? " pulse" : "") +
-                  (f.kind === "visual" ? " visual" : "")
-                }
-                style={{ ...boxStyle(grown), ["--stack" as string]: stack, zIndex: selected === f.id ? 3 : stack ? 1 : 2 }}
-                onClick={() => onSelect(f.id)}
-                aria-label={`Finding ${f.n}: ${meta.label}. ${f.title}`}
-              >
-                {k === 0 && (
-                  <span className="anno-num" data-mark={f.id}>
-                    {f.n}
-                  </span>
-                )}
-                {k === 0 && (
-                  <span className="anno-tip" role="tooltip">
-                    <b>
-                      {f.n}. {meta.label}
-                    </b>
-                    {f.title}
-                  </span>
-                )}
+      {(pages.length > 1 || !compact) && (
+        <div className="canvas-tools">
+          {pages.length > 1 ? (
+            <div className="page-nav" role="group" aria-label="Pages">
+              <button className="icon-button" disabled={page === 0} onClick={() => setPage(page - 1)} aria-label="Previous page">
+                <ChevronLeft size={16} />
               </button>
-              );
-            });
-          })}
-      </div>
-      {show && notFound && (
-        <button
-          className={"canvas-note tone-" + outcomeMeta(notFound).tone}
-          onClick={() => onSelect(notFound.id)}
-        >
-          <span className="anno-num static" data-mark={notFound.id}>
-            {notFound.n}
-          </span>
-          {notFound.title} — no location on the image.
-        </button>
+              <span>
+                Page <b>{page + 1}</b> of {pages.length}
+                {onPageList(page).length > 0 && ` · ${onPageList(page).length} finding${onPageList(page).length === 1 ? "" : "s"}`}
+              </span>
+              <button className="icon-button" disabled={page >= pages.length - 1} onClick={() => setPage(page + 1)} aria-label="Next page">
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          ) : (
+            <span />
+          )}
+          {!compact && (
+            <div className="zoom-tools" role="group" aria-label="Zoom">
+              <button className="icon-button" disabled={zoom <= 1} onClick={() => setZoom(Math.max(1, zoom - 0.5))} aria-label="Zoom out">
+                <ZoomOut size={15} />
+              </button>
+              <button className="zoom-level" onClick={() => setZoom(1)} title="Fit to width">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button className="icon-button" disabled={zoom >= 3} onClick={() => setZoom(Math.min(3, zoom + 0.5))} aria-label="Zoom in">
+                <ZoomIn size={15} />
+              </button>
+            </div>
+          )}
+        </div>
       )}
+      <div className={"canvas-scroll" + (zoom > 1 ? " zoomed" : "")}>
+        <div
+          className="creative-canvas"
+          style={{
+            aspectRatio: `${current.width || 4} / ${current.height || 3}`,
+            // Tall pages are capped to the viewport so the page arrows and thumbnails stay in view.
+            width: `min(${zoom * 100}%, ${((zoom * 62 * (current.width || 4)) / (current.height || 3)).toFixed(2)}vh)`,
+            margin: "0 auto",
+          }}
+        >
+          <img
+            src={current.image_url}
+            alt={pages.length > 1 ? `Page ${page + 1} of ${pages.length}: ${creative.name}` : creative.alt_text || "Submitted creative"}
+            draggable={false}
+          />
+          {show &&
+            greens.map((v) =>
+              rectsFor(v, creative)
+                .filter(here)
+                .map((r, k) => (
+                  <span
+                    key={v.id + k}
+                    className="anno-box tone-green verified-box"
+                    style={boxStyle(r)}
+                    title={`Verified · ${v.title} matches ${v.evidence?.title}`}
+                  />
+                )),
+            )}
+          {show &&
+            visible.map((f) => {
+              const meta = outcomeMeta(f);
+              return rectsFor(f, creative)
+                .filter(here)
+                .map((r, k) => {
+                  const key = [r.y0, r.x0, r.y1, r.x1].map(Math.round).join(":");
+                  const stack = (stacked[key] = (stacked[key] ?? -1) + 1);
+                  const grown = { y0: r.y0 - stack * 9, x0: r.x0 - stack * 6, y1: r.y1 + stack * 9, x1: r.x1 + stack * 6 };
+                  return (
+                    <button
+                      key={f.id + k}
+                      className={
+                        "anno-box tone-" +
+                        meta.tone +
+                        (selected === f.id ? " selected" : "") +
+                        (meta.tone === "red" && !f.resolved ? " pulse" : "") +
+                        (f.kind === "visual" || f.kind === "access" ? " visual" : "")
+                      }
+                      style={{ ...boxStyle(grown), ["--stack" as string]: stack, zIndex: selected === f.id ? 3 : stack ? 1 : 2 }}
+                      onClick={() => onSelect(f.id)}
+                      aria-label={`Finding ${f.n}: ${meta.label}. ${f.title}`}
+                    >
+                      {k === 0 && (
+                        <span className="anno-num" data-mark={f.id}>
+                          {f.n}
+                        </span>
+                      )}
+                      {k === 0 && (
+                        <span className="anno-tip" role="tooltip">
+                          <b>
+                            {f.n}. {meta.label}
+                          </b>
+                          {f.title}
+                        </span>
+                      )}
+                    </button>
+                  );
+                });
+            })}
+        </div>
+      </div>
+      {pages.length > 1 && (
+        <div className="page-strip" role="tablist" aria-label="Page thumbnails">
+          {pages.map((p, i) => {
+            const list = onPageList(i);
+            return (
+              <button
+                key={i}
+                role="tab"
+                aria-selected={i === page}
+                className={"page-thumb" + (i === page ? " active" : "")}
+                onClick={() => setPage(i)}
+                aria-label={`Page ${i + 1}: ${list.length} finding${list.length === 1 ? "" : "s"}`}
+              >
+                <img src={p.image_url} alt="" loading="lazy" />
+                <span>{i + 1}</span>
+                {list.length > 0 && <b className={"tone-" + worst(list)}>{list.length}</b>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {show &&
+        unlocated.map((f) => (
+          <button key={f.id} className={"canvas-note tone-" + outcomeMeta(f).tone} onClick={() => onSelect(f.id)}>
+            <span className="anno-num static" data-mark={f.id}>
+              {f.n}
+            </span>
+            {f.title} — {f.kind === "visual" ? "no location on the image" : "applies to the whole creative"}.
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/* Alt text belongs to the reviewed version: editing it re-checks the content and ends any approval. */
+function AltTextBox({
+  creative,
+  item,
+  canEdit,
+  action,
+  busy,
+}: {
+  creative: Row;
+  item: Row;
+  canEdit: boolean;
+  action: Action;
+  busy: boolean;
+}) {
+  const [editing, setEditing] = useState(false),
+    [value, setValue] = useState(creative.alt_text || "");
+  useEffect(() => setValue(creative.alt_text || ""), [creative.id, creative.alt_text]);
+  const save = async () => {
+    const r = await action(
+      `/creatives/${creative.id}/alt-text`,
+      "PUT",
+      { alt_text: value, expected_version: item.version },
+      "Alt text saved · this version was re-checked",
+    );
+    if (r) setEditing(false);
+  };
+  return (
+    <div className="alt-box">
+      <small>ALT TEXT · read aloud by screen readers · checked against the accessibility standard</small>
+      {editing ? (
+        <>
+          <textarea rows={2} maxLength={600} value={value} onChange={(e) => setValue(e.target.value)} aria-label="Alt text" />
+          <div className="alt-actions">
+            <button className="button small" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button className="button small primary" disabled={busy} onClick={save}>
+              Save & re-check
+            </button>
+          </div>
+          <span className="form-note">Saving re-checks this version and ends any approval, because alt text is part of what is published.</span>
+        </>
+      ) : (
+        <p>
+          {creative.alt_text ? `“${creative.alt_text}”` : <i>No alt text yet.</i>}{" "}
+          {canEdit && (
+            <button className="text-button" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          )}
+        </p>
+      )}
+      {creative.origin === "ai" && !editing && <span className="form-note">Suggested by AI from the image. Check that it says what matters.</span>}
+    </div>
+  );
+}
+
+/* What an accessibility finding measured, shown in the measured colours or size. */
+function AccessSample({ f, creative }: { f: Row; creative: Row | null }) {
+  const m = f.measure || {};
+  if (m.fg && m.bg)
+    return (
+      <div className="contrast-sample">
+        <p style={{ color: m.fg, background: m.bg }}>{f.span}</p>
+        <span>
+          <i style={{ background: m.fg }} />
+          {m.fg} on <i style={{ background: m.bg }} />
+          {m.bg} · <b>{m.ratio}:1</b> measured · needs {m.target}:1{m.large ? " (large text)" : ""}
+        </span>
+      </div>
+    );
+  if (m.size_pt)
+    return (
+      <div className="contrast-sample">
+        <p style={{ fontSize: Math.max(8, m.size_pt * 1.25) }}>{f.span}</p>
+        <span>
+          Set at <b>{m.size_pt} pt</b>
+        </span>
+      </div>
+    );
+  return (
+    <div className="contrast-sample">
+      {f.box && creative ? <LogoCrop creative={creative} box={f.box} page={f.page ?? 0} /> : null}
+      <span>
+        {m.alt ? <>Alt text: “{m.alt}”</> : "No alt text"} · {m.image || "Image"}
+      </span>
     </div>
   );
 }
@@ -456,7 +646,7 @@ function FindingCard({
     reviewerRole = ["manager", "reviewer"].includes(data.user.role),
     canDecide = reviewerRole && !isAuthor && !f.resolved,
     dismissible =
-      f.outcome === "Low Confidence" &&
+      ["Low Confidence", "Tone Issue", "Accessibility"].includes(f.outcome) &&
       !!f.evidence &&
       !["Source needs review", "Approved sources disagree"].includes(f.title),
     canEdit =
@@ -469,7 +659,7 @@ function FindingCard({
     ["confirm", "Confirm issue", canDecide, "Agree this needs correcting."],
     ["verify", "Mark as verified", canDecide && dismissible, "The content is acceptable here."],
     ["reject", "Reject finding", canDecide && dismissible, "The finding does not apply."],
-    ["request_evidence", "Request evidence", canDecide && f.kind !== "visual", "Ask the evidence owner."],
+    ["request_evidence", "Request evidence", canDecide && !["visual", "access"].includes(f.kind) && f.outcome !== "Tone Issue", "Ask the evidence owner."],
     ["escalate", "Escalate", canDecide, "Send to compliance review."],
     ["comment", "Comment", true, "Add a note to the record."],
   ];
@@ -499,6 +689,7 @@ function FindingCard({
             {f.review && !f.resolved && (
               <span className="review-chip">{f.review.state}</span>
             )}
+            {(creative?.pages?.length || 0) > 1 && <span className="page-chip">Page {findingPage(f, creative) + 1}</span>}
             <code>{f.rule_code}</code>
           </span>
           <b>{f.title}</b>
@@ -506,6 +697,8 @@ function FindingCard({
             <q>{f.span}</q>
           ) : f.kind === "visual" ? (
             <small>Logo area on the creative</small>
+          ) : f.kind === "access" ? (
+            <small>{f.measure?.image || "Image"}</small>
           ) : null}
         </span>
         <ChevronDown size={16} className="finding-caret" />
@@ -517,6 +710,8 @@ function FindingCard({
               <small>SUBMITTED CONTENT</small>
               {f.kind === "visual" && creative ? (
                 <LogoCrop creative={creative} box={f.box} />
+              ) : f.kind === "access" ? (
+                <AccessSample f={f} creative={creative} />
               ) : (
                 <p className={meta.group === "critical" ? "struck" : ""}>
                   {f.span || "—"}
@@ -546,6 +741,12 @@ function FindingCard({
             </div>
           </div>
           <p className="finding-why">{f.message}</p>
+          {String(f.title).startsWith("Alt text") && creative && !f.resolved &&
+            (isDocument(creative) ? (
+              <p className="form-note">Set alt text on this picture in the deck file, then upload the revised file in Fix & approve.</p>
+            ) : (
+              <AltTextBox creative={creative} item={item} canEdit={canEdit} action={action} busy={busy} />
+            ))}
           {f.evidence ? (
             <details className="ev-source" open={meta.group !== "visual"}>
               <summary>
@@ -689,7 +890,8 @@ function disabledReason(
   return "Unavailable";
 }
 
-function LogoCrop({ creative, box }: { creative: Row; box: number[] }) {
+function LogoCrop({ creative, box, page = 0 }: { creative: Row; box: number[]; page?: number }) {
+  const source = creative.pages?.[page] || { image_url: creative.image_url, width: creative.width, height: creative.height };
   const [y0, x0, y1, x1] = box || [0, 0, 0, 0];
   if (!(y1 > y0 && x1 > x0)) return <p>Not located on the image.</p>;
   const w = (x1 - x0) / 1000,
@@ -698,8 +900,8 @@ function LogoCrop({ creative, box }: { creative: Row; box: number[] }) {
     <div
       className="logo-crop"
       style={{
-        aspectRatio: `${(w * (creative.width || 4)) / (h * (creative.height || 3))}`,
-        backgroundImage: `url(${creative.image_url})`,
+        aspectRatio: `${(w * (source.width || 4)) / (h * (source.height || 3))}`,
+        backgroundImage: `url(${source.image_url})`,
         backgroundSize: `${100 / w}% ${100 / h}%`,
         backgroundPosition: `${(x0 / 1000 / (1 - w || 1)) * 100}% ${(y0 / 1000 / (1 - h || 1)) * 100}%`,
       }}
@@ -838,7 +1040,12 @@ export function ReviewWorkspace({
     [logos, setLogos] = useState<Row[]>([]),
     [sourceDates, setSourceDates] = useState<Record<string, string>>({}),
     [rereading, setRereading] = useState(false),
-    [rereadError, setRereadError] = useState("");
+    [rereadError, setRereadError] = useState(""),
+    [page, setPage] = useState(() => {
+      const first = numbered.find((f) => !f.resolved) || numbered[0];
+      return first && creative ? findingPage(first, creative) : 0;
+    }),
+    [zoom, setZoom] = useState(1);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!selected || !numbered.some((f) => f.id === selected))
@@ -865,14 +1072,19 @@ export function ReviewWorkspace({
         .catch(() => {}),
     );
   }, [numbered]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pageOf = (id: string) => {
+    const f = numbered.find((x) => x.id === id);
+    if (f && creative) setPage(findingPage(f, creative));
+  };
   const select = useCallback((id: string) => {
     setSelected(id);
+    pageOf(id);
     requestAnimationFrame(() =>
       document
         .querySelector(`[data-card="${id}"]`)
         ?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
     );
-  }, []);
+  }, [numbered, creative]); // eslint-disable-line react-hooks/exhaustive-deps
   const unresolved = numbered.filter((f) => !f.resolved);
   const awaiting = unresolved.filter((f) => !f.review);
   // A check is current only for this exact text and the latest Company Hub revision.
@@ -885,6 +1097,8 @@ export function ReviewWorkspace({
     red: numbered.filter((f) => outcomeMeta(f).tone === "red").length,
     orange: numbered.filter((f) => outcomeMeta(f).tone === "orange").length,
     yellow: numbered.filter((f) => ["yellow", "blue"].includes(outcomeMeta(f).tone)).length,
+    violet: numbered.filter((f) => outcomeMeta(f).tone === "violet").length,
+    teal: numbered.filter((f) => outcomeMeta(f).tone === "teal").length,
     green: verified.length,
   };
   const steps = [
@@ -930,7 +1144,15 @@ export function ReviewWorkspace({
         </span>
       </div>
       <div className="ws-origin">
-        {creative?.origin === "fixture" || (!creative && original?.origin === "fixture") ? (
+        {isDocument(creative) ? (
+          <>
+            <span className="origin-tag rules">
+              <FileText size={13} />
+              {creative!.origin === "pptx" ? "PowerPoint deck" : "PDF"} · {creative!.page_count} {creative!.origin === "pptx" ? "slide" : "page"}{creative!.page_count === 1 ? "" : "s"} · {creative!.origin === "pdf-ocr" ? "read with AI OCR" : "read from the file, no AI"}
+            </span>
+            <span>{(creative!.warnings || [])[0]}</span>
+          </>
+        ) : creative?.origin === "fixture" || (!creative && original?.origin === "fixture") ? (
           <>
             <span className="origin-tag demo">
               <FlaskConical size={13} />
@@ -957,7 +1179,7 @@ export function ReviewWorkspace({
             <span>{item.scan_coverage}</span>
           </>
         )}
-        {creative && canEdit && (
+        {creative && canEdit && !isDocument(creative) && (
           <button className="button small" disabled={busy || rereading} onClick={reread}>
             {rereading ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />}
             {creative.origin === "fixture" ? "Re-read with live AI" : "Re-read image"}
@@ -1079,6 +1301,10 @@ export function ReviewWorkspace({
                   onSelect={select}
                   show={show}
                   filter={filter}
+                  page={page}
+                  onPage={setPage}
+                  zoom={zoom}
+                  onZoom={setZoom}
                 />
               ) : (
                 <AnnotatedText
@@ -1095,13 +1321,18 @@ export function ReviewWorkspace({
                 <span className="tone-red"><i />Confirmed contradiction / visual violation · {counts.red}</span>
                 <span className="tone-orange"><i />Evidence gap · {counts.orange}</span>
                 <span className="tone-yellow"><i />Needs human review · {counts.yellow}</span>
+                {counts.violet > 0 && <span className="tone-violet"><i />Tone & messaging · {counts.violet}</span>}
+                {counts.teal > 0 && <span className="tone-teal"><i />Accessibility · {counts.teal}</span>}
                 <span className="tone-green"><i />Verified · {counts.green}</span>
               </div>
+              {creative && !isDocument(creative) && (
+                <AltTextBox creative={creative} item={item} canEdit={canEdit} action={action} busy={busy} />
+              )}
               {creative && (
                 <details className="ocr-details">
                   <summary>
                     <ImageIcon size={14} />
-                    Text read from the creative
+                    {isDocument(creative) ? "Text read from the file" : "Text read from the creative"}
                   </summary>
                   <p>{item.body}</p>
                   {(creative.warnings || []).map((w: string, i: number) => (
@@ -1166,7 +1397,13 @@ export function ReviewWorkspace({
                     key={f.id}
                     f={f}
                     open={selected === f.id}
-                    onSelect={() => setSelected(selected === f.id ? null : f.id)}
+                    onSelect={() => {
+                      if (selected === f.id) setSelected(null);
+                      else {
+                        setSelected(f.id);
+                        pageOf(f.id);
+                      }
+                    }}
                     item={item}
                     data={data}
                     creative={creative}
@@ -1277,6 +1514,7 @@ function FixStage({
     [done, setDone] = useState<Record<string, "applied" | "skipped">>({}),
     [celebrate, setCelebrate] = useState(false);
   const demo = useDemo();
+  const doc = isDocument(creative);
   const fixable = numbered.filter((f) => !f.resolved);
   const dirty = draft !== item.body;
   const isAuthor = [item.author_id, item.last_editor_id].includes(data.user.id),
@@ -1345,6 +1583,18 @@ function FixStage({
     form.append("reference_ids", JSON.stringify(logos.slice(0, 3).map((l) => l.id)));
     await action(`/content/${item.id}/creative`, "POST", form, "Revised creative uploaded and checked");
   };
+  const uploadDocument = async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("expected_version", String(item.version));
+    await action(`/content/${item.id}/creative`, "POST", form, "Revised file uploaded and re-checked page by page");
+  };
+  const downloadCorrections = () =>
+    download(
+      `brandora-corrections-${item.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.txt`,
+      [`Corrections for ${item.title} (version ${item.version})`, "", ...fixable.map((f) => `Page ${findingPage(f, creative) + 1} · ${f.title}${f.span ? `: “${f.span}”` : ""}${f.suggestion ? ` → “${f.suggestion}”` : ""}\n   ${f.message}`)].join("\n"),
+      "text/plain",
+    );
   const approvals = data.approvals.filter((a) => a.content_id === item.id);
   const latest = approvals[0];
   const scanned = !!item.scan_hash && item.scan_revision === data.workspace.revision && !["Draft", "Needs reassessment"].includes(item.status);
@@ -1365,7 +1615,7 @@ function FixStage({
             <h2>Corrections</h2>
             <p>Accept, edit or skip each suggestion. Nothing is approved automatically.</p>
           </div>
-          {canEdit && fixable.some((f) => f.suggestion && !done[f.id]) && (
+          {canEdit && !doc && fixable.some((f) => f.suggestion && !done[f.id]) && (
             <button className="button small primary" onClick={applyAll}>
               <Wand2 size={14} /> Apply all suggestions
             </button>
@@ -1388,7 +1638,29 @@ function FixStage({
                   <Chip f={f} />
                   <b>{f.title}</b>
                 </div>
-                {f.kind === "visual" ? (
+                {f.kind === "access" ? (
+                  <>
+                    <p className="fix-explain">{f.message}</p>
+                    {String(f.title).startsWith("Alt text") && creative && !doc ? (
+                      <AltTextBox creative={creative} item={item} canEdit={canEdit} action={action} busy={busy} />
+                    ) : (
+                      <p className="fix-explain">
+                        {doc ? `Fix this on ${creative?.origin === "pptx" ? "slide" : "page"} ${findingPage(f, creative) + 1} of the source file, then upload the revised file.` : "Fix the colours in the design, then upload the revised creative."} A reviewer can also record an exemption with a reason.
+                      </p>
+                    )}
+                  </>
+                ) : doc ? (
+                  <>
+                    <div className="fix-change">
+                      <del>{f.span || f.title}</del>
+                      <ArrowRight size={14} />
+                      <span className="fix-to">
+                        {f.suggestion || (meta.group === "gap" ? "Remove it, or rewrite with an approved claim" : meta.group === "review" ? "Support it with approved evidence, or remove it" : "Rewrite it in the brand voice")}
+                      </span>
+                    </div>
+                    <p className="fix-explain">Change this on {creative?.origin === "pptx" ? "slide" : "page"} {findingPage(f, creative) + 1} of the source file.</p>
+                  </>
+                ) : f.kind === "visual" ? (
                   <>
                     <p className="fix-explain">Brandora does not edit images. Replace the logo with the approved reference in your design tool, then upload the revised creative to re-check it.</p>
                     {canEdit && (
@@ -1421,7 +1693,7 @@ function FixStage({
                       <input
                         aria-label={"Correction for finding " + f.n}
                         value={replacement}
-                        placeholder={meta.group === "gap" ? "Rewrite with an approved claim, or leave empty to remove" : "Your correction"}
+                        placeholder={meta.group === "gap" ? "Rewrite with an approved claim, or leave empty to remove" : meta.group === "tone" ? "Rewrite in the brand voice" : "Your correction"}
                         disabled={!canEdit || !!done[f.id]}
                         onChange={(e) => setEdits({ ...edits, [f.id]: e.target.value })}
                       />
@@ -1429,7 +1701,9 @@ function FixStage({
                     <p className="fix-explain">
                       {meta.group === "gap"
                         ? "The suggested rewrite uses a claim from the Approved claims register."
-                        : meta.group === "critical"
+                        : meta.group === "tone"
+                          ? `Follows ${f.evidence?.title} v${f.evidence?.version}. A reviewer can also accept the wording in context.`
+                          : meta.group === "critical"
                           ? `Uses the approved value from ${f.evidence?.title} v${f.evidence?.version}.`
                           : "Optional. A reviewer can also resolve this with a recorded reason."}
                     </p>
@@ -1441,8 +1715,12 @@ function FixStage({
                           </span>
                         ) : (
                           <>
-                            <button className="button small primary" onClick={() => apply(f, replacement)} disabled={!replacement && meta.group !== "gap"}>
-                              {replacement ? "Accept" : "Remove claim"}
+                            <button
+                              className="button small primary"
+                              onClick={() => apply(f, replacement)}
+                              disabled={!replacement && !(meta.group === "gap" || (meta.group === "tone" && ["Off-brand wording", "Off-message promise"].includes(f.title)))}
+                            >
+                              {replacement ? "Accept" : meta.group === "tone" ? "Remove wording" : "Remove claim"}
                             </button>
                             <button className="button small" onClick={() => setDone({ ...done, [f.id]: "skipped" })}>
                               Skip
@@ -1461,7 +1739,7 @@ function FixStage({
       <section className="panel fix-draft">
         <div className="panel-header">
           <div>
-            <h2>Corrected draft</h2>
+            <h2>{doc ? "Revised file" : "Corrected draft"}</h2>
             <p>{dirty ? "Unsaved changes · save to create a new version and re-check it" : `Version ${item.version} · ${item.status}`}</p>
           </div>
           <button className="text-button" onClick={onCompare}>
@@ -1469,6 +1747,35 @@ function FixStage({
           </button>
         </div>
         <div className="fix-draft-body">
+          {doc ? (
+            <div className="doc-revision">
+              <p>
+                This is a {creative!.origin === "pptx" ? "PowerPoint deck" : "PDF"} of {creative!.page_count} {creative!.origin === "pptx" ? "slide" : "page"}{creative!.page_count === 1 ? "" : "s"}. Brandora does not edit files: make the corrections in the source file, then upload the revised file. It becomes a new version and is re-checked page by page, including contrast, text size and alt text.
+              </p>
+              <div className="doc-revision-actions">
+                <button className="button small" onClick={downloadCorrections}>
+                  <Download size={14} /> Download corrections list
+                </button>
+                {canEdit && (
+                  <label className="button small primary upload-inline">
+                    <Upload size={14} /> Upload revised file
+                    <input type="file" accept=".pdf,.pptx" hidden disabled={busy} onChange={(e) => e.target.files?.[0] && uploadDocument(e.target.files[0])} />
+                  </label>
+                )}
+              </div>
+              {demo.active && creative!.origin === "pdf" && (
+                <a className="text-button" href="/api/demo/assets/festive-brochure-corrected.pdf" download>
+                  Download the corrected sample brochure to upload
+                </a>
+              )}
+              {!canEdit && (
+                <p className="form-note">
+                  Only the author or a manager uploads revisions. <SwitchRole role="creator" />
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
           {fromCreative ? (
             <AdPreview text={draft} logo={logos[0]} status={dirty ? "Draft" : item.status} verified={dirty ? [] : item.verified} workspace={data.workspace.name} />
           ) : (
@@ -1496,6 +1803,8 @@ function FixStage({
             <p className="form-note">
               Only the author or a manager edits this draft. Reviewers decide on findings and approval. <SwitchRole role="creator" />
             </p>
+          )}
+            </>
           )}
         </div>
         <div className="approval-box">
@@ -1677,6 +1986,17 @@ function CompareStage({
                 <p>No corrected version yet. Apply the suggested fixes to create one.</p>
                 <button className="button small primary" onClick={onFix}>Open Fix & approve</button>
               </div>
+            ) : isDocument(contentCreative(data, item)) ? (
+              <CreativeCanvas
+                creative={contentCreative(data, item)!}
+                findings={orderedFindings(item, contentCreative(data, item)).map((f, i) => ({ ...f, n: i + 1 }))}
+                verified={item.verified || []}
+                selected={null}
+                onSelect={() => {}}
+                show
+                filter="all"
+                compact
+              />
             ) : original ? (
               <AdPreview text={item.body} logo={logos[0]} status={item.status} verified={item.verified} workspace={data.workspace.name} />
             ) : (
@@ -1833,7 +2153,8 @@ async function downloadReport(item: Row, data: Data, numbered: Numbered[], creat
       });
     } catch {}
   }
-  const colors: Record<string, string> = { red: "#d92d20", orange: "#e8590c", yellow: "#b98900", blue: "#3a2bff", green: "#17803d", grey: "#8a857c" };
+  const colors: Record<string, string> = { red: "#d92d20", orange: "#e8590c", yellow: "#b98900", blue: "#3a2bff", violet: "#8b2fc9", teal: "#0f7c86", green: "#17803d", grey: "#8a857c" };
+  const multi = (creative?.pages?.length || 0) > 1;
   const boxes = creative
     ? numbered
         .flatMap((f) =>
@@ -1854,7 +2175,7 @@ ${image ? `<div style="position:relative;display:inline-block;width:100%"><img s
 ${numbered
   .map((f) => {
     const m = outcomeMeta(f);
-    return `<div class="f" style="border-left-color:${colors[m.tone]}"><span class="tag" style="color:${colors[m.tone]}">${f.n} · ${esc(m.label)}</span> <small>${esc(f.rule_code)} · ${esc(f.engine)}</small><h3>${esc(f.title)}</h3>${f.span ? `<p><b>Submitted:</b> “${esc(f.span)}”</p>` : ""}<p>${esc(f.message)}</p>${f.suggestion ? `<p><b>Suggested correction:</b> ${esc(f.suggestion)}</p>` : ""}${f.evidence ? `<blockquote><b>${esc(f.evidence.title)} · v${esc(f.evidence.version)}</b> (owner ${esc(f.evidence.owner)})<br>${esc(f.evidence.excerpt)}</blockquote>` : "<p><i>No approved record mapped; no factual verdict.</i></p>"}<p><small>Confidence: ${esc(m.confidence)}${f.review ? ` · Review: ${esc(f.review.state)} by ${esc(f.review.by)}` : ""}</small></p>${(f.review_log || []).map((d: Row) => `<p><small>${esc(d.by)} (${esc(d.role)}) ${esc(labelFor(d.action))} · ${esc(formatTime(d.at))}: ${esc(d.reason)}</small></p>`).join("")}</div>`;
+    return `<div class="f" style="border-left-color:${colors[m.tone]}"><span class="tag" style="color:${colors[m.tone]}">${f.n} · ${esc(m.label)}</span> <small>${esc(f.rule_code)} · ${esc(f.engine)}</small><h3>${esc(f.title)}${multi ? ` <small>· page ${findingPage(f, creative) + 1}</small>` : ""}</h3>${f.span ? `<p><b>Submitted:</b> “${esc(f.span)}”</p>` : ""}${f.measure?.ratio ? `<p><b>Measured:</b> ${esc(f.measure.fg)} on ${esc(f.measure.bg)} = ${esc(f.measure.ratio)}:1 (minimum ${esc(f.measure.target)}:1)</p>` : ""}<p>${esc(f.message)}</p>${f.suggestion ? `<p><b>Suggested correction:</b> ${esc(f.suggestion)}</p>` : ""}${f.evidence ? `<blockquote><b>${esc(f.evidence.title)} · v${esc(f.evidence.version)}</b> (owner ${esc(f.evidence.owner)})<br>${esc(f.evidence.excerpt)}</blockquote>` : "<p><i>No approved record mapped; no factual verdict.</i></p>"}<p><small>Confidence: ${esc(m.confidence)}${f.review ? ` · Review: ${esc(f.review.state)} by ${esc(f.review.by)}` : ""}</small></p>${(f.review_log || []).map((d: Row) => `<p><small>${esc(d.by)} (${esc(d.role)}) ${esc(labelFor(d.action))} · ${esc(formatTime(d.at))}: ${esc(d.reason)}</small></p>`).join("")}</div>`;
   })
   .join("")}
 ${(item.verified || []).length ? `<h2>Verified values</h2><ul>${item.verified.map((v: Row) => `<li>“${esc(v.span)}” — ${esc(v.title)} · ${esc(v.evidence?.title)} v${esc(v.evidence?.version)}</li>`).join("")}</ul>` : ""}

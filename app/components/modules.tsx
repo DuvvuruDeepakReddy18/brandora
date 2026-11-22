@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { CommonMistakes } from "./round3";
 import {
   AlertTriangle,
   ArrowRight,
@@ -45,6 +46,8 @@ export function FindingTally({ item, revision }: { item: Row; revision?: number 
     ["red", t("red")],
     ["orange", t("orange")],
     ["yellow", t("yellow") + t("blue")],
+    ["violet", t("violet")],
+    ["teal", t("teal")],
   ].filter(([, n]) => (n as number) > 0);
   if (!item.scan_hash) return <span className="muted small">Not checked</span>;
   if ((revision !== undefined && item.scan_revision !== revision) || item.status === "Needs reassessment")
@@ -225,6 +228,22 @@ export function HomeDashboard({ data, go, crew }: { data: Data; go: Go; crew: Re
 
 /* ---------- Scan & Detect ---------- */
 const SAMPLES = [
+  {
+    file: "festive-brochure-10-pages.pdf",
+    type: "application/pdf",
+    title: "10-page festive brochure",
+    channel: "Advertisement",
+    kind: "PDF · 10 pages · works without AI",
+    expect: "Marks on 9 of 10 pages: wrong Starter price and trial, “Ink Loom”, hype and pressure wording, two low-contrast texts with measured ratios, and 6 pt small print.",
+  },
+  {
+    file: "partner-deck.pptx",
+    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    title: "Partner sales deck",
+    channel: "Advertisement",
+    kind: "PowerPoint · 6 slides · works without AI",
+    expect: "Unsupported ranking claims, a wrong Professional price, a missing and an unhelpful alt text, a 2.32:1 subtitle, “game-changing” and too many exclamation marks.",
+  },
   {
     file: "brochure.pdf",
     type: "application/pdf",
@@ -424,7 +443,8 @@ export function ScanDetect({
           Anything someone in the company wants to publish: an ad image, a social post, a brochure PDF, email or web copy. Brandora compares it with the approved records in Company Hub and marks what is wrong, unsupported or needs a human decision.
         </p>
         <ul>
-          <li><b>PDF, DOCX, TXT</b> or pasted text are read on the server and work with AI off.</li>
+          <li><b>PDF and PowerPoint</b> files are shown page by page, with marks on each page, measured contrast and text size, and work with AI off.</li>
+          <li><b>DOCX, TXT</b> or pasted text are read on the server and work with AI off.</li>
           <li><b>Images</b> (PNG, JPEG, WebP) are read with AI OCR and logo comparison{aiOn ? " (AI is on in this workspace)" : " — a manager turns AI on"}.</li>
         </ul>
       </div>
@@ -451,6 +471,7 @@ export function ScanDetect({
         </div>
       )}
     </section>
+    <CommonMistakes revision={data.workspace.revision} />
     <div className="scan-grid" ref={formRef}>
       <section className="panel scan-panel">
         <div className="stage-tabs inline" role="tablist">
@@ -484,7 +505,7 @@ export function ScanDetect({
               tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
             >
-              <input ref={input} type="file" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.docx,.txt,.md" onChange={(e) => choose(e.target.files?.[0])} />
+              <input ref={input} type="file" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.pptx,.docx,.txt,.md" onChange={(e) => choose(e.target.files?.[0])} />
               {preview ? (
                 <img src={preview} alt="Selected creative" />
               ) : file ? (
@@ -496,7 +517,7 @@ export function ScanDetect({
                 <>
                   <Upload size={30} />
                   <b>Drop an ad, social creative, brochure or document</b>
-                  <span>PNG, JPEG, WebP · PDF, DOCX, TXT, Markdown · up to 3 MB</span>
+                  <span>PNG, JPEG, WebP · PDF, PowerPoint, DOCX, TXT, Markdown · up to 3 MB</span>
                 </>
               )}
             </div>

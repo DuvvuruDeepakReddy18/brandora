@@ -1,0 +1,220 @@
+{
+  "dataset": {
+    "items": 80,
+    "labelled_findings": 60,
+    "clean_controls": 22,
+    "splits": {
+      "dev": 40,
+      "heldout": 40
+    },
+    "sha256": "99ee55c430fff94a58a899f081b17045927bb562ef9ba9eade6beefaa47656c6",
+    "labelled_by": "Brandora team: synthetic, fictional Inkloom AI marketing content, labelled against the Inkloom AI register in backend/demo.py.",
+    "note": "Development items (split dev) were used while building and tuning the checks. Held-out items (split heldout) were written after the checks were frozen for this release and are reported exactly as they come out. Clean controls are items whose correct label is no finding."
+  },
+  "overall": {
+    "tp": 56,
+    "fp": 1,
+    "fn": 4,
+    "precision": 0.9825,
+    "recall": 0.9333,
+    "items": 80
+  },
+  "splits": {
+    "dev": {
+      "tp": 31,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 40
+    },
+    "heldout": {
+      "tp": 25,
+      "fp": 1,
+      "fn": 4,
+      "precision": 0.9615,
+      "recall": 0.8621,
+      "items": 40
+    }
+  },
+  "categories": [
+    {
+      "category": "accessibility",
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 9
+    },
+    {
+      "category": "banned",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 2
+    },
+    {
+      "category": "claim-evidence",
+      "tp": 5,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.8333,
+      "items": 6
+    },
+    {
+      "category": "clean",
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 4
+    },
+    {
+      "category": "messaging",
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 4
+    },
+    {
+      "category": "price",
+      "tp": 5,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.8333,
+      "items": 9
+    },
+    {
+      "category": "product-name",
+      "tp": 3,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.75,
+      "items": 6
+    },
+    {
+      "category": "qualifier",
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 6
+    },
+    {
+      "category": "required",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 4
+    },
+    {
+      "category": "tone",
+      "tp": 14,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 15
+    },
+    {
+      "category": "trial",
+      "tp": 4,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.8,
+      "items": 8
+    },
+    {
+      "category": "unmapped-claim",
+      "tp": 6,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.8571,
+      "recall": 1.0,
+      "items": 7
+    }
+  ],
+  "citations": {
+    "checked": 50,
+    "valid": 50,
+    "rate": 1.0
+  },
+  "clean_controls": {
+    "items": 22,
+    "with_findings": 1,
+    "false_alarm_rate": 0.0455
+  },
+  "failures": [
+    {
+      "id": "held-04",
+      "split": "heldout",
+      "category": "price",
+      "kind": "Missed",
+      "text": "Pro plan: ₹1,499/month + GST.",
+      "detail": "Expected P02 · Verified Contradiction on “₹1,499/month”",
+      "why": "Plan names must appear as registered. “Pro” is an informal alias for Professional and aliases are not mapped yet."
+    },
+    {
+      "id": "held-08",
+      "split": "heldout",
+      "category": "trial",
+      "kind": "Missed",
+      "text": "Try it for a month, free.",
+      "detail": "Expected F02 · Verified Contradiction on “a month”",
+      "why": "Durations written in words (“a month”) are not parsed; only numbers are."
+    },
+    {
+      "id": "held-10",
+      "split": "heldout",
+      "category": "product-name",
+      "kind": "Missed",
+      "text": "Inkloom Ai now supports PDFs.",
+      "detail": "Expected T01 · Verified Contradiction on “Inkloom Ai”",
+      "why": "Only listed misspellings are checked. A wrong capitalisation (“Inkloom Ai”) is not one of them."
+    },
+    {
+      "id": "held-14",
+      "split": "heldout",
+      "category": "claim-evidence",
+      "kind": "Missed",
+      "text": "Reduce your marketing production time by 80 percent.",
+      "detail": "Expected R03 · Evidence Gap on “Reduce your marketing production time by 80 percent”",
+      "why": "Mapped claims match their registered wording. “80 percent” is not recognised as “80%”."
+    },
+    {
+      "id": "held-19",
+      "split": "heldout",
+      "category": "unmapped-claim",
+      "kind": "False alarm",
+      "text": "Thanks for joining us this week. Best regards, the Inkloom AI team",
+      "detail": "Engine raised REVIEW · Confirm this claim’s support on “Best regards, the Inkloom AI team”",
+      "why": "The superlative check flags “Best” in an email sign-off. It is raised for review, not as a verdict, but it is still a false alarm."
+    }
+  ],
+  "register": [
+    "P01",
+    "P02",
+    "F02",
+    "T01",
+    "R03",
+    "B01",
+    "Q01",
+    "V01",
+    "A01"
+  ],
+  "engine_sha256": "d42a2b55a1037c557bf2ec0723cca405cc1d06c75b085f042b5988648eda09cf",
+  "method": "Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value or words. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity."
+}

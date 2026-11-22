@@ -30,7 +30,7 @@ def test_public_demo_works_when_legacy_production_demo_is_disabled(monkeypatch):
     client,state=visitor()
     assert client.post('/api/auth/demo/manager').status_code==404
     assert state['user']['role']=='creator' and state['judge_demo']
-    assert len(state['content'])==5 and len(state['approvals'])==1 and state['tasks']
+    assert len(state["content"])==7 and len(state['approvals'])==1 and state['tasks']
     assert state['judge_demo']['ai_limit']==demo.AI_LIMIT
     assert client.cookies.get('brandora_session') is None
     assert client.post('/api/demo/start').status_code==200

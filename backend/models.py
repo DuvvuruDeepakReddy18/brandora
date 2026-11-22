@@ -206,6 +206,64 @@ class Creative(Base):
     sha256: Mapped[str]=mapped_column(String,default='')
     created_by: Mapped[str]=mapped_column(String,default='')
     created: Mapped[str]=mapped_column(String,default=now)
+    page_count: Mapped[int]=mapped_column(Integer,default=1)
+    images: Mapped[list]=mapped_column(JSON,default=list)
+
+class CreativePage(Base):
+    """One rendered page of a multi-page document or deck. Regions and findings refer to it by page index."""
+    __tablename__='creative_pages'
+    __table_args__=(UniqueConstraint('creative_id','page'),)
+    id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),index=True)
+    creative_id: Mapped[str]=mapped_column(ForeignKey('creatives.id'),index=True)
+    page: Mapped[int]=mapped_column(Integer)
+    image: Mapped[str]=mapped_column(Text,default='')
+    width: Mapped[int]=mapped_column(Integer,default=0)
+    height: Mapped[int]=mapped_column(Integer,default=0)
+
+class FindingEvent(Base):
+    """Every finding a check raised, with the text it was raised on and the reviewer's eventual decision.
+    Guideline insights and rule replays read this history; contributors are grouped by team, never scored individually."""
+    __tablename__='finding_events'
+    id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),index=True)
+    content_id: Mapped[str]=mapped_column(String,default='',index=True)
+    version: Mapped[int]=mapped_column(Integer,default=1)
+    finding_id: Mapped[str]=mapped_column(String,index=True)
+    rule_id: Mapped[str]=mapped_column(String,default='',index=True)
+    rule_code: Mapped[str]=mapped_column(String,default='')
+    outcome: Mapped[str]=mapped_column(String)
+    title: Mapped[str]=mapped_column(String,default='')
+    span: Mapped[str]=mapped_column(Text,default='')
+    content_title: Mapped[str]=mapped_column(String,default='')
+    channel: Mapped[str]=mapped_column(String,default='')
+    subject: Mapped[str]=mapped_column(String,default='')
+    campaign: Mapped[str]=mapped_column(String,default='')
+    team: Mapped[str]=mapped_column(String,default='Internal team')
+    body: Mapped[str]=mapped_column(Text,default='')
+    review: Mapped[str]=mapped_column(String,default='')
+    review_reason: Mapped[str]=mapped_column(Text,default='')
+    fictional: Mapped[int]=mapped_column(Integer,default=0)
+    created: Mapped[str]=mapped_column(String,default=now)
+
+class RuleProposal(Base):
+    """A clarified rule: drafted, replayed on recorded history, then applied only by a different manager."""
+    __tablename__='rule_proposals'
+    id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),index=True)
+    rule_id: Mapped[str]=mapped_column(ForeignKey('rules.id'),index=True)
+    proposer_id: Mapped[str]=mapped_column(String)
+    proposer: Mapped[str]=mapped_column(String)
+    rationale: Mapped[str]=mapped_column(Text)
+    value: Mapped[str]=mapped_column(String)
+    config: Mapped[dict]=mapped_column(JSON,default=dict)
+    base_hash: Mapped[str]=mapped_column(String,default='')
+    status: Mapped[str]=mapped_column(String,default='Draft')
+    replay: Mapped[dict]=mapped_column(JSON,default=dict)
+    decided_by: Mapped[str]=mapped_column(String,default='')
+    decision_note: Mapped[str]=mapped_column(Text,default='')
+    created: Mapped[str]=mapped_column(String,default=now)
+    decided: Mapped[str]=mapped_column(String,default='')
 
 with engine.begin() as connection:
     if engine.dialect.name=='postgresql':connection.execute(text('SELECT pg_advisory_xact_lock(784325126)'))
@@ -216,3 +274,6 @@ with engine.begin() as connection:
     if 'language' not in columns:connection.execute(text("ALTER TABLE content ADD COLUMN language VARCHAR NOT NULL DEFAULT 'en'"))
     if 'language_review_required' not in columns:connection.execute(text('ALTER TABLE content ADD COLUMN language_review_required INTEGER NOT NULL DEFAULT 0'))
     if 'language_review' not in columns:connection.execute(text("ALTER TABLE content ADD COLUMN language_review JSON NOT NULL DEFAULT '{}'"))
+    creative_columns={c['name'] for c in inspect(connection).get_columns('creatives')}
+    if 'page_count' not in creative_columns:connection.execute(text('ALTER TABLE creatives ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1'))
+    if 'images' not in creative_columns:connection.execute(text("ALTER TABLE creatives ADD COLUMN images JSON NOT NULL DEFAULT '[]'"))

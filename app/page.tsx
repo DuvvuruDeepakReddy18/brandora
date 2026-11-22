@@ -5,6 +5,7 @@ import { DemoContext, SwitchRole, sampleFile, useDemo } from "./components/demo-
 import { WorkspaceCrew } from "./components/workspace-crew";
 import { LandingPage } from "./components/brand-crew-landing";
 import { AIStatus } from "./components/intelligence";
+import { GuidelineInsights, ReliabilityReport, Round3Spotlight } from "./components/round3";
 import { ReviewWorkspace, type Stage } from "./components/review-workspace";
 import {
   FixQueue,
@@ -102,8 +103,9 @@ const HUB_TABS = [
   "Team & roles",
   "Source conflicts",
   "Claim lineage",
+  "Guideline insights",
 ] as const;
-const TRUST_TABS = ["Audit trail", "Approval receipts", "Privacy & AI"] as const;
+const TRUST_TABS = ["Audit trail", "Approval receipts", "Reliability", "Privacy & AI"] as const;
 const ITEM_VIEWS: View[] = ["Scan & Detect", "Verify & Review", "Fix & Approve"];
 const RULE_TEMPLATES = {
   term: {
@@ -125,6 +127,33 @@ const RULE_TEMPLATES = {
     value: "guaranteed results",
     config: { replacement: "measurable results" },
     help: "Prohibited wording: the value is flagged wherever it appears, with an optional approved replacement.",
+  },
+  tone: {
+    value: "Brand voice guide",
+    config: {
+      avoid: { revolutionary: "", "act now": "start today" },
+      messaging: { "risk-free": "" },
+      preferred: { utilise: "use" },
+      max_exclamations: 1,
+      shouting: true,
+      shouting_channels: ["Email", "Social"],
+      allow_caps: ["GST", "AI"],
+      max_sentence_words: 30,
+      cite: { exclamations: "at most one exclamation mark", shouting: "do not write whole words in capitals", sentences: "Keep sentences under 30 words" },
+    },
+    help: "Tone & messaging: words to avoid, off-message promises and preferred terms, plus exclamation, capitals and sentence-length limits. Every listed word and every cited phrase must appear in the source excerpt, or that check stays silent.",
+  },
+  accessibility: {
+    value: "WCAG 2.2 AA",
+    config: {
+      contrast_normal: 4.5,
+      contrast_large: 3,
+      large_pt: 18,
+      large_bold_pt: 14,
+      min_pt: 9,
+      cite: { contrast: "contrast ratio of at least 4.5:1", contrast_large: "needs at least 3:1", size: "at least 9 pt", alt: "Every image needs alt text" },
+    },
+    help: "Accessibility: measured text contrast on images, PDFs and slides, minimum text size in documents, and missing or unhelpful alt text. Each cited phrase must appear in the source excerpt.",
   },
   substantiation: {
     value: "Approved study required",
@@ -647,6 +676,7 @@ export default function App() {
       team: "manager",
       samples: "creator",
       translate: "creator",
+      insights: "reviewer",
     };
     if (need[key] && data.user.role !== need[key] && !(await changeDemoRole(need[key]!))) return;
     const hub = (t: (typeof HUB_TABS)[number]) => {
@@ -666,6 +696,16 @@ export default function App() {
     if (key === "audit") {
       setTrustTab("Audit trail");
       go("Trust & Audit");
+    }
+    if (key === "reliability") {
+      setTrustTab("Reliability");
+      go("Trust & Audit");
+    }
+    if (key === "insights") hub("Guideline insights");
+    if (key === "brochure" || key === "deck") {
+      const doc = data.content.find((c) => data.creatives?.some((x) => x.content_id === c.id && x.origin === (key === "deck" ? "pptx" : "pdf")));
+      if (doc) go("Scan & Detect", doc.id, "review");
+      notify(key === "deck" ? "Use the page arrows or thumbnails to move between slides; each finding card says which slide it is on." : "Use the page arrows, thumbnails or zoom. Click a finding to jump to its page.");
     }
     if (key === "report") {
       go("Scan & Detect", fixtureAd?.id || null, "review");
@@ -1234,6 +1274,7 @@ export default function App() {
               crew={<WorkspaceCrew onNavigate={(v) => go(v)} />}
             />
           )}
+          {view === "Home" && data.judge_demo && <Round3Spotlight onExplore={explore} />}
           {view === "Scan & Detect" && !itemOpen && (
             <ScanDetect
               data={data}
@@ -1595,6 +1636,9 @@ export default function App() {
                   onOpenSources={() => setHubTab("Sources & facts")}
                 />
               )}
+              {hubTab === "Guideline insights" && (
+                <GuidelineInsights data={data} action={action} busy={busy} notify={notify} />
+              )}
               {hubTab === "Claim lineage" && (
                 <Lineage
                   data={data}
@@ -1718,6 +1762,7 @@ export default function App() {
                   )}
                 </section>
               )}
+              {trustTab === "Reliability" && <ReliabilityReport />}
               {trustTab === "Privacy & AI" && (
                 <>
                   <section className="privacy-hero">

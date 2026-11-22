@@ -43,7 +43,7 @@ def sentence_bounds(text,start,end):
     while a>0 and not boundary(a-1):a-=1
     b=end
     while b<len(text) and not boundary(b):b+=1
-    if b<len(text) and text[b] in '.!?':b+=1
+    while b<len(text) and text[b] in '.!?':b+=1  # keep runs such as '!!' or '?!' with their sentence
     while a<b and text[a].isspace():a+=1
     while b>a and text[b-1].isspace():b-=1
     return a,b
@@ -57,9 +57,22 @@ def number_matches(text,rule):
     if cfg.get('metric')=='trial':
         matched=[m for m in matched if re.search(r'\b(trial|try|free)\b',re.split(r'[.!?]',text[:m.start()])[-1]+' '+re.split(r'[.!?]',text[m.end():])[0],re.I)]
     if cfg.get('plan'):
-        # A plan-specific price only applies to amounts stated in the same sentence as that plan.
-        matched=[m for m in matched if literal_spans(text[slice(*sentence_bounds(text,*m.span()))],cfg['plan'])]
+        # A plan-specific price applies to amounts stated with that plan: the same sentence, or the same clause
+        # when the sentence states several amounts (e.g. "Professional: 1,999, Starter: 1,099").
+        amounts=[x.start() for x in re.finditer(PATTERNS[cfg['metric']],text,re.I)] if cfg.get('metric') in PATTERNS else []
+        def scope(m):
+            a,b=sentence_bounds(text,*m.span())
+            return clause(text,*m.span(),a,b) if sum(a<=x<b for x in amounts)>1 else (a,b)
+        matched=[m for m in matched if literal_spans(text[slice(*scope(m))],cfg['plan'])]
     return matched
+
+CLAUSE=re.compile(r'[;·|]|,(?!\d)|\s(?:and|but|while|whereas)\s',re.I)
+def clause(text,start,end,a,b):
+    lo,hi=a,b
+    for m in CLAUSE.finditer(text,a,b):
+        if m.end()<=start:lo=m.end()
+        elif m.start()>=end:hi=m.start();break
+    return lo,hi
 
 def supported_by(rule,source):
     if rule.kind=='number':return bool(re.search(r'(?<![\d.])'+re.escape(ungroup(rule.value))+r'(?![\d.])',ungroup(source.excerpt)))
@@ -70,6 +83,125 @@ def conflict_key(rule):
     return (rule.subject,cfg.get('metric'),cfg.get('qualifier',''),cfg.get('plan',''))
 
 CLAIM=re.compile(r"\b(?:guarantee\w*|fastest|best|leading|No\.\s?1\b|number one)\b|#1\b|\b\d+(?:\.\d+)?\s?%|\b\d+\s?x\s+(?:faster|more|better)\b|\b\d{1,3}(?:,\d{2,3})+\+|\b\d+\+(?=\s)",re.I)
+
+def cited(source,phrase):
+    """The exact words of an approved excerpt that a tone or accessibility finding cites, or '' when absent."""
+    if not phrase:return ''
+    i=fold(source.excerpt).casefold().find(fold(phrase).casefold())
+    return source.excerpt[i:i+len(phrase)] if i>=0 else ''
+
+def sentences(text):
+    """Sentence spans in reading order, using the same boundaries as sentence_bounds."""
+    out=[];i=0
+    while i<len(text):
+        if text[i].isspace():i+=1;continue
+        a,b=sentence_bounds(text,i,i)
+        if b<=i:b=i+1
+        if b>a:out.append((a,b))
+        i=b
+    return out
+
+def word_pattern(term):
+    """Whole-word match; single words also match simple inflections (magic → magical)."""
+    body=re.escape(fold(term))
+    return re.compile(r'(?<!\w)'+body+(r'(?:s|d|ed|al|ally|ing)?' if ' ' not in term and '-' not in term else '')+r'(?!\w)',re.I)
+
+CAPS=re.compile(r'\b[A-Z]{4,}\b(?:[ \t]+\b[A-Z]{2,}\b)*')
+def tone_checks(text,rule,source,channel=''):
+    """Brand-voice checks. Each yields (span, title, message, suggestion, cited words); nothing is reported without citable approved words."""
+    cfg=rule.config or {};folded=fold(text);out=[]
+    for key,title,label in (('avoid','Off-brand wording','hype or pressure wording'),('messaging','Off-message promise','a promise the brand voice guide rules out')):
+        for term,replacement in (cfg.get(key) or {}).items():
+            words=cited(source,term)
+            if not words:continue
+            for m in word_pattern(term).finditer(folded):
+                found=text[m.start():m.end()];fixed=replacement[:1].upper()+replacement[1:] if replacement and found[:1].isupper() else replacement
+                out.append((m.span(),title,f'“{found}” is {label}. The brand voice guide says to avoid “{words}”.',fixed,words))
+    for term,replacement in (cfg.get('preferred') or {}).items():
+        words=cited(source,term)
+        if not words:continue
+        for m in word_pattern(term).finditer(folded):
+            found=text[m.start():m.end()];fixed=replacement[:1].upper()+replacement[1:] if found[:1].isupper() else replacement
+            out.append((m.span(),'Use the preferred term',f'The brand voice guide prefers “{replacement}” to “{words}”.',fixed,words))
+    cite=cfg.get('cite') or {}
+    limit=cfg.get('max_exclamations')
+    words=cited(source,cite.get('exclamations',''))
+    if isinstance(limit,int) and words and text.count('!')>limit:
+        marks=[m.start() for m in re.finditer('!',text)][limit:]
+        for a,b in sentences(text):
+            if any(a<=p<b for p in marks):
+                out.append(((a,b),'Too many exclamation marks',f'This content uses {text.count("!")} exclamation marks. The brand voice guide says to use {words}.',re.sub(r'!+','.',text[a:b]),words))
+    words=cited(source,cite.get('shouting',''))
+    # Capitals are a body-copy rule: labels on ads and banners are layout, so shouting_channels can scope it.
+    if cfg.get('shouting') and words and (not cfg.get('shouting_channels') or channel in cfg['shouting_channels']):
+        allowed={w.upper() for w in cfg.get('allow_caps') or []}
+        for m in CAPS.finditer(text):
+            caps=[w for w in re.findall(r'[A-Z]{2,}',m.group()) if w not in allowed]
+            if not caps or not any(len(w)>=4 for w in caps):continue
+            start=sentence_bounds(text,m.start(),m.end())[0]
+            fixed=' '.join(w if w in allowed else w.lower() for w in m.group().split(' '))
+            if m.start()==start:fixed=fixed[:1].upper()+fixed[1:]
+            out.append((m.span(),'Words written in capitals',f'“{m.group()}” reads as shouting. The brand voice guide says: {words}.',fixed,words))
+    limit=cfg.get('max_sentence_words');words=cited(source,cite.get('sentences',''))
+    if isinstance(limit,int) and words:
+        for a,b in sentences(text):
+            count=len(re.findall(r"[\w₹'’%-]+",text[a:b]))
+            if count>limit:out.append(((a,b),'Sentence is too long',f'This sentence has {count} words. The brand voice guide says: {words}.','',words))
+    return out
+
+def contrast_ratio(fg,bg):
+    def lum(color):
+        rgb=[int(color[i:i+2],16)/255 for i in (1,3,5)]
+        return sum(w*(v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4) for v,w in zip(rgb,(.2126,.7152,.0722)))
+    a,b=sorted((lum(fg),lum(bg)));return round((b+.05)/(a+.05),2)
+
+def passing_colour(fg,bg,target):
+    """The nearest darker or lighter text colour that meets the target ratio, for the reviewer's fix note."""
+    rgb=[int(fg[i:i+2],16) for i in (1,3,5)]
+    for towards in (0,255):
+        for step in range(1,21):
+            mixed='#%02x%02x%02x'%tuple(round(c+(towards-c)*step/20) for c in rgb)
+            if contrast_ratio(mixed,bg)>=target:return mixed
+    return ''
+
+GENERIC_ALT=re.compile(r'^(?:an?\s+)?(?:image|picture|photo|graphic|banner|img|screenshot|ad|advert|creative|logo|untitled|dsc|slide)?[\s_\-\d.]*(?:\.(?:png|jpe?g|webp|gif))?$',re.I)
+def access(regions,images,rules,sources,subject,channel):
+    """Accessibility findings from measured text regions and images, each citing the approved accessibility standard."""
+    findings=[];deps=[]
+    for rule in rules:
+        if rule.kind!='accessibility' or not applies(rule,subject,channel):continue
+        source=sources.get(rule.source_id)
+        if source is None or not current(source):continue
+        cfg=rule.config or {};cite=cfg.get('cite') or {}
+        def add(key,span,page,title,message,box=None,suggestion='',measure=None):
+            start,end,text=span
+            findings.append({'id':digest(f'access:{rule.id}:{key}:{page}:{start}:{end}:{title}:{message}')[:20],'rule_id':rule.id,'rule_code':rule.code,'outcome':'Accessibility','title':title,'message':message,'suggestion':suggestion,'severity':'medium',
+                'start':start,'end':end,'span':text,'kind':'access','page':page,'box':box,'measure':measure or {},'engine':'Accessibility check · measured','resolved':False,'evidence':{**evidence(rule,source),'rule_value':cited(source,cite.get(key,''))}})
+        deps.append({'rule_id':rule.id,'source_id':source.id,'source_version':source.version})
+        normal,large=float(cfg.get('contrast_normal',4.5)),float(cfg.get('contrast_large',3))
+        if cited(source,cite.get('contrast','')):
+            for r in regions:
+                c=r.get('contrast')
+                if not c or not r.get('text'):continue
+                pt=r.get('size_pt') or (r.get('px',0)*0.75)
+                big=pt>=float(cfg.get('large_pt',18)) or (r.get('bold') and pt>=float(cfg.get('large_bold_pt',14)))
+                target=large if big else normal
+                if c['ratio']>=target:continue
+                better=passing_colour(c['fg'],c['bg'],target)
+                add('contrast_large' if big and cite.get('contrast_large') else 'contrast',(r['start'],r['end'],r['text']),r.get('page',0),'Low text contrast',f'Measured contrast {c["ratio"]}:1 ({c["fg"]} text on {c["bg"]}, {c.get("method","measured")}). {"Large" if big else "Normal-size"} text needs at least {target:g}:1.'+(f' Text colour {better} would pass.' if better else ''),measure={**c,'target':target,'large':bool(big),'size_pt':round(pt,1)})
+        if cited(source,cite.get('size','')):
+            for r in regions:
+                if r.get('size_pt') and r.get('text') and r['size_pt']<float(cfg.get('min_pt',9)):
+                    add('size',(r['start'],r['end'],r['text']),r.get('page',0),'Very small text',f'This text is set at {r["size_pt"]:g} pt. The accessibility standard asks for at least {float(cfg.get("min_pt",9)):g} pt.',measure={'size_pt':r['size_pt']})
+        if cited(source,cite.get('alt','')):
+            for img in images:
+                alt=' '.join(str(img.get('alt') or '').split());name=str(img.get('name') or '')
+                stem=name.rsplit('.',1)[0].casefold()
+                if not alt:title,why='Alt text missing','This image has no alt text, so screen-reader users get nothing.'
+                elif GENERIC_ALT.match(alt) or alt.casefold() in (name.casefold(),stem) or len(alt.split())<3:title,why='Alt text is not helpful',f'“{alt}” does not describe the image or its purpose.'
+                else:continue
+                add('alt',(0,0,''),img.get('page',0),title,why,box=img.get('box'),suggestion=img.get('suggestion',''),measure={'alt':alt,'image':img.get('label') or name})
+    return findings,deps
 
 def scan(text,subject,channel,rules,sources,hypothetical=()):
     findings=[]; dependencies={}; mapped_guarantees=[]
@@ -95,6 +227,14 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
             mapped_guarantees.extend(span for _,span in matched)
         elif kind=='banned': matched=literal_spans(text,rule.value);relevant=matched
         elif kind=='required': relevant=not cfg.get('trigger') or bool(literal_spans(text,cfg['trigger']))
+        elif kind=='tone':
+            if source is None or not current(source):continue
+            checks=tone_checks(text,rule,source,channel)
+            dependencies[rule.id]={'rule_id':rule.id,'source_id':source.id,'source_version':source.version}
+            for span,title,message,suggestion,words in checks:
+                add(rule,span,'Tone Issue',title,message,suggestion,'medium')
+                findings[-1]['evidence']['rule_value']=words
+            continue
         else: continue
         if not relevant: continue
         if source is None or not current(source):
@@ -113,7 +253,8 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
                 if amount(m.group(1))!=amount(rule.value):
                     fixed=m.group().replace(m.group(1),group_like(m.group(1),rule.value),1)
                     add(rule,m.span(),'Verified Contradiction',f'Check the {label}{cfg.get("metric","value")}',f'Approved {label}{cfg.get("metric","value")}: {rule.value}. Applies to {rule.subject}.',fixed)
-                if cfg.get('qualifier') and cfg['qualifier'].casefold() not in text.casefold():
+                # qualifier_channels limits where the condition must be shown (a clarified rule can exclude a channel).
+                if cfg.get('qualifier') and (not cfg.get('qualifier_channels') or channel in cfg['qualifier_channels']) and cfg['qualifier'].casefold() not in text.casefold():
                     if cfg.get('qualifier_review'):
                         add(rule,m.span(),'Low Confidence','Check the pricing qualification',f'The approved policy attaches “{cfg["qualifier"]}” to this price. A reviewer must decide whether this placement has to show it.',fixed+' '+cfg.get('qualifier_text',cfg['qualifier']),'medium')
                     else:add(rule,m.span(),'Verified Contradiction','A condition is missing',f'This value requires “{cfg["qualifier"]}”.',fixed+', '+cfg['qualifier'])
