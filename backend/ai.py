@@ -83,6 +83,8 @@ def semantic(text,subject,channel,rules,sources):
             if text[p['start']:p['end']]!=p['span'] and p['span'] and text.count(p['span'])==1:
                 p['start']=text.index(p['span']);p['end']=p['start']+len(p['span'])
         valid,hidden=validate_ai(proposals,text,scoped,sources)
-        coverage=f'AI incomplete: {hidden} untraceable suggestions rejected.' if hidden else f'Rules + validated {provider()} suggestions'
+        # Uncited suggestions are never shown (run_scan appends "N Citation Failed hidden"). The check itself completed,
+        # so approval is not blocked; only a provider failure or a reached limit marks a check "AI incomplete".
+        coverage=f'Rules + validated {provider()} suggestions'
         return valid,coverage,hidden
     except ProviderError as exc:return [],f'AI incomplete: {exc} Deterministic checks completed.',0

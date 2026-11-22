@@ -251,3 +251,15 @@ def test_document_is_revised_by_uploading_the_corrected_file():
     assert revised['version'] == brochure['version'] + 1 and revised['findings'] == [], [f['title'] + ' ' + f['span'] for f in revised['findings']]
     creative = next(c for c in client.get('/api/workspace').json()['creatives'] if c['content_id'] == brochure['id'] and c['version'] == revised['version'])
     assert creative['page_count'] == 10
+
+
+def test_uncited_ai_suggestion_is_hidden_without_blocking_the_check(monkeypatch):
+    """Normal use: an AI suggestion without an exact citation is never shown, and the check still completes."""
+    from types import SimpleNamespace
+    from backend import ai
+    rules, sources = evaluation.register()
+    bad = SimpleNamespace(findings=[SimpleNamespace(model_dump=lambda: {'rule_id': 'rule-V01', 'start': 0, 'end': 4, 'span': 'Plan', 'source_id': 'src-voice', 'source_version': 1, 'excerpt': 'not in the source', 'message': 'x', 'suggestion': ''})])
+    monkeypatch.setattr(ai, 'available', lambda: True)
+    monkeypatch.setattr(ai, 'generate', lambda *a, **k: bad)
+    valid, coverage, hidden = ai.semantic('Plan your next campaign in one place.', demo.COMPANY, 'Social', rules, sources)
+    assert valid == [] and hidden == 1 and not coverage.startswith('AI incomplete')
