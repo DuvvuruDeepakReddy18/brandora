@@ -263,3 +263,27 @@ def test_uncited_ai_suggestion_is_hidden_without_blocking_the_check(monkeypatch)
     monkeypatch.setattr(ai, 'generate', lambda *a, **k: bad)
     valid, coverage, hidden = ai.semantic('Plan your next campaign in one place.', demo.COMPANY, 'Social', rules, sources)
     assert valid == [] and hidden == 1 and not coverage.startswith('AI incomplete')
+
+
+def test_ai_does_not_second_guess_a_verified_value(monkeypatch):
+    """An AI suggestion on a price the rule engine verified against the same approved record is not shown."""
+    from backend import ai
+    client, state = visitor()
+    hero = item(state, 'Pricing page hero')
+    rule = next(r for r in state['rules'] if r['code'] == 'P02')
+    switch(client, 'manager')
+    monkeypatch.setattr(ai, 'available', lambda: True)
+    client.put('/api/settings', json={'ai_enabled': False})
+    assert client.put('/api/settings', json={'ai_enabled': True}).status_code == 200
+    span = '₹1,999/month'
+    start = hero['body'].index(span)
+    pricing = next(x for x in state['sources'] if x['id'] == rule['source_id'])
+    suggestion = {'id': 'ai-x', 'rule_id': rule['id'], 'rule_code': 'P02', 'outcome': 'Low Confidence', 'title': 'Suggested semantic review', 'message': 'Consider the format.', 'suggestion': '',
+                  'severity': 'medium', 'span': span, 'start': start, 'end': start + len(span), 'engine': 'AI-assisted', 'resolved': False,
+                  'evidence': {'source_id': pricing['id'], 'title': pricing['title'], 'version': pricing['version'], 'excerpt': pricing['excerpt'], 'owner': pricing['owner'], 'rule_value': '1999'}}
+    calls = []
+    monkeypatch.setattr(ai, 'semantic', lambda *a, **k: (calls.append(1), ([dict(suggestion)], 'Rules + validated gemini suggestions', 0))[1])
+    monkeypatch.setattr(main, 'reserve_ai', lambda *a, **k: None)
+    r = client.post(f"/api/content/{hero['id']}/scan").json()
+    assert calls and r['scan_coverage'].startswith('Rules + validated')
+    assert not any(f['engine'] == 'AI-assisted' for f in r['findings'])

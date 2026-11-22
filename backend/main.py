@@ -211,6 +211,9 @@ def run_scan(db,c,user,ai_reserved=False):
         extra,coverage,hidden=([],AI_LIMIT_COVERAGE,0) if limited else ai.semantic(c.body,c.subject,c.channel,rules,sources)
         # An AI suggestion that repeats a rule finding (same rule, overlapping text) is not shown twice.
         extra=[e for e in extra if not any(f['rule_id']==e['rule_id'] and f['start']<e['end'] and e['start']<f['end'] for f in findings)]
+        # Nor does AI second-guess a value the rule engine verified against the same approved record.
+        confirmed=verified_spans(c.body,c.subject,c.channel,rules,sources)
+        extra=[e for e in extra if not any(v['rule_id']==e['rule_id'] and v['start']<e['end'] and e['start']<v['end'] for v in confirmed)]
         findings.extend(extra)
         for f in extra:
             ev=f['evidence']

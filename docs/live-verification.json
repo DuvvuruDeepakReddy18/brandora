@@ -1,8 +1,8 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-22T21:00:41+00:00",
+  "checked_at": "2026-11-22T21:08:41+00:00",
   "live_ai": true,
-  "passed": 48,
+  "passed": 47,
   "total": 48,
   "checks": [
     {
@@ -227,8 +227,8 @@
     },
     {
       "claim": "Corrected brochure upload → v2 with zero findings",
-      "result": "PASS",
-      "detail": "[]"
+      "result": "FAIL",
+      "detail": "[\"P01:Low Confidence:INR 999/mo\", \"P02:Low Confidence:INR 1,999/mo\"]"
     },
     {
       "claim": "PowerPoint upload is read page by page",
@@ -243,7 +243,7 @@
     {
       "claim": "creative.png: the six documented problems are found again by live OCR (AI suggestions listed separately)",
       "result": "PASS",
-      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"AI incomplete: 1 untraceable suggestions rejected. · 1 Citation Failed hidden\"]"
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"Rules + validated gemini suggestions\"]"
     }
   ]
 }
