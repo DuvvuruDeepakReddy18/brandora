@@ -3,10 +3,10 @@
   "url": "https://brandora-omega-three.vercel.app",
   "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
   "repository_visibility": "public",
-  "deployment_id": "dpl_9j1NB7CsuKz16PFEWAoWWcT85Nfb",
-  "deployment_url": "https://brandora-bwwegw3ev-duvvurudeepakreddy18s-projects.vercel.app",
-  "application_commit": "5e3417e (main and claude/changes)",
-  "previous_production_deployment": "dpl_6AtstbKwobgG2CMMovZNfqR8Cn3S",
+  "deployment_id": "dpl_FuU2V96jkPBiD7SsY7iUR9dNqd4V",
+  "deployment_url": "https://brandora-odwxg0a7m-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "7c4d9ee (main and claude/changes)",
+  "previous_production_deployment": "dpl_9j1NB7CsuKz16PFEWAoWWcT85Nfb",
   "status": "READY",
   "target": "production",
   "promoted": true,
@@ -17,7 +17,7 @@
   "schema_change": "Additive: new tables creative_pages, finding_events and rule_proposals; creatives gains page_count and images columns (ALTER ... ADD COLUMN with defaults). No column removed or retyped. Follow-up: finding_events gains review_by (ALTER ... ADD COLUMN with default).",
   "dependency_change": "pypdfium2 5.15.2 added (PDF page rendering and text positions). The sample deck is committed as a file; python-pptx is used only by scripts/make_sample_deck.py and is not a runtime dependency.",
   "verification": {
-    "regression_tests": 79,
+    "regression_tests": 81,
     "regression_result": "passed",
     "landing_bridge_tests": "3 passed",
     "brand_crew_entry_check": "passed",
@@ -40,5 +40,5 @@
   "owner_next_step": "Existing owners sign in normally. Judges choose Explore demo; the Round 3 features open from More to explore or the cards on Home.",
   "limits": "Functional release verification; no penetration test, large-scale load certification or user study is claimed. The evaluation set is synthetic and team-labelled; it measures the rule engine, not live AI suggestions.",
   "judge_access": "Explore demo; no credentials. Opens on the marked Inkloom AI ad. Four roles, isolated two-hour workspace, sample files and bounded live AI.",
-  "follow_up_fixes": "A strict live check of every documented claim found three failures, now fixed: a judgement call accepted on version 1 is carried to the corrected version when the same rule raises the same question with unchanged surrounding wording (labelled carried over), so the walkthrough approves; logo text is exempt from contrast as WCAG allows; the sample footer is darker so the corrected ad passes contrast under live OCR. Also: tone and accessibility rules can be created in the rule editor; Home counts tone and accessibility issues."
+  "follow_up_fixes": "A strict live check of every documented claim found three failures, now fixed: a judgement call accepted on version 1 is carried to the corrected version when the same rule raises the same question with unchanged surrounding wording (labelled carried over), so the walkthrough approves; logo text is exempt from contrast as WCAG allows; the sample footer is darker so the corrected ad passes contrast under live OCR. Also: tone and accessibility rules can be created in the rule editor; Home counts tone and accessibility issues. Live AI behaviour: a suggestion that cannot quote its source is hidden (and counted) without marking the check incomplete, and AI suggestions are not shown on values the rule engine verified against the same approved record."
 }

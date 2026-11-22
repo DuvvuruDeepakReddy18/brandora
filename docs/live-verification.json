@@ -1,8 +1,8 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-22T21:08:41+00:00",
+  "checked_at": "2026-11-22T21:14:27+00:00",
   "live_ai": true,
-  "passed": 47,
+  "passed": 48,
   "total": 48,
   "checks": [
     {
@@ -227,8 +227,8 @@
     },
     {
       "claim": "Corrected brochure upload → v2 with zero findings",
-      "result": "FAIL",
-      "detail": "[\"P01:Low Confidence:INR 999/mo\", \"P02:Low Confidence:INR 1,999/mo\"]"
+      "result": "PASS",
+      "detail": "[]"
     },
     {
       "claim": "PowerPoint upload is read page by page",
