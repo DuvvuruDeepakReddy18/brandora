@@ -162,8 +162,19 @@ if WITH_AI:
         if expect == 'clean':
             check('corrected-creative.png comes back clean with live AI', not b['findings'], fs + [b['scan_coverage']])
         else:
-            check('creative.png: the six problems are found by live OCR', {'P02:Verified Contradiction', 'F02:Verified Contradiction'} <= {f['rule_code'] + ':' + f['outcome'] for f in b['findings']}, fs + [b['scan_coverage']])
+            rule_found = sorted(f['rule_code'] + ':' + f['outcome'] for f in b['findings'] if f.get('engine') != 'AI-assisted')
+            check('creative.png: the six documented problems are found again by live OCR (AI suggestions listed separately)',
+                  rule_found == sorted(['P02:Verified Contradiction', 'P02:Low Confidence', 'F02:Verified Contradiction', 'R03:Evidence Gap', 'R03:Evidence Gap', 'LOGO:Visual Violation']), fs + [b['scan_coverage']])
     c3.post('/api/demo/reset')
 for cl in (c, c2):
     cl.post('/api/demo/reset')
 print(f"\n{sum(ok for ok, _, _ in results)}/{len(results)} claims passed")
+if '--write' in sys.argv:
+    from datetime import datetime, timezone
+    from pathlib import Path
+    out = Path(__file__).resolve().parents[1] / 'docs' / 'live-verification.json'
+    out.write_text(json.dumps({'target': BASE, 'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live_ai': WITH_AI,
+        'passed': sum(ok for ok, _, _ in results), 'total': len(results),
+        'checks': [{'claim': n, 'result': 'PASS' if ok else 'FAIL', 'detail': d if isinstance(d, str) else json.dumps(d, ensure_ascii=False, default=lambda x: sorted(x) if isinstance(x, set) else str(x))[:400]} for ok, n, d in results]},
+        indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    print('Wrote', out)

@@ -1,0 +1,249 @@
+{
+  "target": "https://brandora-omega-three.vercel.app",
+  "checked_at": "2026-11-22T21:00:41+00:00",
+  "live_ai": true,
+  "passed": 48,
+  "total": 48,
+  "checks": [
+    {
+      "claim": "Demo opens with 7 fictional items and AI on",
+      "result": "PASS",
+      "detail": "7 items, ai=True"
+    },
+    {
+      "claim": "Sample ad shows exactly the six documented findings",
+      "result": "PASS",
+      "detail": "[('F02', 'Verified Contradiction'), ('LOGO', 'Visual Violation'), ('P02', 'Low Confidence'), ('P02', 'Verified Contradiction'), ('R03', 'Evidence Gap'), ('R03', 'Evidence Gap')]"
+    },
+    {
+      "claim": "Every text finding cites source ID, version and exact excerpt",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Author cannot decide on own content (403)",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "claim": "Reviewer confirms a finding with a reason (200)",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "claim": "Rejecting a confirmed contradiction is refused (409)",
+      "result": "PASS",
+      "detail": "409"
+    },
+    {
+      "claim": "Reviewer marks the GST note verified with a reason (200)",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "claim": "Request evidence creates an owned task",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Creator saves the corrected version (v2)",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "claim": "Corrected version re-checks with nothing open (the GST decision carries over, labelled)",
+      "result": "PASS",
+      "detail": "[\"P02:Low Confidence:₹1,999 per month carried\"]"
+    },
+    {
+      "claim": "Corrected version shows green verified values",
+      "result": "PASS",
+      "detail": "2"
+    },
+    {
+      "claim": "Request review (200)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Author cannot approve own work (403)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Independent reviewer approves exact version with SHA-256 receipt",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "claim": "Impact preview is a dry run listing affected items",
+      "result": "PASS",
+      "detail": "6 affected"
+    },
+    {
+      "claim": "Publishing keeps the old source version",
+      "result": "PASS",
+      "detail": "3 versions"
+    },
+    {
+      "claim": "Previously approved ad is flagged for reassessment",
+      "result": "PASS",
+      "detail": "Needs reassessment"
+    },
+    {
+      "claim": "Partner sees only the assigned campaign",
+      "result": "PASS",
+      "detail": "{'Spring launch'}"
+    },
+    {
+      "claim": "Internal content is refused to the partner by the API (404)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "brochure.pdf sample: wrong Starter price, 30-day trial, fastest and 10,000+ for review",
+      "result": "PASS",
+      "detail": "[\"F02:Verified Contradiction\", \"P01:Verified Contradiction\", \"REVIEW:Low Confidence\", \"REVIEW:Low Confidence\"]"
+    },
+    {
+      "claim": "social-post.txt sample: Ink Loom, ₹1,499, 30 days, GST review, best tool",
+      "result": "PASS",
+      "detail": "[\"F02:Verified Contradiction\", \"P02:Low Confidence\", \"P02:Verified Contradiction\", \"REVIEW:Low Confidence\", \"T01:Verified Contradiction\"]"
+    },
+    {
+      "claim": "Import document extracts text for review before registering",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Source conflict (Asset Vault 299 vs 349) is detected",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Approved logo is registered",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Brochure has 10 rendered pages",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Deck has 6 rendered slides",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Brochure findings sit on 7+ distinct pages",
+      "result": "PASS",
+      "detail": "[0, 1, 2, 3, 4, 5, 6, 7, 9]"
+    },
+    {
+      "claim": "Brochure contrast 2.02:1 (p1, needs 4.5) and 1.76:1 (p6, needs 3)",
+      "result": "PASS",
+      "detail": "[[1, 2.02, 4.5], [6, 1.76, 3.0]]"
+    },
+    {
+      "claim": "Brochure 6 pt small print on page 10",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Brochure tone & messaging findings cite the voice guide",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Deck: missing + unhelpful alt text on slide 4, 2.32:1 subtitle, 7 pt footer",
+      "result": "PASS",
+      "detail": "[[\"Alt text is not helpful\", 4], [\"Alt text missing\", 4], [\"Low text contrast\", 1], [\"Very small text\", 6]]"
+    },
+    {
+      "claim": "Page images are served as JPEG",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Reliability: held-out 96.2% precision, 86.2% recall, 50/50 citations, 1/22 clean flagged",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Creators get common-mistake tips",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Creators cannot open governance insights (403)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Text-only edits of a PDF are refused (409)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Reviewer can accept tone wording in context (200)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Insights include fictional history and flag P02 on Email",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Insights group people by team and never score individuals",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "A manager cannot approve their own clarification (403)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Replay: 14 decisions, 35.7% → 100%, 0 confirmed missed",
+      "result": "PASS",
+      "detail": "{\"decided\": 14, \"agreement_before\": 0.3571, \"agreement_after\": 1.0, \"confirmed_missed\": 0}"
+    },
+    {
+      "claim": "Reviewer cannot apply (403)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Manager applies; audit records proposer, approver and replay",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Unhelpful alt text on the ad is flagged after editing",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Corrected brochure upload → v2 with zero findings",
+      "result": "PASS",
+      "detail": "[]"
+    },
+    {
+      "claim": "PowerPoint upload is read page by page",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "corrected-creative.png comes back clean with live AI",
+      "result": "PASS",
+      "detail": "[\"Rules + validated gemini suggestions\"]"
+    },
+    {
+      "claim": "creative.png: the six documented problems are found again by live OCR (AI suggestions listed separately)",
+      "result": "PASS",
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"AI incomplete: 1 untraceable suggestions rejected. · 1 Citation Failed hidden\"]"
+    }
+  ]
+}

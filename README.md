@@ -44,7 +44,7 @@ The demo bar explains what the current person can and cannot do, ticks off the s
 | `festive-brochure-10-pages.pdf` | Scan & Detect | No | Marks on 9 of 10 pages: wrong Starter price and trial, “Ink Loom”, hype and pressure wording, two low-contrast texts (2.02:1 and 1.76:1) and 6 pt small print |
 | `festive-brochure-corrected.pdf` | Fix & approve → *Upload revised file* on the brochure | No | Version 2 of the brochure with every finding fixed in the file: comes back clean |
 | `partner-deck.pptx` | Scan & Detect | No | Unsupported ranking claims, a wrong Professional price, a missing and an unhelpful alt text on slide 4, a 2.32:1 subtitle, “game-changing” and too many exclamation marks |
-| `creative.png` | Scan & Detect | Yes (on by default) | The six problems in the sample ad, read by live OCR and logo comparison |
+| `creative.png` | Scan & Detect | Yes (on by default) | The six problems in the sample ad, read by live OCR and logo comparison (live AI may add a blue, citation-checked suggestion) |
 | `corrected-creative.png` | Scan & Detect, or *Upload revised creative* in Fix & approve | Yes (on by default) | Approved logo and correct copy; comes back clean with verified values |
 | `billing-policy.txt` | Company Hub → Import document | No | Extracted text you check and register as a new approved source |
 | `scanned-source.pdf` | Company Hub → Import document (AI OCR) | Yes | The pricing policy transcribed from an image-only PDF |
