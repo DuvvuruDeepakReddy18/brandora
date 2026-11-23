@@ -1,9 +1,9 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-22T21:14:27+00:00",
+  "checked_at": "2026-11-23T02:01:25+00:00",
   "live_ai": true,
-  "passed": 48,
-  "total": 48,
+  "passed": 51,
+  "total": 51,
   "checks": [
     {
       "claim": "Demo opens with 7 fictional items and AI on",
@@ -11,9 +11,9 @@
       "detail": "7 items, ai=True"
     },
     {
-      "claim": "Sample ad shows exactly the six documented findings",
+      "claim": "Sample ad shows exactly the seven documented findings",
       "result": "PASS",
-      "detail": "[('F02', 'Verified Contradiction'), ('LOGO', 'Visual Violation'), ('P02', 'Low Confidence'), ('P02', 'Verified Contradiction'), ('R03', 'Evidence Gap'), ('R03', 'Evidence Gap')]"
+      "detail": "[('C01', 'Low Confidence'), ('F02', 'Verified Contradiction'), ('LOGO', 'Visual Violation'), ('P02', 'Low Confidence'), ('P02', 'Verified Contradiction'), ('R03', 'Evidence Gap'), ('R03', 'Evidence Gap')]"
     },
     {
       "claim": "Every text finding cites source ID, version and exact excerpt",
@@ -236,14 +236,29 @@
       "detail": ""
     },
     {
+      "claim": "Brochure page 6 orange callout is flagged as outside the approved palette",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "claim": "Check-before-publish API: blocked verdict with evidence, no AI",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "claim": "A revoked API key is refused (401)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
       "claim": "corrected-creative.png comes back clean with live AI",
       "result": "PASS",
       "detail": "[\"Rules + validated gemini suggestions\"]"
     },
     {
-      "claim": "creative.png: the six documented problems are found again by live OCR (AI suggestions listed separately)",
+      "claim": "creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)",
       "result": "PASS",
-      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"Rules + validated gemini suggestions\"]"
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\"]"
     }
   ]
 }
