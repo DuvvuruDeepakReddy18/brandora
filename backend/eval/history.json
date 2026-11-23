@@ -1,0 +1,26 @@
+{
+  "note": "First-run results of each held-out round, kept exactly as measured. After a round is measured, its misses may be fixed; from then on that round counts as development data and a fresh held-out round is written.",
+  "rounds": [
+    {
+      "round": 1,
+      "split": "heldout",
+      "measured": "2026-11-22",
+      "items": 40,
+      "engine_sha256_prefix": "d42a2b55a103",
+      "precision": 0.9615,
+      "recall": 0.8621,
+      "tp": 25,
+      "fp": 1,
+      "fn": 4,
+      "citations": "50/50 (all splits)",
+      "clean_controls_flagged": "1/22 (all splits)",
+      "failures": [
+        {"id": "held-04", "kind": "Missed", "problem": "“Pro plan: ₹1,499/month” — plan aliases were not mapped", "fix": "Rules can list plan aliases (Professional: “Pro”), matched as whole words"},
+        {"id": "held-08", "kind": "Missed", "problem": "“Try it for a month, free” — durations in words were not parsed", "fix": "Durations in words and in weeks or months are read and converted to days; a price's billing period is not mistaken for a trial"},
+        {"id": "held-10", "kind": "Missed", "problem": "“Inkloom Ai” — a wrong capitalisation was not a listed variant", "fix": "The approved spelling is exact: any other capitalisation of the product name is flagged"},
+        {"id": "held-14", "kind": "Missed", "problem": "“80 percent” — a mapped claim was only matched with “80%”", "fix": "Mapped claims match paraphrases: “percent”/“per cent” for “%”, “number one”/“#1” for “No. 1”, any spacing"},
+        {"id": "held-19", "kind": "False alarm", "problem": "“Best regards” — a sign-off was flagged as a superlative", "fix": "“Best regards” and “best wishes” are recognised as sign-offs"}
+      ]
+    }
+  ]
+}

@@ -12,7 +12,7 @@ Brandora checks content before it is published. It handles unreleased campaigns,
 - **Judgement calls carry only when the wording is unchanged.** A reviewer's accept/reject on a judgement call carries to a corrected version only if the same rule raises the same question with identical surrounding wording. It is labelled "carried over", and a reviewer still approves the version.
 - **Rule changes need a second person.** A clarified rule is replayed on recorded history (predicted vs what reviewers actually decided). It is applied only by a manager who did not propose it, with an audit record ([`backend/insights.py`](../backend/insights.py)).
 - **No silent success.** If OCR or the AI provider fails, nothing is saved and the screen says so. If a daily AI limit is reached, the rule checks still complete and the result is marked *AI incomplete*, which blocks approval until it is retried or AI is turned off.
-- **Measured reliability is published.** See [TESTING.md](TESTING.md): an 80-item labelled evaluation with held-out results, every miss explained, re-run in CI.
+- **Measured reliability is published.** See [TESTING.md](TESTING.md): 120 labelled items with two held-out rounds (round 1 measured, its misses fixed, then a fresh round 2 measured), every miss explained, re-run in CI.
 
 ## 2. Privacy
 

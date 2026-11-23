@@ -4,25 +4,32 @@ Brandora is checked at five levels. Each runs automatically or can be re-run by 
 
 | Level | What it proves | How to run | Latest result |
 |---|---|---|---|
-| Backend regression tests | Workflows, permissions, isolation, every check type, the API and the demo | `python -m pytest backend/tests -q` (CI on every push) | 84 passed |
-| Labelled evaluation | How accurate the rule engine is on content it was not tuned on | `python -m backend.evaluation` (CI fails if scores drop or the published report is stale) | Held-out precision 96.2%, recall 86.2%; citation validity 50/50; 1 of 22 clean controls flagged |
+| Backend regression tests | Workflows, permissions, isolation, every check type, the API and the demo | `python -m pytest backend/tests -q` (CI on every push) | 85 passed |
+| Labelled evaluation | How accurate the rule engine is on content it was not tuned on | `python -m backend.evaluation` (CI fails if scores drop or the published report is stale) | Fresh held-out (round 2): precision 93.5%, recall 93.5%; citation validity 79/79; round 1 first run 96.2% / 86.2% |
 | Live claim check | Every documented claim works on the production URL, as an evaluator would use it | `python scripts/verify_live.py https://brandora-omega-three.vercel.app --ai` (scheduled daily in GitHub Actions, rules only) | All claims passed ([`live-verification.json`](live-verification.json)) |
 | Accessibility audit | Brandora's own screens meet a WCAG 2.2 AA subset | [`scripts/a11y-audit.js`](../scripts/a11y-audit.js) in the browser | 24 screens, 0 issues ([`accessibility-audit.json`](accessibility-audit.json)) |
 | Build checks | Types, production build, landing integrity | `npm run typecheck`, `npm run build`, `node scripts/prepare-brand-crew.cjs --check` | Passing in CI |
 
 ## Labelled evaluation (Round 3)
 
-- **The set:** 80 items of fictional Inkloom AI content, labelled by what a reviewer should conclude ([`backend/eval/dataset.json`](../backend/eval/dataset.json)). There are 40 development items, used while building the checks, and 40 held-out items, written after the checks were frozen. 22 items are clean controls.
+- **The set:** 120 items of fictional Inkloom AI content, labelled by what a reviewer should conclude ([`backend/eval/dataset.json`](../backend/eval/dataset.json)). There are 40 development items, used while building the checks, and two held-out rounds of 40, each written after the checks were frozen. 33 items are clean controls.
 - **How it runs:** [`backend/evaluation.py`](../backend/evaluation.py) runs the production engine against the same register the demo uses.
   - A finding is correct when its rule, outcome and location match a label.
   - Precision = correct ÷ raised; recall = correct ÷ labelled.
   - Citation validity checks that every shown finding names the current approved source, and that the source text contains the cited value or words.
-- **The five held-out failures are reported, not tuned away.** Each is a concrete next improvement:
-  - "Pro" as an alias for Professional
-  - "a month" written in words
-  - "Inkloom Ai" capitalisation
-  - "80 percent" vs "80%"
-  - "Best regards" flagged as a superlative
+- **Measure, fix, re-measure on new unseen content.** First-run results of every round are kept in [`backend/eval/history.json`](../backend/eval/history.json).
+
+| Round | Written | Precision | Recall | Citations | Clean flagged |
+|---|---|---|---|---|---|
+| Held-out round 1, first run | 22 Nov, after the checks were frozen | 96.2% (25/26) | 86.2% (25/29) | 50/50 (all splits) | 1/22 (all splits) |
+| Fixes | 23 Nov | Plan aliases; durations in words, weeks and months; exact capitalisation of product names; paraphrased mapped claims ("80 percent", "#1"); "best regards" as a sign-off; prices written after the amount ("999 rupees") | | | |
+| Held-out round 2, fresh | 23 Nov, after the fixes were frozen | **93.5% (29/31)** | **93.5% (29/31)** | 25/25 (79/79 all splits) | 1/11 |
+
+- **Round 1 now counts as development data.** Its items pass after the fixes, but they are no longer unseen.
+- **Round 2's three failures are reported, not tuned away.** Each is a concrete next improvement:
+  - a mapped claim paraphrased with a different verb ("Cut … by 80 per cent"); it is still raised for review, just not as the mapped claim
+  - "Wishing you the best" read as a superlative
+  - "Leveraging" not caught as a form of the non-preferred "leverage"
 - **In the app:** Trust & Audit → Reliability shows the same report, re-run when the page opens.
 
 ## What testing changed (selected)

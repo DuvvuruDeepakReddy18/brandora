@@ -213,7 +213,7 @@ ACCESS_CONFIG={'contrast_normal':4.5,'contrast_large':3,'large_pt':18,'large_bol
 PALETTE_CONFIG={'colours':{'Ink violet':'#5B3DF5','Violet':'#7A62F7','Night':'#17133A','Slate':'#3A3358','Lavender':'#E3DCFF','Mist':'#ECE7FF','Paper':'#FFF8EE'},
     'tolerance':18,'min_share':0.012,'cite':{'palette':'Approved colours'}}
 RULES=[('P01','Starter plan price','number','999','pricing',{'metric':'price','plan':'Starter'}),
-    ('P02','Professional plan price','number','1999','pricing',{'metric':'price','plan':'Professional','qualifier':'GST','qualifier_review':True,'qualifier_text':'+ GST'}),
+    ('P02','Professional plan price','number','1999','pricing',{'metric':'price','plan':'Professional','plan_aliases':['Pro'],'qualifier':'GST','qualifier_review':True,'qualifier_text':'+ GST'}),
     ('F02','Free trial','number','14','pricing',{'metric':'trial'}),
     ('T01','Product name','term',COMPANY,'brand',{'variants':['Ink Loom','Ink-loom']}),
     ('R03','Substantiate ranking & performance claims','substantiation','Approved study required','evidence',{'unsupported_terms':["The world's No. 1 creative platform",'Reduce your marketing production time by 80%'],'replacements':{"The world's No. 1 creative platform":'The central workspace for campaign content','Reduce your marketing production time by 80%':'Organise your creative workflows in one place'}}),

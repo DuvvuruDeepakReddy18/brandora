@@ -25,8 +25,11 @@ export function ReliabilityReport() {
   useEffect(load, [load]);
   if (error) return <div className="inline-warn"><AlertTriangle size={15} /> {error}</div>;
   if (!report) return <div className="empty-mini"><Loader2 size={18} className="spin" /> Running the labelled evaluation…</div>;
-  const held = report.splits.heldout,
-    dev = report.splits.dev;
+  const head = report.headline_split as string;
+  const fresh = report.splits[head];
+  const names: Record<string, string> = report.dataset.split_names || {};
+  const first = (report.history?.rounds || [])[0];
+  const current = report.failures.filter((f: Row) => f.split === head);
   return (
     <div className="r3-stack">
       <section className="panel">
@@ -34,7 +37,7 @@ export function ReliabilityReport() {
           <div>
             <h2>Measured reliability</h2>
             <p>
-              {report.dataset.items} labelled pieces of fictional Inkloom AI content, checked by the same rule engine that checks your content. It runs here when you open this page and in CI on every push to GitHub.
+              {report.dataset.items} labelled pieces of fictional Inkloom AI content, checked by the same rule engine that checks your content. The headline is the newest held-out round: content written after the checks were frozen and reported exactly as it came out. It runs here when you open this page and in CI on every push.
             </p>
           </div>
           <button className="button small" onClick={load} disabled={loading}>
@@ -42,31 +45,57 @@ export function ReliabilityReport() {
           </button>
         </div>
         <div className="metric-row">
-          <div className={"metric-card " + (held.precision >= 0.95 ? "good" : "warn")}>
-            <small>Held-out precision</small>
-            <b>{pct(held.precision)}</b>
-            <span>{held.tp} of {held.tp + held.fp} findings raised on unseen items were correct</span>
+          <div className={"metric-card " + (fresh.precision >= 0.95 ? "good" : "warn")}>
+            <small>Precision · fresh</small>
+            <b>{pct(fresh.precision)}</b>
+            <span>{fresh.tp} of {fresh.tp + fresh.fp} findings raised on unseen content were correct</span>
           </div>
-          <div className={"metric-card " + (held.recall >= 0.95 ? "good" : "warn")}>
-            <small>Held-out recall</small>
-            <b>{pct(held.recall)}</b>
-            <span>{held.tp} of {held.tp + held.fn} labelled problems were found</span>
+          <div className={"metric-card " + (fresh.recall >= 0.95 ? "good" : "warn")}>
+            <small>Recall · fresh</small>
+            <b>{pct(fresh.recall)}</b>
+            <span>{fresh.tp} of {fresh.tp + fresh.fn} labelled problems on unseen content were found</span>
           </div>
           <div className={"metric-card " + (report.citations.rate === 1 ? "good" : "warn")}>
             <small>Citation validity</small>
             <b>{report.citations.valid}/{report.citations.checked}</b>
-            <span>Every shown finding cites the current approved source, and that source contains the cited value or words</span>
+            <span>Every shown finding cites the current approved source, and the source contains the cited words</span>
           </div>
           <div className={"metric-card " + (report.clean_controls.with_findings === 0 ? "good" : "warn")}>
-            <small>Clean controls flagged</small>
+            <small>Clean items flagged</small>
             <b>{report.clean_controls.with_findings}/{report.clean_controls.items}</b>
             <span>Correct content where Brandora still raised something</span>
           </div>
         </div>
-        <p className="form-note">
-          Development items ({dev.items}) were used while building the checks and score {pct(dev.precision)} precision and {pct(dev.recall)} recall. Held-out items ({held.items}) were written after the checks were frozen and are reported exactly as they came out. The misses below are left unfixed on purpose, so this score stays honest.
-        </p>
       </section>
+      {first && (
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>How reliability improved</h2>
+              <p>Measure on unseen content, fix what it reveals, then measure again on new unseen content. First-run results are kept as measured.</p>
+            </div>
+          </div>
+          <div className="improve-row">
+            <div className="improve-step">
+              <small>ROUND 1 · FIRST RUN · {formatDate(first.measured)}</small>
+              <b>{pct(first.precision)} precision · {pct(first.recall)} recall</b>
+              <span>{first.items} held-out items · {first.failures.length} failures</span>
+            </div>
+            <div className="improve-step fixes">
+              <small>FIXED IN THE ENGINE</small>
+              <ul>{first.failures.map((f: Row) => <li key={f.id}>{f.fix}</li>)}</ul>
+            </div>
+            <div className="improve-step now">
+              <small>ROUND 2 · FRESH · WRITTEN AFTER THE FIXES</small>
+              <b>{pct(fresh.precision)} precision · {pct(fresh.recall)} recall</b>
+              <span>{fresh.items} new held-out items · {current.length ? `${current.length} failure records, explained below` : "no failures"}</span>
+            </div>
+          </div>
+          <p className="form-note">
+            Round 1's items now pass, but they are no longer unseen, so they count as development data. The fresh round is the honest measure. Its failures are the next improvements and are not tuned away.
+          </p>
+        </section>
+      )}
       <section className="panel">
         <div className="panel-header">
           <div>
@@ -77,17 +106,18 @@ export function ReliabilityReport() {
         <div className="table-scroll">
           <table className="data-table">
             <thead>
-              <tr><th>Group</th><th>Items</th><th>Precision</th><th>Recall</th><th>Correct</th><th>False alarms</th><th>Missed</th></tr>
+              <tr><th>Group</th><th>Items</th><th>Precision</th><th>Recall</th><th>Correct</th><th>False alarms</th><th>Missed</th><th>Citations</th><th>Clean flagged</th></tr>
             </thead>
             <tbody>
-              {[["Development", dev], ["Held-out", held], ["All items", report.overall]].map(([name, r]: any) => (
-                <tr key={name}>
-                  <td><b>{name}</b></td><td className="num">{r.items}</td><td className="num">{pct(r.precision)}</td><td className="num">{pct(r.recall)}</td><td className="num">{r.tp}</td><td className="num">{r.fp}</td><td className="num">{r.fn}</td>
+              {Object.entries(report.splits as Record<string, Row>).map(([key, r]) => (
+                <tr key={key} className={key === head ? "row-strong" : ""}>
+                  <td><b>{names[key] || key}</b></td><td className="num">{r.items}</td><td className="num">{pct(r.precision)}</td><td className="num">{pct(r.recall)}</td><td className="num">{r.tp}</td><td className="num">{r.fp}</td><td className="num">{r.fn}</td>
+                  <td className="num">{r.citations.valid}/{r.citations.checked}</td><td className="num">{r.clean_controls.with_findings}/{r.clean_controls.items}</td>
                 </tr>
               ))}
               {report.categories.map((c: Row) => (
                 <tr key={c.category}>
-                  <td>{c.category.replace(/-/g, " ")}</td><td className="num">{c.items}</td><td className="num">{pct(c.precision)}</td><td className="num">{pct(c.recall)}</td><td className="num">{c.tp}</td><td className="num">{c.fp}</td><td className="num">{c.fn}</td>
+                  <td>{c.category.replace(/-/g, " ")}</td><td className="num">{c.items}</td><td className="num">{pct(c.precision)}</td><td className="num">{pct(c.recall)}</td><td className="num">{c.tp}</td><td className="num">{c.fp}</td><td className="num">{c.fn}</td><td /><td />
                 </tr>
               ))}
             </tbody>
@@ -97,14 +127,14 @@ export function ReliabilityReport() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Known misses and false alarms ({report.failures.length})</h2>
+            <h2>Current misses and false alarms ({report.failures.length})</h2>
             <p>Each one is a concrete next improvement. Nothing here is hidden from the score.</p>
           </div>
         </div>
         <div className="failure-list">
           {report.failures.map((f: Row) => (
             <div key={f.id + f.detail} className={"failure tone-" + (f.kind === "Missed" ? "orange" : "yellow")}>
-              <b>{f.kind}</b> <small>· {f.id} · {f.split === "heldout" ? "held-out" : "development"} · {f.category}</small>
+              <b>{f.kind}</b> <small>· {f.id} · {names[f.split] || f.split} · {f.category}</small>
               <q>{f.text}</q>
               <small>{f.detail}</small>
               {f.why && <p style={{ margin: "4px 0 0" }}>{f.why}</p>}
@@ -122,6 +152,7 @@ export function ReliabilityReport() {
         <p className="form-note">
           {report.dataset.labelled_by} Dataset SHA-256 {String(report.dataset.sha256).slice(0, 12)} · engine SHA-256 {String(report.engine_sha256).slice(0, 12)} · rules {report.register.join(", ")}.{" "}
           <a className="text-button" href={REPO + "backend/eval/dataset.json"} target="_blank" rel="noreferrer">Read the dataset</a>{" "}
+          <a className="text-button" href={REPO + "backend/eval/history.json"} target="_blank" rel="noreferrer">Read the history</a>{" "}
           <a className="text-button" href={REPO + "backend/evaluation.py"} target="_blank" rel="noreferrer">Read the evaluator</a>
         </p>
       </section>
@@ -612,7 +643,7 @@ export function Round3Spotlight({ onExplore }: { onExplore: (key: "brochure" | "
   const items = [
     { key: "brochure" as const, title: "10-page brochure, page by page", text: "Marks on every page, zoom, measured contrast and tiny text" },
     { key: "deck" as const, title: "Sales deck with accessibility", text: "Slides with missing alt text, low contrast and tone issues" },
-    { key: "reliability" as const, title: "Measured reliability", text: "80 labelled items: precision, recall and citation validity" },
+    { key: "reliability" as const, title: "Measured reliability", text: "Measured, fixed, re-measured on fresh content: 120 labelled items" },
     { key: "insights" as const, title: "Guideline insights", text: "Recurring mistakes, an unclear rule, replay and approval" },
   ];
   return (

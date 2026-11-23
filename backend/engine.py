@@ -18,6 +18,34 @@ def literal_spans(text, value):
 # Amounts may use Indian (1,00,000) or international (100,000) digit grouping.
 AMOUNT=r'(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)'
 PATTERNS={'price':r'(?:₹\s?|INR\s*|Rs\.?\s*)'+AMOUNT+r'(?:\s*/\s*(?:month|year|mo)|\s+(?:per|a)\s+(?:month|year))?','trial':r'\b(\d+)\s*[- ]?day(?:s)?\b'}
+# Prices can also be written after the amount ("999 rupees", "1,999 INR").
+PRICE_AFTER=AMOUNT+r'\s*(?:rupees|rs\.?|inr)\b(?:\s*/\s*(?:month|year|mo)|\s+(?:per|a)\s+(?:month|year))?'
+# Durations may use any unit or words: "14-day", "two weeks", "a month", "a fortnight".
+WORD_NUMBERS={'a':1,'an':1,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,
+    'thirteen':13,'fourteen':14,'fifteen':15,'twenty':20,'twenty-one':21,'thirty':30,'forty-five':45,'sixty':60,'ninety':90}
+UNIT_DAYS={'day':1,'week':7,'month':30}
+DURATION=re.compile(r'\b(\d+|'+'|'.join(sorted((re.escape(w) for w in WORD_NUMBERS),key=len,reverse=True))+r')\s*[- ]?\s*(day|week|month)s?\b|\b(?:a\s+)?(fortnight)\b',re.I)
+class Hit:
+    """A quantity as written in the content and its value in the rule's unit (for durations, days)."""
+    def __init__(self,start,end,text,value,plain):self._s,self._e,self.text,self.value,self.plain=start,end,text,value,plain
+    def span(self):return (self._s,self._e)
+    def start(self):return self._s
+    def end(self):return self._e
+    def group(self,n=0):return self.text if n==0 else self.value
+    def fix(self,approved):
+        if self.plain:return self.text.replace(self.value,approved,1)
+        return f'{approved}-day' if re.search(r'\w-\w',self.text) else f'{approved} days'
+def durations(text):
+    out=[]
+    for m in DURATION.finditer(text):
+        # "₹999 a month" is a billing period, not a duration of anything.
+        if re.search(r'(?:\d|₹)\s*$',text[max(0,m.start()-3):m.start()]):continue
+        if m.group(3):out.append(Hit(m.start(),m.end(),m.group(),'14',False));continue
+        word=m.group(1).lower();unit=m.group(2).lower()
+        number=int(word) if word.isdigit() else WORD_NUMBERS[word]
+        plain=word.isdigit() and unit=='day'
+        out.append(Hit(m.start(),m.end(),m.group(),m.group(1) if plain else str(number*UNIT_DAYS[unit]),plain))
+    return out
 def amount(value): return float(str(value).replace(',',''))
 def ungroup(text): return re.sub(r'(?<=\d),(?=\d)','',text)
 def group_like(original,value):
@@ -53,17 +81,23 @@ def evidence(rule,source):
 
 def number_matches(text,rule):
     cfg=rule.config or {}
-    matched=list(re.finditer(PATTERNS.get(cfg.get('metric'),r'(?!)'),text,re.I))
     if cfg.get('metric')=='trial':
-        matched=[m for m in matched if re.search(r'\b(trial|try|free)\b',re.split(r'[.!?]',text[:m.start()])[-1]+' '+re.split(r'[.!?]',text[m.end():])[0],re.I)]
+        matched=[m for m in durations(text) if re.search(r'\b(trial|try|free)\b',re.split(r'[.!?]',text[:m.start()])[-1]+' '+re.split(r'[.!?]',text[m.end():])[0],re.I)]
+    elif cfg.get('metric')=='price':
+        matched=list(re.finditer(PATTERNS['price'],text,re.I))
+        matched+=[m for m in re.finditer(PRICE_AFTER,text,re.I) if not any(m.start()<x.end() and x.start()<m.end() for x in matched)]
+        matched.sort(key=lambda m:m.start())
+    else:matched=[]
     if cfg.get('plan'):
         # A plan-specific price applies to amounts stated with that plan: the same sentence, or the same clause
         # when the sentence states several amounts (e.g. "Professional: 1,999, Starter: 1,099").
-        amounts=[x.start() for x in re.finditer(PATTERNS[cfg['metric']],text,re.I)] if cfg.get('metric') in PATTERNS else []
+        amounts=[x.start() for x in matched] if cfg.get('metric')=='price' else []
         def scope(m):
             a,b=sentence_bounds(text,*m.span())
             return clause(text,*m.span(),a,b) if sum(a<=x<b for x in amounts)>1 else (a,b)
-        matched=[m for m in matched if literal_spans(text[slice(*scope(m))],cfg['plan'])]
+        # Plan aliases ("Pro" for Professional) count, as whole words with their capital letter.
+        names=lambda segment:literal_spans(segment,cfg['plan']) or any(re.search(r'(?<!\w)'+re.escape(a)+r'(?!\w)',segment) for a in cfg.get('plan_aliases') or [])
+        matched=[m for m in matched if names(text[slice(*scope(m))])]
     return matched
 
 CLAUSE=re.compile(r'[;·|]|,(?!\d)|\s(?:and|but|while|whereas)\s',re.I)
@@ -82,7 +116,13 @@ def conflict_key(rule):
     cfg=rule.config or {}
     return (rule.subject,cfg.get('metric'),cfg.get('qualifier',''),cfg.get('plan',''))
 
-CLAIM=re.compile(r"\b(?:guarantee\w*|fastest|best|leading|No\.\s?1\b|number one)\b|#1\b|\b\d+(?:\.\d+)?\s?%|\b\d+\s?x\s+(?:faster|more|better)\b|\b\d{1,3}(?:,\d{2,3})+\+|\b\d+\+(?=\s)",re.I)
+# "Best regards" and "best wishes" are sign-offs, not claims.
+CLAIM=re.compile(r"\b(?:guarantee\w*|fastest|best(?!\s+(?:regards|wishes)\b)|leading|No\.\s?1\b|number one)\b|#1\b|\b\d+(?:\.\d+)?\s?(?:%|per\s?cent\b)|\b\d+\s?x\s+(?:faster|more|better)\b|\b\d{1,3}(?:,\d{2,3})+\+|\b\d+\+(?=\s)",re.I)
+def claim_spans(text,claim):
+    """A mapped claim matches its paraphrases: spacing, "80 percent" for "80%", "number one" or "#1" for "No. 1"."""
+    pattern=re.escape(fold(claim)).replace('\\ ',r'\s+').replace('%',r'\s?(?:%|per\s?cent\b)')
+    pattern=pattern.replace(r'No\.\s+1',r'(?:No\.\s?1|number\s+one|\#\s?1)')
+    return [m.span() for m in re.finditer(pattern,fold(text),re.I)]
 
 def cited(source,phrase):
     """The exact words of an approved excerpt that a tone or accessibility finding cites, or '' when absent."""
@@ -273,12 +313,15 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
         if kind=='term':
             for term in cfg.get('variants',[]):
                 matched.extend(literal_spans(text,term))
+            # The approved spelling is exact: a different capitalisation ("Inkloom Ai") is also a wrong name.
+            exact={(m.start(),m.end()) for m in re.finditer(re.escape(rule.value),text)}
+            matched+=[s for s in literal_spans(text,rule.value) if s not in exact and not any(s[0]<b and a<s[1] for a,b in matched)]
             relevant=matched or literal_spans(text,rule.value)
         elif kind=='number':
             matched=number_matches(text,rule)
             relevant=matched
         elif kind=='substantiation':
-            matched=[(term,span) for term in cfg.get('unsupported_terms',[]) for span in literal_spans(text,term)];relevant=matched
+            matched=[(term,span) for term in cfg.get('unsupported_terms',[]) for span in claim_spans(text,term)];relevant=matched
             mapped_guarantees.extend(span for _,span in matched)
         elif kind=='banned': matched=literal_spans(text,rule.value);relevant=matched
         elif kind=='required': relevant=not cfg.get('trigger') or bool(literal_spans(text,cfg['trigger']))
@@ -306,7 +349,7 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
             for m in matched:
                 fixed=m.group()
                 if amount(m.group(1))!=amount(rule.value):
-                    fixed=m.group().replace(m.group(1),group_like(m.group(1),rule.value),1)
+                    fixed=m.fix(rule.value) if isinstance(m,Hit) else m.group().replace(m.group(1),group_like(m.group(1),rule.value),1)
                     add(rule,m.span(),'Verified Contradiction',f'Check the {label}{cfg.get("metric","value")}',f'Approved {label}{cfg.get("metric","value")}: {rule.value}. Applies to {rule.subject}.',fixed)
                 # qualifier_channels limits where the condition must be shown (a clarified rule can exclude a channel).
                 if cfg.get('qualifier') and (not cfg.get('qualifier_channels') or channel in cfg['qualifier_channels']) and cfg['qualifier'].casefold() not in text.casefold():
@@ -314,7 +357,9 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
                         add(rule,m.span(),'Low Confidence','Check the pricing qualification',f'The approved policy attaches “{cfg["qualifier"]}” to this price. A reviewer must decide whether this placement has to show it.',fixed+' '+cfg.get('qualifier_text',cfg['qualifier']),'medium')
                     else:add(rule,m.span(),'Verified Contradiction','A condition is missing',f'This value requires “{cfg["qualifier"]}”.',fixed+', '+cfg['qualifier'])
         elif kind=='substantiation':
-            for term,span in matched:add(rule,span,'Evidence Gap','This claim needs evidence','The approved support register maps this claim as unsupported. This is Unverified, not a verdict that it is false. Supply approved evidence or remove the claim.',(cfg.get('replacements') or {}).get(term,''))
+            for term,span in matched:
+                add(rule,span,'Evidence Gap','This claim needs evidence','The approved support register maps this claim as unsupported. This is Unverified, not a verdict that it is false. Supply approved evidence or remove the claim.',(cfg.get('replacements') or {}).get(term,''))
+                if findings[-1]['evidence']:findings[-1]['evidence']['rule_value']=term  # cite the claim as registered, even when paraphrased
         elif kind=='banned':
             for span in matched:add(rule,span,'Verified Contradiction','Restricted wording',f'The approved rule prohibits “{rule.value}”.',cfg.get('replacement',''))
         elif kind=='required' and rule.value.casefold() not in text.casefold():

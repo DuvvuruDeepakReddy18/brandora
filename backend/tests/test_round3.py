@@ -33,13 +33,16 @@ def item(state, title):
 # ---------- 1. Measured reliability ----------
 def test_reliability_meets_thresholds_and_published_report_is_current():
     report = evaluation.evaluate()
-    assert report['dataset']['items'] == 80 and report['dataset']['splits'] == {'dev': 40, 'heldout': 40}
-    assert report['dataset']['clean_controls'] >= 20
+    assert report['dataset']['items'] == 120 and report['dataset']['splits'] == {'dev': 40, 'heldout': 40, 'heldout2': 40}
+    assert report['dataset']['clean_controls'] >= 30 and report['headline_split'] == 'heldout2'
     assert report['splits']['dev']['precision'] >= 0.95 and report['splits']['dev']['recall'] >= 0.95
-    assert report['splits']['heldout']['precision'] >= 0.9 and report['splits']['heldout']['recall'] >= 0.8
-    assert report['citations']['rate'] == 1.0 and report['citations']['checked'] >= 40
+    for split in ('heldout', 'heldout2'):
+        assert report['splits'][split]['precision'] >= 0.9 and report['splits'][split]['recall'] >= 0.9
+    assert report['citations']['rate'] == 1.0 and report['citations']['checked'] >= 70
     assert report['clean_controls']['false_alarm_rate'] <= 0.1
-    assert all(f['why'] for f in report['failures'] if f['split'] == 'heldout')
+    assert all(f['why'] for f in report['failures'] if f['split'] == report['headline_split'])
+    first = report['history']['rounds'][0]
+    assert (first['precision'], first['recall'], len(first['failures'])) == (0.9615, 0.8621, 5)
     published = json.loads(evaluation.REPORT.read_text(encoding='utf-8'))
     assert published == json.loads(json.dumps(report, ensure_ascii=False)), 'Run python -m backend.evaluation --write and commit docs/reliability.json'
 
@@ -48,7 +51,7 @@ def test_reliability_endpoint_requires_sign_in():
     assert TestClient(main.app, base_url='https://testserver').get('/api/reliability').status_code == 401
     client, _ = visitor()
     body = client.get('/api/reliability').json()
-    assert body['overall']['tp'] > 50 and body['failures']
+    assert body['overall']['tp'] > 80 and body['history']['rounds'] and body['headline_split'] == 'heldout2'
 
 
 # ---------- Tone and messaging ----------
@@ -347,3 +350,22 @@ def test_palette_check_flags_off_brand_colours_and_passes_the_corrected_ad():
     rule = next(r for r in rules if r.kind == 'palette')
     broken = SimpleNamespace(**{**vars(rule), 'config': {**rule.config, 'colours': {**rule.config['colours'], 'Orange': '#FF6A13'}}})
     assert not palette(documents.measure_colours(wrong), [broken], sources, demo.COMPANY, 'Advertisement')[0]
+
+
+def test_engine_reads_aliases_durations_capitalisation_paraphrases_and_sign_offs():
+    """The capabilities added after held-out round 1 revealed them."""
+    rules, sources = evaluation.register()
+    def found(text, channel='Website'):
+        return [(f['rule_code'], f['outcome'], f['span'], f.get('suggestion', '')) for f in scan(text, demo.COMPANY, channel, rules, sources)[0]]
+    assert ('P02', 'Verified Contradiction', '₹1,499/month', '₹1,999/month') in found('Pro plan: ₹1,499/month + GST.')
+    assert found('Our pro tip: plan your launch early.') == []
+    assert ('F02', 'Verified Contradiction', 'a month', '14 days') in found('Try it for a month, free.')
+    assert ('F02', 'Verified Contradiction', '3-week', '14-day') in found('Start your free 3-week trial.')
+    assert found('Enjoy two weeks free on Inkloom AI.') == [] and found('Free for 14 days, then ₹999 a month.') == []
+    assert ('T01', 'Verified Contradiction', 'Inkloom Ai', 'Inkloom AI') in found('Inkloom Ai now supports PDFs.')
+    assert found('Visit inkloom.ai to start.') == []
+    gap = [f for f in found('Reduce your marketing production time by 80 percent.') if f[1] == 'Evidence Gap']
+    assert gap and gap[0][3] == 'Organise your creative workflows in one place'
+    assert [f[1] for f in found("The world's #1 creative platform.", 'Advertisement')] == ['Evidence Gap']
+    assert found('Thanks for reading. Best regards, the Inkloom AI team', 'Email') == []
+    assert ('P01', 'Verified Contradiction', '899 rupees a month', '999 rupees a month') in found('Our Starter tier is now 899 rupees a month.')

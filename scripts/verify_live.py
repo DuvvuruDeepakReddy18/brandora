@@ -115,7 +115,8 @@ check('Deck: missing + unhelpful alt text on slide 4, 2.32:1 subtitle, 7 pt foot
 pg = c2.get(cr[bro['id']]['pages'][5]['image_url'])
 check('Page images are served as JPEG', pg.status_code == 200 and pg.content[:2] == b'\xff\xd8')
 rel = c2.get('/api/reliability').json()
-check('Reliability: held-out 96.2% precision, 86.2% recall, 50/50 citations, 1/22 clean flagged', (rel['splits']['heldout']['precision'], rel['splits']['heldout']['recall'], rel['citations']['valid'], rel['citations']['checked'], rel['clean_controls']['with_findings'], rel['clean_controls']['items']) == (0.9615, 0.8621, 50, 50, 1, 22))
+fresh = rel['splits'][rel['headline_split']]
+check('Reliability: fresh held-out 93.5% precision and recall, 79/79 citations, round 1 first run recorded at 96.2% / 86.2%', (rel['headline_split'], fresh['precision'], fresh['recall'], rel['citations']['valid'], rel['citations']['checked'], rel['history']['rounds'][0]['recall']) == ('heldout2', 0.9355, 0.9355, 79, 79, 0.8621), (fresh['precision'], fresh['recall']))
 role(c2, 'creator')
 check('Creators get common-mistake tips', len(c2.get('/api/insights/tips').json()) >= 2)
 check('Creators cannot open governance insights (403)', c2.get('/api/insights').status_code == 403)

@@ -114,7 +114,7 @@ export const STEPS: { key: TourStep; title: string; as: string; text: string; ct
 const EXPLORE: { key: ExploreKey; title: string; text: string }[] = [
   { key: "brochure", title: "10-page brochure, page by page", text: "Page navigation, zoom, measured contrast and tiny text" },
   { key: "deck", title: "Sales deck: tone & accessibility", text: "Missing alt text, low contrast and off-brand wording" },
-  { key: "reliability", title: "Measured reliability", text: "80 labelled items: precision, recall, citation validity" },
+  { key: "reliability", title: "Measured reliability", text: "Measured, fixed, re-measured: 120 labelled items" },
   { key: "insights", title: "Guideline insights", text: "Recurring mistakes, an unclear rule, replay, approval" },
   { key: "samples", title: "Upload sample files", text: "Brochure PDF and social caption that work without AI" },
   { key: "hub", title: "Company Hub records", text: "Pricing, claims, policies and evidence the checks use" },

@@ -1,8 +1,10 @@
 """Measured reliability: the deterministic engine against a labelled set of synthetic Inkloom AI content.
 
-The set lives in backend/eval/dataset.json. Development items were used while building the checks; held-out
-items were written afterwards and are reported as they come out, including every miss and false alarm.
-Run `python -m backend.evaluation` to print the report and refresh docs/reliability.json. CI re-runs it.
+The set lives in backend/eval/dataset.json. Development items were used while building the checks. Each held-out
+round is written after the checks are frozen and reported as it comes out, including every miss and false alarm.
+A round's first-run results are kept in backend/eval/history.json; once its misses are fixed it counts as
+development data and a fresh round is written. Run `python -m backend.evaluation` to print the report and
+`--write` to refresh docs/reliability.json. CI re-runs it and fails if it is stale or scores drop.
 """
 import hashlib, json, re, sys
 from functools import lru_cache
@@ -13,18 +15,18 @@ from . import demo
 
 HERE = Path(__file__).resolve().parent
 DATASET = HERE / 'eval' / 'dataset.json'
+HISTORY = HERE / 'eval' / 'history.json'
 REPORT = HERE.parent / 'docs' / 'reliability.json'
 
 
-# Why each held-out failure happens. These are recorded as next improvements and deliberately not tuned away,
-# so the held-out score stays an honest measure of unseen content.
+# Why each current failure happens. Failures of the latest held-out round are reported as measured and are the
+# next improvements; they are not tuned away before a fresh round is written.
 EXPLANATIONS = {
-    'held-04': 'Plan names must appear as registered. “Pro” is an informal alias for Professional and aliases are not mapped yet.',
-    'held-08': 'Durations written in words (“a month”) are not parsed; only numbers are.',
-    'held-10': 'Only listed misspellings are checked. A wrong capitalisation (“Inkloom Ai”) is not one of them.',
-    'held-14': 'Mapped claims match their registered wording. “80 percent” is not recognised as “80%”.',
-    'held-19': 'The superlative check flags “Best” in an email sign-off. It is raised for review, not as a verdict, but it is still a false alarm.',
+    'fresh-17': 'The claim is registered as “Reduce your marketing production time by 80%”. This paraphrase changes the verb (“Cut”), which the claim matcher does not treat as the same claim. The sentence is still flagged for human review as an unmapped percentage claim, so it is not missed silently, but it counts as a miss and a false alarm.',
+    'fresh-23': '“Wishing you the best” is a well-wish, not a superlative claim. Only “best regards” and “best wishes” are recognised as sign-offs. It is raised for review, not as a verdict.',
+    'fresh-32': 'Preferred-term matching covers simple inflections (leverages, leveraged) but not “leveraging”, where the final “e” is dropped.',
 }
+SPLIT_NAMES = {'dev': 'Development', 'heldout': 'Held-out round 1', 'heldout2': 'Held-out round 2 (fresh)'}
 
 
 def register():
@@ -77,7 +79,7 @@ def citation_valid(f, rules, sources):
         return False
     if rule.kind == 'number':
         return bool(re.search(r'(?<![\d.])' + re.escape(ungroup(rule.value)) + r'(?![\d.])', ungroup(source.excerpt)))
-    needle = f['span'] if rule.kind == 'substantiation' else ev.get('rule_value') or ''
+    needle = ev.get('rule_value') or ''  # the cited words: approved value, guideline words or the claim as registered
     return bool(needle) and fold(needle).casefold() in fold(source.excerpt).casefold()
 
 
@@ -95,9 +97,10 @@ def evaluate():
     raw = normalised(DATASET)
     data = json.loads(raw)
     rules, sources = register()
-    totals = {}; failures = []; cited = [0, 0]; clean = [0, 0]
+    splits = list(dict.fromkeys(i['split'] for i in data['items']))
+    totals = {}; failures = []; cited = {}; clean = {}
     for item in data['items']:
-        text = item_text(item)
+        text = item_text(item); split = item['split']
         predicted = predict(item, rules, sources)
         unmatched = list(predicted); tp = 0
         for expected in item['expected']:
@@ -105,49 +108,57 @@ def evaluate():
             if hit:
                 unmatched.remove(hit); tp += 1
             else:
-                failures.append({'id': item['id'], 'split': item['split'], 'category': item['category'], 'kind': 'Missed', 'text': text,
+                failures.append({'id': item['id'], 'split': split, 'category': item['category'], 'kind': 'Missed', 'text': text,
                                  'detail': f"Expected {expected['rule']} · {expected.get('title') or expected['outcome']}" + (f" on “{expected['span']}”" if expected.get('span') else '')})
         for p in unmatched:
-            failures.append({'id': item['id'], 'split': item['split'], 'category': item['category'], 'kind': 'False alarm', 'text': text,
+            failures.append({'id': item['id'], 'split': split, 'category': item['category'], 'kind': 'False alarm', 'text': text,
                              'detail': f"Engine raised {p['rule_code']} · {p['title']}" + (f" on “{p['span'][:80]}”" if p.get('span') else '')})
-        for f in predicted:
-            ok = citation_valid(f, rules, sources)
-            if ok is not None:
-                cited[0] += 1; cited[1] += bool(ok)
-        if not item['expected']:
-            clean[0] += 1; clean[1] += bool(predicted)
-        for key in ('all', 'split:' + item['split'], 'category:' + item['category']):
+        for key in ('all', split):
+            c = cited.setdefault(key, [0, 0]); k = clean.setdefault(key, [0, 0])
+            for f in predicted:
+                ok = citation_valid(f, rules, sources)
+                if ok is not None:
+                    c[0] += 1; c[1] += bool(ok)
+            if not item['expected']:
+                k[0] += 1; k[1] += bool(predicted)
+        for key in ('all', 'split:' + split, 'category:' + item['category']):
             t = totals.setdefault(key, [0, 0, 0, 0])
             t[0] += tp; t[1] += len(unmatched); t[2] += len(item['expected']) - tp; t[3] += 1
+
     def block(key):
         t = totals.get(key, [0, 0, 0, 0]); return {**rates(t[0], t[1], t[2]), 'items': t[3]}
+
+    def extras(key):
+        c = cited.get(key, [0, 0]); k = clean.get(key, [0, 0])
+        return {'citations': {'checked': c[0], 'valid': c[1], 'rate': round(c[1] / c[0], 4) if c[0] else 1.0},
+                'clean_controls': {'items': k[0], 'with_findings': k[1], 'false_alarm_rate': round(k[1] / k[0], 4) if k[0] else 0.0}}
     categories = sorted({i['category'] for i in data['items']})
-    engine_source = normalised(HERE / 'engine.py')
+    history = json.loads(normalised(HISTORY)) if HISTORY.exists() else {'rounds': []}
+    headline = [s for s in splits if s.startswith('heldout')][-1]
     return {
-        'dataset': {'items': len(data['items']), 'labelled_findings': sum(len(i['expected']) for i in data['items']), 'clean_controls': clean[0],
-                    'splits': {s: sum(i['split'] == s for i in data['items']) for s in ('dev', 'heldout')}, 'sha256': hashlib.sha256(raw).hexdigest(),
-                    'labelled_by': data.get('labelled_by', ''), 'note': data.get('note', '')},
+        'dataset': {'items': len(data['items']), 'labelled_findings': sum(len(i['expected']) for i in data['items']), 'clean_controls': clean['all'][0],
+                    'splits': {s: sum(i['split'] == s for i in data['items']) for s in splits}, 'split_names': {s: SPLIT_NAMES.get(s, s) for s in splits},
+                    'sha256': hashlib.sha256(raw).hexdigest(), 'labelled_by': data.get('labelled_by', ''), 'note': data.get('note', '')},
+        'headline_split': headline,
         'overall': block('all'),
-        'splits': {s: block('split:' + s) for s in ('dev', 'heldout')},
+        'splits': {s: {**block('split:' + s), **extras(s)} for s in splits},
         'categories': [{'category': c, **block('category:' + c)} for c in categories],
-        'citations': {'checked': cited[0], 'valid': cited[1], 'rate': round(cited[1] / cited[0], 4) if cited[0] else 1.0},
-        'clean_controls': {'items': clean[0], 'with_findings': clean[1], 'false_alarm_rate': round(clean[1] / clean[0], 4) if clean[0] else 0.0},
+        **extras('all'),
         'failures': [{**f, 'why': EXPLANATIONS.get(f['id'], '')} for f in failures],
+        'history': history,
         'register': [r.code for r in rules],
-        'engine_sha256': hashlib.sha256(engine_source).hexdigest(),
-        'method': 'Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value or words. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity.',
+        'engine_sha256': hashlib.sha256(normalised(HERE / 'engine.py')).hexdigest(),
+        'method': 'Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value, guideline words or registered claim. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity.',
     }
 
 
 def summary(report):
-    o, d, h = report['overall'], report['splits']['dev'], report['splits']['heldout']
-    lines = [f"Items {report['dataset']['items']} (dev {report['dataset']['splits']['dev']}, held-out {report['dataset']['splits']['heldout']}, clean controls {report['dataset']['clean_controls']})",
-             f"Overall precision {o['precision']:.1%} recall {o['recall']:.1%}  (tp {o['tp']} fp {o['fp']} fn {o['fn']})",
-             f"Dev precision {d['precision']:.1%} recall {d['recall']:.1%}",
-             f"Held-out precision {h['precision']:.1%} recall {h['recall']:.1%}",
-             f"Citation validity {report['citations']['valid']}/{report['citations']['checked']}",
-             f"Clean controls with a false alarm {report['clean_controls']['with_findings']}/{report['clean_controls']['items']}"]
-    lines += [f"  {f['split']:7} {f['id']:12} {f['kind']:11} {f['detail']}" for f in report['failures']]
+    d = report['dataset']
+    lines = [f"Items {d['items']} ({', '.join(f'{k} {v}' for k, v in d['splits'].items())}; clean controls {d['clean_controls']})"]
+    for name, r in report['splits'].items():
+        lines.append(f"{name:9} precision {r['precision']:.1%} recall {r['recall']:.1%} (tp {r['tp']} fp {r['fp']} fn {r['fn']}) · citations {r['citations']['valid']}/{r['citations']['checked']} · clean flagged {r['clean_controls']['with_findings']}/{r['clean_controls']['items']}")
+    lines.append(f"Citation validity {report['citations']['valid']}/{report['citations']['checked']}")
+    lines += [f"  {f['split']:9} {f['id']:12} {f['kind']:11} {f['detail']}" for f in report['failures']]
     return '\n'.join(lines)
 
 

@@ -285,7 +285,7 @@ class RuleInput(BaseModel):
     @classmethod
     def bounded(cls,v):
         if len(json.dumps(v))>4000:raise ValueError('Configuration is too large.')
-        for key in ('variants','unsupported_terms','channels','qualifier_channels','shouting_channels','allow_caps'):
+        for key in ('variants','unsupported_terms','channels','qualifier_channels','shouting_channels','allow_caps','plan_aliases'):
             if key in v and (not isinstance(v[key],list) or any(not isinstance(x,str) or not x or len(x)>300 for x in v[key]) or len(v[key])>30):raise ValueError('Use a bounded list of text values.')
         for key in ('avoid','messaging','preferred','cite'):
             if key in v and (not isinstance(v[key],dict) or len(v[key])>40 or any(not isinstance(a,str) or not a or not isinstance(b,str) or len(a)>300 or len(b)>300 for a,b in v[key].items())):raise ValueError(f'{key} must map text to text.')

@@ -3,7 +3,10 @@
 ## Known limitations (honest, as of 23 Nov 2026)
 
 **Detection**
-- **Held-out evaluation:** 96.2% precision and 86.2% recall on synthetic, team-labelled content. The known misses are plan aliases ("Pro"), durations written in words ("a month"), unlisted capitalisation of product names, and paraphrased mapped claims ("80 percent"). "Best regards" is flagged as a superlative for review.
+- **Held-out evaluation:** the fresh round 2 measured 93.5% precision and 93.5% recall on synthetic, team-labelled content. Round 1's misses were fixed first. The known misses are:
+  - mapped claims paraphrased with a different verb (still raised for review, but not as the mapped claim)
+  - well-wishes such as "wishing you the best" read as superlatives
+  - preferred-term inflections where a letter is dropped ("leveraging")
 - **AI reading:** OCR can misread text. Text positions on images are estimated within each OCR line. Logo comparison is visual similarity, not proof of authenticity.
 - **Colour check:** dominant colours are compared with the approved palette. Photography and illustrations can legitimately use other colours, so the result is a judgement call, never a verdict.
 - **Accessibility checks** cover contrast, text size and alt text. They do not cover reading order, captions for video, or tagged-PDF structure. PDF figures have no alt text to check unless the PDF is tagged.
@@ -26,7 +29,7 @@
 ## Roadmap
 
 ### Next 4 weeks (pilot readiness)
-1. **Close the measured misses:** plan aliases and word-number durations in the rule engine, then grow the held-out set with real (consented, anonymised) pilot content and report it separately.
+1. **Close round 2's measured misses** (verb paraphrases of mapped claims, well-wishes, dropped-letter inflections), then measure a fresh round 3 built from real, consented and anonymised pilot content, reported separately.
 2. **Notifications:** email or Slack when a review is requested, approved or needs reassessment.
 3. **Single sign-on** (Google Workspace, Microsoft Entra) and SCIM provisioning for real organisations.
 4. **Manual accessibility pass** with NVDA and VoiceOver on the review workspace; fix what it finds.

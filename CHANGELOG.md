@@ -5,7 +5,7 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
 ## Round 3 · The finish (22–23 Nov 2026)
 
 **The three committed improvements**
-- **Measured, trustworthy findings.** An 80-item labelled evaluation (40 development, 40 held-out, 22 clean controls), computed by the production engine. It is shown in Trust & Audit → Reliability and enforced in CI. Tone & messaging checks cite the approved brand voice guide.
+- **Measured, trustworthy findings.** An 80-item labelled evaluation (40 development, 40 held-out, 22 clean controls), computed by the production engine. A later fix and a fresh held-out round raised the total to 120 items (see the reliability improvement below). It is shown in Trust & Audit → Reliability and enforced in CI. Tone & messaging checks cite the approved brand voice guide.
 - **Every format, page by page.**
   - Multi-page PDFs and PowerPoint decks open with page navigation, thumbnails with per-page counts, and zoom.
   - Accessibility findings in the same review: measured text contrast vs WCAG 4.5:1 / 3:1, small text, and missing or unhelpful alt text.
@@ -15,6 +15,16 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - Insights by rule, channel, campaign and team.
   - Rules are flagged as possibly unclear from reviewer overrides and needs-review volume.
   - Clarified rules are replayed on recorded history and applied only by a different manager, with an audit record.
+
+**Reliability improvement (23 Nov)**
+- The five round-1 held-out failures were fixed in the engine:
+  - plan aliases
+  - durations in words, weeks and months
+  - exact capitalisation of product names
+  - paraphrased mapped claims
+  - "best regards" as a sign-off
+  - prices written after the amount (added alongside, as a related gap)
+- A fresh 40-item round 2 was written after the fixes and measured once: precision 93.5%, recall 93.5% (round 1 first run: 96.2% / 86.2%), 79/79 valid citations.
 
 **Additions after a strict review of every claim**
 - **Brand colour palette check:** measured colours on images, PDF pages and slides compared with the approved palette, as a judgement call with swatches and suggested replacements.

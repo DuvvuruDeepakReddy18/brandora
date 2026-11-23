@@ -1,23 +1,30 @@
 {
   "dataset": {
-    "items": 80,
-    "labelled_findings": 60,
-    "clean_controls": 22,
+    "items": 120,
+    "labelled_findings": 91,
+    "clean_controls": 33,
     "splits": {
       "dev": 40,
-      "heldout": 40
+      "heldout": 40,
+      "heldout2": 40
     },
-    "sha256": "99ee55c430fff94a58a899f081b17045927bb562ef9ba9eade6beefaa47656c6",
+    "split_names": {
+      "dev": "Development",
+      "heldout": "Held-out round 1",
+      "heldout2": "Held-out round 2 (fresh)"
+    },
+    "sha256": "d5339fb9422a272e7dedb8db0840c7f3aeadd10a5eda913ba683c16c255ee4dd",
     "labelled_by": "Brandora team: synthetic, fictional Inkloom AI marketing content, labelled against the Inkloom AI register in backend/demo.py.",
-    "note": "Development items (split dev) were used while building and tuning the checks. Held-out items (split heldout) were written after the checks were frozen for this release and are reported exactly as they come out. Clean controls are items whose correct label is no finding."
+    "note": "Development items (dev) were used while building the checks. Round 1 held-out items (heldout) were written on 22 Nov after the checks were frozen; their first-run results are kept in backend/eval/history.json, and the misses they revealed were then fixed, so they now count as development data. Round 2 held-out items (heldout2) were written on 23 Nov after those fixes were frozen and are reported exactly as they come out. Clean controls are items whose correct label is no finding."
   },
+  "headline_split": "heldout2",
   "overall": {
-    "tp": 56,
-    "fp": 1,
-    "fn": 4,
-    "precision": 0.9825,
-    "recall": 0.9333,
-    "items": 80
+    "tp": 89,
+    "fp": 2,
+    "fn": 2,
+    "precision": 0.978,
+    "recall": 0.978,
+    "items": 120
   },
   "splits": {
     "dev": {
@@ -26,44 +33,82 @@
       "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "items": 40
+      "items": 40,
+      "citations": {
+        "checked": 28,
+        "valid": 28,
+        "rate": 1.0
+      },
+      "clean_controls": {
+        "items": 10,
+        "with_findings": 0,
+        "false_alarm_rate": 0.0
+      }
     },
     "heldout": {
-      "tp": 25,
-      "fp": 1,
-      "fn": 4,
-      "precision": 0.9615,
-      "recall": 0.8621,
-      "items": 40
+      "tp": 29,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 40,
+      "citations": {
+        "checked": 26,
+        "valid": 26,
+        "rate": 1.0
+      },
+      "clean_controls": {
+        "items": 12,
+        "with_findings": 0,
+        "false_alarm_rate": 0.0
+      }
+    },
+    "heldout2": {
+      "tp": 29,
+      "fp": 2,
+      "fn": 2,
+      "precision": 0.9355,
+      "recall": 0.9355,
+      "items": 40,
+      "citations": {
+        "checked": 25,
+        "valid": 25,
+        "rate": 1.0
+      },
+      "clean_controls": {
+        "items": 11,
+        "with_findings": 1,
+        "false_alarm_rate": 0.0909
+      }
     }
   },
   "categories": [
     {
       "category": "accessibility",
-      "tp": 6,
+      "tp": 7,
       "fp": 0,
       "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "items": 9
+      "items": 11
     },
     {
       "category": "banned",
-      "tp": 2,
+      "tp": 3,
       "fp": 0,
       "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "items": 2
+      "items": 3
     },
     {
       "category": "claim-evidence",
-      "tp": 5,
-      "fp": 0,
+      "tp": 8,
+      "fp": 1,
       "fn": 1,
-      "precision": 1.0,
-      "recall": 0.8333,
-      "items": 6
+      "precision": 0.8889,
+      "recall": 0.8889,
+      "items": 9
     },
     {
       "category": "clean",
@@ -72,56 +117,20 @@
       "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "items": 4
+      "items": 6
     },
     {
       "category": "messaging",
-      "tp": 4,
+      "tp": 6,
       "fp": 0,
       "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "items": 4
+      "items": 6
     },
     {
       "category": "price",
-      "tp": 5,
-      "fp": 0,
-      "fn": 1,
-      "precision": 1.0,
-      "recall": 0.8333,
-      "items": 9
-    },
-    {
-      "category": "product-name",
-      "tp": 3,
-      "fp": 0,
-      "fn": 1,
-      "precision": 1.0,
-      "recall": 0.75,
-      "items": 6
-    },
-    {
-      "category": "qualifier",
-      "tp": 5,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "items": 6
-    },
-    {
-      "category": "required",
-      "tp": 2,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "items": 4
-    },
-    {
-      "category": "tone",
-      "tp": 14,
+      "tp": 11,
       "fp": 0,
       "fn": 0,
       "precision": 1.0,
@@ -129,81 +138,159 @@
       "items": 15
     },
     {
-      "category": "trial",
-      "tp": 4,
+      "category": "product-name",
+      "tp": 7,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 10
+    },
+    {
+      "category": "qualifier",
+      "tp": 7,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 9
+    },
+    {
+      "category": "required",
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 6
+    },
+    {
+      "category": "tone",
+      "tp": 19,
       "fp": 0,
       "fn": 1,
       "precision": 1.0,
-      "recall": 0.8,
-      "items": 8
+      "recall": 0.95,
+      "items": 20
+    },
+    {
+      "category": "trial",
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "items": 13
     },
     {
       "category": "unmapped-claim",
-      "tp": 6,
+      "tp": 10,
       "fp": 1,
       "fn": 0,
-      "precision": 0.8571,
+      "precision": 0.9091,
       "recall": 1.0,
-      "items": 7
+      "items": 12
     }
   ],
   "citations": {
-    "checked": 50,
-    "valid": 50,
+    "checked": 79,
+    "valid": 79,
     "rate": 1.0
   },
   "clean_controls": {
-    "items": 22,
+    "items": 33,
     "with_findings": 1,
-    "false_alarm_rate": 0.0455
+    "false_alarm_rate": 0.0303
   },
   "failures": [
     {
-      "id": "held-04",
-      "split": "heldout",
-      "category": "price",
-      "kind": "Missed",
-      "text": "Pro plan: ₹1,499/month + GST.",
-      "detail": "Expected P02 · Verified Contradiction on “₹1,499/month”",
-      "why": "Plan names must appear as registered. “Pro” is an informal alias for Professional and aliases are not mapped yet."
-    },
-    {
-      "id": "held-08",
-      "split": "heldout",
-      "category": "trial",
-      "kind": "Missed",
-      "text": "Try it for a month, free.",
-      "detail": "Expected F02 · Verified Contradiction on “a month”",
-      "why": "Durations written in words (“a month”) are not parsed; only numbers are."
-    },
-    {
-      "id": "held-10",
-      "split": "heldout",
-      "category": "product-name",
-      "kind": "Missed",
-      "text": "Inkloom Ai now supports PDFs.",
-      "detail": "Expected T01 · Verified Contradiction on “Inkloom Ai”",
-      "why": "Only listed misspellings are checked. A wrong capitalisation (“Inkloom Ai”) is not one of them."
-    },
-    {
-      "id": "held-14",
-      "split": "heldout",
+      "id": "fresh-17",
+      "split": "heldout2",
       "category": "claim-evidence",
       "kind": "Missed",
-      "text": "Reduce your marketing production time by 80 percent.",
-      "detail": "Expected R03 · Evidence Gap on “Reduce your marketing production time by 80 percent”",
-      "why": "Mapped claims match their registered wording. “80 percent” is not recognised as “80%”."
+      "text": "Cut your marketing production time by 80 per cent.",
+      "detail": "Expected R03 · Evidence Gap on “Cut your marketing production time by 80 per cent”",
+      "why": "The claim is registered as “Reduce your marketing production time by 80%”. This paraphrase changes the verb (“Cut”), which the claim matcher does not treat as the same claim. The sentence is still flagged for human review as an unmapped percentage claim, so it is not missed silently, but it counts as a miss and a false alarm."
     },
     {
-      "id": "held-19",
-      "split": "heldout",
+      "id": "fresh-17",
+      "split": "heldout2",
+      "category": "claim-evidence",
+      "kind": "False alarm",
+      "text": "Cut your marketing production time by 80 per cent.",
+      "detail": "Engine raised REVIEW · Confirm this claim’s support on “Cut your marketing production time by 80 per cent.”",
+      "why": "The claim is registered as “Reduce your marketing production time by 80%”. This paraphrase changes the verb (“Cut”), which the claim matcher does not treat as the same claim. The sentence is still flagged for human review as an unmapped percentage claim, so it is not missed silently, but it counts as a miss and a false alarm."
+    },
+    {
+      "id": "fresh-23",
+      "split": "heldout2",
       "category": "unmapped-claim",
       "kind": "False alarm",
-      "text": "Thanks for joining us this week. Best regards, the Inkloom AI team",
-      "detail": "Engine raised REVIEW · Confirm this claim’s support on “Best regards, the Inkloom AI team”",
-      "why": "The superlative check flags “Best” in an email sign-off. It is raised for review, not as a verdict, but it is still a false alarm."
+      "text": "Wishing you the best for the festive season, from the Inkloom AI team.",
+      "detail": "Engine raised REVIEW · Confirm this claim’s support on “Wishing you the best for the festive season, from the Inkloom AI team.”",
+      "why": "“Wishing you the best” is a well-wish, not a superlative claim. Only “best regards” and “best wishes” are recognised as sign-offs. It is raised for review, not as a verdict."
+    },
+    {
+      "id": "fresh-32",
+      "split": "heldout2",
+      "category": "tone",
+      "kind": "Missed",
+      "text": "Leveraging shared templates saves hours.",
+      "detail": "Expected V01 · Tone Issue on “Leveraging”",
+      "why": "Preferred-term matching covers simple inflections (leverages, leveraged) but not “leveraging”, where the final “e” is dropped."
     }
   ],
+  "history": {
+    "note": "First-run results of each held-out round, kept exactly as measured. After a round is measured, its misses may be fixed; from then on that round counts as development data and a fresh held-out round is written.",
+    "rounds": [
+      {
+        "round": 1,
+        "split": "heldout",
+        "measured": "2026-11-22",
+        "items": 40,
+        "engine_sha256_prefix": "d42a2b55a103",
+        "precision": 0.9615,
+        "recall": 0.8621,
+        "tp": 25,
+        "fp": 1,
+        "fn": 4,
+        "citations": "50/50 (all splits)",
+        "clean_controls_flagged": "1/22 (all splits)",
+        "failures": [
+          {
+            "id": "held-04",
+            "kind": "Missed",
+            "problem": "“Pro plan: ₹1,499/month” — plan aliases were not mapped",
+            "fix": "Rules can list plan aliases (Professional: “Pro”), matched as whole words"
+          },
+          {
+            "id": "held-08",
+            "kind": "Missed",
+            "problem": "“Try it for a month, free” — durations in words were not parsed",
+            "fix": "Durations in words and in weeks or months are read and converted to days; a price's billing period is not mistaken for a trial"
+          },
+          {
+            "id": "held-10",
+            "kind": "Missed",
+            "problem": "“Inkloom Ai” — a wrong capitalisation was not a listed variant",
+            "fix": "The approved spelling is exact: any other capitalisation of the product name is flagged"
+          },
+          {
+            "id": "held-14",
+            "kind": "Missed",
+            "problem": "“80 percent” — a mapped claim was only matched with “80%”",
+            "fix": "Mapped claims match paraphrases: “percent”/“per cent” for “%”, “number one”/“#1” for “No. 1”, any spacing"
+          },
+          {
+            "id": "held-19",
+            "kind": "False alarm",
+            "problem": "“Best regards” — a sign-off was flagged as a superlative",
+            "fix": "“Best regards” and “best wishes” are recognised as sign-offs"
+          }
+        ]
+      }
+    ]
+  },
   "register": [
     "P01",
     "P02",
@@ -216,6 +303,6 @@
     "A01",
     "C01"
   ],
-  "engine_sha256": "1e32fdf92f3ea4d70c6cf3dc65b7b9136993bf8f582aa7f1c12d235733908fb7",
-  "method": "Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value or words. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity."
+  "engine_sha256": "963a95b806dca37b6375566a76b5712a080dedd4e62b6a6d263efb52e075ab09",
+  "method": "Each item is checked by the same rule engine the product uses, against the Inkloom AI register. A finding counts as correct when its rule, outcome and location match a labelled finding; anything else is a false alarm, and an unmatched label is a miss. Precision = correct / raised; recall = correct / labelled. Citation validity checks that every shown finding names the current approved source and that the source text contains the cited value, guideline words or registered claim. Unmapped claims make no factual verdict and carry no citation, so they are excluded from citation validity."
 }
