@@ -4,7 +4,7 @@ Brandora is checked at five levels. Each runs automatically or can be re-run by 
 
 | Level | What it proves | How to run | Latest result |
 |---|---|---|---|
-| Backend regression tests | Workflows, permissions, isolation, every check type, the API and the demo | `python -m pytest backend/tests -q` (CI on every push) | 85 passed |
+| Backend regression tests | Workflows, permissions, isolation, every check type, the API and the demo | `python -m pytest backend/tests -q` (CI on every push) | 87 passed |
 | Labelled evaluation | How accurate the rule engine is on content it was not tuned on | `python -m backend.evaluation` (CI fails if scores drop or the published report is stale) | Fresh held-out (round 2): precision 93.5%, recall 93.5%; citation validity 79/79; round 1 first run 96.2% / 86.2% |
 | Live claim check | Every documented claim works on the production URL, as an evaluator would use it | `python scripts/verify_live.py https://brandora-omega-three.vercel.app --ai` (scheduled daily in GitHub Actions, rules only) | All claims passed ([`live-verification.json`](live-verification.json)) |
 | Accessibility audit | Brandora's own screens meet a WCAG 2.2 AA subset | [`scripts/a11y-audit.js`](../scripts/a11y-audit.js) in the browser | 24 screens, 0 issues ([`accessibility-audit.json`](accessibility-audit.json)) |

@@ -17,7 +17,7 @@
   "schema_change": "Additive: new tables creative_pages, finding_events and rule_proposals; creatives gains page_count and images columns (ALTER ... ADD COLUMN with defaults). No column removed or retyped. Follow-up: finding_events gains review_by (ALTER ... ADD COLUMN with default). Round 3 additions: api_keys table; creatives gains colours (ALTER ... ADD COLUMN with default).",
   "dependency_change": "pypdfium2 5.15.2 added (PDF page rendering and text positions). The sample deck is committed as a file; python-pptx is used only by scripts/make_sample_deck.py and is not a runtime dependency.",
   "verification": {
-    "regression_tests": 85,
+    "regression_tests": 87,
     "regression_result": "passed",
     "landing_bridge_tests": "3 passed",
     "brand_crew_entry_check": "passed",

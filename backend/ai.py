@@ -26,12 +26,15 @@ def generate(instruction,payload,schema,media=()):
         with httpx.Client(timeout=httpx.Timeout(55,connect=10),follow_redirects=False) as client:
             deadline=time.monotonic()+55
             def send(url,**kwargs):
-                for attempt in range(2):
+                # A busy or briefly unavailable provider (5xx) is retried twice, after 1 s and 3 s,
+                # but only while enough of the 55-second deadline remains for a real attempt.
+                pauses=(1.0,3.0)
+                for attempt in range(len(pauses)+1):
                     remaining=deadline-time.monotonic()
                     if remaining<=0:raise httpx.TimeoutException('AI deadline reached.')
                     response=client.post(url,timeout=httpx.Timeout(remaining,connect=min(10,remaining)),**kwargs)
-                    if attempt==0 and response.status_code in (500,502,503,504) and deadline-time.monotonic()>1:
-                        time.sleep(0.5)
+                    if response.status_code in (500,502,503,504) and attempt<len(pauses) and deadline-time.monotonic()>pauses[attempt]+5:
+                        time.sleep(pauses[attempt])
                         continue
                     return response
             if provider()=='gemini':
@@ -50,6 +53,7 @@ def generate(instruction,payload,schema,media=()):
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code==429:raise ProviderError('Provider quota reached. Try again later.') from None
         status=exc.response.status_code
+        if status in (500,502,503,504):raise ProviderError(f'The AI service is temporarily busy (HTTP {status}). Try again in a minute; if it continues, check the provider’s service status.') from None
         # Expose only a fixed diagnosis, never raw provider bodies or credentials.
         try:message=str(exc.response.json().get('error',{}).get('message','')).lower()
         except (ValueError,AttributeError):message=''

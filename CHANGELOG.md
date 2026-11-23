@@ -2,7 +2,7 @@
 
 All dates are IST (UTC+5:30, as recorded in the commit history). The full history is in `git log`.
 
-## Round 3 · The finish (22–23 Nov 2026)
+## Round 3 · The finish (22–24 Nov 2026)
 
 **The three committed improvements**
 - **Measured, trustworthy findings.** An 80-item labelled evaluation (40 development, 40 held-out, 22 clean controls), computed by the production engine. A later fix and a fresh held-out round raised the total to 120 items (see the reliability improvement below). It is shown in Trust & Audit → Reliability and enforced in CI. Tone & messaging checks cite the approved brand voice guide.
@@ -37,6 +37,7 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - Uncited AI suggestions no longer block approval.
   - AI no longer second-guesses rule-verified values.
   - Tone and accessibility rules can be created in the editor.
+  - A busy AI provider (HTTP 500–504) is retried twice, after 1 s and 3 s, within the 55-second limit, and the message says the service is busy rather than pointing at configuration. Found when Gemini briefly returned 503 during the final live check.
 - **Landing without WebGL:** if a browser cannot start the 3D scene, it shows a still image of that same scene in place of the placeholder disc. A notice explains how to turn on graphics acceleration to see the interactive original. The approved landing source is unchanged; the fallback is added by the hosting layer.
 - **Documentation:** [docs/RESPONSIBLE_DESIGN.md](docs/RESPONSIBLE_DESIGN.md), [docs/TESTING.md](docs/TESTING.md), [ROADMAP.md](ROADMAP.md) and the Round 3 report.
 

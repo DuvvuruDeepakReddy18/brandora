@@ -20,6 +20,7 @@ def test_provider_diagnosis_never_exposes_response(monkeypatch,status,message,ex
     transport=httpx.MockTransport(lambda request:httpx.Response(status,json={'error':{'message':message}},request=request))
     monkeypatch.setattr(ai.httpx,'Client',lambda **kwargs:original(transport=transport,**kwargs))
     monkeypatch.setattr(ai,'available',lambda:True)
+    monkeypatch.setattr(ai.time,'sleep',lambda _:None)
     monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
     monkeypatch.setenv('GEMINI_API_KEY','synthetic-unit-test-key')
     with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
@@ -43,6 +44,35 @@ def test_transient_provider_failure_recovers_with_one_bounded_retry(monkeypatch)
     assert provider_generate('Review',{},ai.Suggestions).findings==[]
     assert len(calls)==2
     assert calls[1].extensions['timeout']['read']<=calls[0].extensions['timeout']['read']<=55
+
+def busy_provider(monkeypatch,failures):
+    """A provider that answers 503 `failures` times, then succeeds. Returns the request log and pauses taken."""
+    import httpx
+    original=httpx.Client
+    calls,pauses=[],[]
+    def handle(request):
+        calls.append(request)
+        if len(calls)<=failures:return httpx.Response(503,json={'error':{'message':'The model is overloaded. private-provider-detail'}},request=request)
+        return httpx.Response(200,json={'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':'{"findings":[]}'}]}}]},request=request)
+    monkeypatch.setattr(ai.httpx,'Client',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+    monkeypatch.setattr(ai,'available',lambda:True)
+    monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
+    monkeypatch.setenv('GEMINI_API_KEY','synthetic-unit-test-key')
+    monkeypatch.setattr(ai.time,'sleep',pauses.append)
+    return calls,pauses
+
+def test_busy_provider_is_retried_twice_with_backoff(monkeypatch):
+    calls,pauses=busy_provider(monkeypatch,2)
+    assert provider_generate('Review',{},ai.Suggestions).findings==[]
+    assert len(calls)==3 and pauses==[1.0,3.0]
+
+def test_provider_still_busy_after_retries_reports_a_temporary_problem(monkeypatch):
+    calls,pauses=busy_provider(monkeypatch,10)
+    with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
+    assert len(calls)==3 and pauses==[1.0,3.0]
+    message=str(error.value)
+    assert 'temporarily busy (HTTP 503)' in message and 'Try again in a minute' in message
+    assert 'configuration' not in message and 'private-provider-detail' not in message and 'synthetic-unit-test-key' not in message
 
 def image_bytes():
     output=io.BytesIO();Image.new('RGB',(100,100),'white').save(output,format='PNG');return output.getvalue()
