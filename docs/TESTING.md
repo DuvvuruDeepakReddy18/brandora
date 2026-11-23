@@ -6,7 +6,7 @@ Brandora is checked at five levels. Each runs automatically or can be re-run by 
 |---|---|---|---|
 | Backend regression tests | Workflows, permissions, isolation, every check type, the API and the demo | `python -m pytest backend/tests -q` (CI on every push) | 87 passed |
 | Labelled evaluation | How accurate the rule engine is on content it was not tuned on | `python -m backend.evaluation` (CI fails if scores drop or the published report is stale) | Fresh held-out (round 2): precision 93.5%, recall 93.5%; citation validity 79/79; round 1 first run 96.2% / 86.2% |
-| Live claim check | Every documented claim works on the production URL, as an evaluator would use it | `python scripts/verify_live.py https://brandora-omega-three.vercel.app --ai` (scheduled daily in GitHub Actions, rules only) | All claims passed ([`live-verification.json`](live-verification.json)) |
+| Live claim check | Every documented claim works on the production URL, as an evaluator would use it | `python scripts/verify_live.py https://brandora-omega-three.vercel.app --ai` (scheduled daily in GitHub Actions, rules only) | Final build (24 Nov): all 49 rule-based claims passed. The 2 live-AI image uploads passed on 23 Nov (51/51), but on 24 Nov Google’s free tier refused them with HTTP 503 (load shedding); Brandora retried, reported it and saved nothing ([`live-verification.json`](live-verification.json)) |
 | Accessibility audit | Brandora's own screens meet a WCAG 2.2 AA subset | [`scripts/a11y-audit.js`](../scripts/a11y-audit.js) in the browser | 24 screens, 0 issues ([`accessibility-audit.json`](accessibility-audit.json)) |
 | Build checks | Types, production build, landing integrity | `npm run typecheck`, `npm run build`, `node scripts/prepare-brand-crew.cjs --check` | Passing in CI |
 
@@ -41,6 +41,7 @@ Brandora is checked at five levels. Each runs automatically or can be re-run by 
 | Live claim check with live AI | The corrected ad got contrast findings from the logo's own lettering and a grey footer | Logo text is exempt from contrast (as in WCAG); the sample footer was darkened |
 | Live claim check with live AI | One uncitable AI suggestion marked the whole check "AI incomplete" and blocked approval | Uncited suggestions are hidden and counted; only provider failures or limits block approval |
 | Live claim check with live AI | AI attached suggestions to prices the rule engine had verified | AI suggestions on rule-verified values are dropped |
+| Final live claim check with live AI | Gemini briefly returned HTTP 503 on image uploads; one quick retry was not enough, and the message pointed at configuration | A busy provider is retried twice (after 1 s and 3 s) within the 55-second limit; the message says the service is busy and to try again |
 | Strict review | Managers could not create tone or accessibility rules from the editor | The rule editor lists every rule type |
 | Accessibility audit | 23 contrast and heading issues on Brandora's own screens | Status colours and muted text darkened, headings fixed |
 | CI on Linux | Published report hashes differed between Windows and Linux line endings | Hashes are computed on normalised line endings |
