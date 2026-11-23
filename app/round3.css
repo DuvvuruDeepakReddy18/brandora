@@ -497,3 +497,21 @@
   font: 700 14px/1.35 var(--sans);
   color: var(--ink);
 }
+
+/* Panels have no inner padding of their own: give Round 3 panel content the same inset as the panel header. */
+.r3-stack > .panel > :not(.panel-header) {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+.r3-stack > .panel > .panel-header + * {
+  margin-top: 18px;
+}
+.r3-stack > .panel > :last-child:not(.panel-header) {
+  margin-bottom: 22px;
+}
+@media (max-width: 760px) {
+  .r3-stack > .panel > :not(.panel-header) {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}
