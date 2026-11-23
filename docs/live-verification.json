@@ -1,6 +1,6 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-23T02:16:45+00:00",
+  "checked_at": "2026-11-23T03:50:35+00:00",
   "live_ai": true,
   "passed": 51,
   "total": 51,
@@ -108,7 +108,7 @@
     {
       "claim": "social-post.txt sample: Ink Loom, ₹1,499, 30 days, GST review, best tool",
       "result": "PASS",
-      "detail": "[\"F02:Verified Contradiction\", \"P02:Low Confidence\", \"P02:Verified Contradiction\", \"REVIEW:Low Confidence\", \"T01:Verified Contradiction\"]"
+      "detail": "[\"F02:Verified Contradiction\", \"P01:Low Confidence\", \"P02:Low Confidence\", \"P02:Verified Contradiction\", \"REVIEW:Low Confidence\", \"T01:Verified Contradiction\"]"
     },
     {
       "claim": "Import document extracts text for review before registering",
@@ -166,9 +166,9 @@
       "detail": ""
     },
     {
-      "claim": "Reliability: held-out 96.2% precision, 86.2% recall, 50/50 citations, 1/22 clean flagged",
+      "claim": "Reliability: fresh held-out 93.5% precision and recall, 79/79 citations, round 1 first run recorded at 96.2% / 86.2%",
       "result": "PASS",
-      "detail": ""
+      "detail": "[0.9355, 0.9355]"
     },
     {
       "claim": "Creators get common-mistake tips",
