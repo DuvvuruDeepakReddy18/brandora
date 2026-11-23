@@ -33,6 +33,8 @@ Open the live app and, before anything else, press **Watch the crew work** under
 
 Direct link that auto-plays the story: https://brandora-omega-three.vercel.app/brand-crew/index.html?tour=1 (it is also available inside the app as **Watch the product story**).
 
+**Make sure you see the original 3D landing.** It should look like the image below: the BRANDORA wordmark with four robots on a floating island. The landing is drawn live with WebGL (3D graphics in the browser). If your browser has 3D graphics turned off, a notice at the top says *You are seeing a still image of this page*, and the scene is shown as a still image. To see the interactive original, turn on hardware acceleration (Chrome or Edge: Settings → System → *Use graphics acceleration when available*), restart the browser and reload. Check `chrome://gpu` if it still does not start. The product itself (everything after **Explore demo**) does not need WebGL.
+
 ![The Brandora landing page with the Brand Crew island, the headline and the Watch the crew work button](docs/landing-story.jpg)
 
 ## Then try the product in three minutes (no login, no setup)

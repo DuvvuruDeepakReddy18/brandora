@@ -14,7 +14,7 @@ function once(from, to) {
 if ((html.match(/Book a demo <svg>/g) || []).length !== 4) throw new Error("Expected four demo entry points.");
 html = html.replaceAll("Book a demo <svg>", "Explore demo <svg>");
 once("  </head>", '    <link rel="stylesheet" href="/brand-crew/host.css" />\n    <meta name="brandora-edition" content="Brand Crew — integrated product entry" />\n  </head>');
-once('    <script type="module">', '    <script src="/brand-crew/host-bridge.js"></script>\n    <script type="module">');
+once('    <script type="module">', '    <script src="/brand-crew/host-bridge.js"></script>\n    <script src="/brand-crew/host-still.js"></script>\n    <script type="module">');
 // The real product has no booking service. Keep the guided tour, replace the
 // request-download flow, and leave the complete visual narrative untouched.
 const start = html.indexOf("      function openDemo() {");

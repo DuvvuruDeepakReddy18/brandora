@@ -2,6 +2,8 @@
 
 Open https://brandora-omega-three.vercel.app.
 
+**Make sure you see the original 3D landing:** the BRANDORA wordmark with four robots on a floating island ([what it looks like](docs/landing-story.jpg)). It is drawn live with WebGL. If a notice at the top says *You are seeing a still image of this page*, your browser has 3D graphics turned off. Turn on hardware acceleration (Chrome or Edge: Settings → System → *Use graphics acceleration when available*), restart the browser and reload to see the interactive original. The product after **Explore demo** does not need WebGL.
+
 **First, about one minute:** press **Watch the crew work** under the headline. The landing page plays itself through the whole product story and stops on **Explore demo**. Scroll, click or press a key to take over. Auto-playing link: https://brandora-omega-three.vercel.app/brand-crew/index.html?tour=1
 
 **Then** choose **Explore demo**. No email, password, setup code or API key is needed. Live AI is on by default. If you are already signed in, use **Explore a separate demo**. Inside the app, **Watch the product story** in the demo bar replays the landing page in a new tab.
