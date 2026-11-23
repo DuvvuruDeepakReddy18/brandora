@@ -76,42 +76,54 @@ def measure_raster(blob, regions):
 
 
 def measure_colours(blob, page=0):
-    """Dominant non-neutral colours of an image: average colour, share of the image and where it appears.
-    Greys, black, white and near-white are ignored, so only colours that carry brand meaning are compared."""
+    """Dominant non-neutral colour areas of an image: average colour, share of the image and a tight box.
+    Each separate patch of a colour (a button, a panel, a logo) is measured on its own, so a mark lands on the
+    area that uses it. Greys, black, white and near-white are ignored: only colours that carry brand meaning count."""
+    from collections import deque
     from .engine import lab, delta_e
     with Image.open(io.BytesIO(blob)) as source:
         image = source.convert('RGB')
     image.thumbnail((180, 180))
     W, H = image.size
     pixels = list(image.get_flattened_data() if hasattr(image, 'get_flattened_data') else image.getdata())
-    bins = {}
+    bins, keys = {}, [None] * len(pixels)
     for i, rgb in enumerate(pixels):
         L, a, b = lab(rgb)
         if (a * a + b * b) ** 0.5 < 12:
             continue
         key = (round(L / 12), round(a / 12), round(b / 12))
-        x, y = i % W, i // W
-        e = bins.setdefault(key, [0, [0, 0, 0], W, H, 0, 0])
+        keys[i] = key
+        e = bins.setdefault(key, [0, [0, 0, 0]])
         e[0] += 1; e[1] = [e[1][j] + rgb[j] for j in range(3)]
-        e[2] = min(e[2], x); e[3] = min(e[3], y); e[4] = max(e[4], x); e[5] = max(e[5], y)
-    groups = []
-    for count, total, x0, y0, x1, y1 in sorted(bins.values(), key=lambda e: -e[0]):
+    # Similar bins become one colour group.
+    groups, group_of = [], {}
+    for key, (count, total) in sorted(bins.items(), key=lambda kv: -kv[1][0]):
         rgb = [t / count for t in total]
-        merged = next((g for g in groups if delta_e(lab(rgb), lab(g[1])) < 8), None)
-        if merged:
-            n = merged[0] + count
-            merged[1] = [(merged[1][j] * merged[0] + rgb[j] * count) / n for j in range(3)]
-            merged[0] = n; merged[2] = min(merged[2], x0); merged[3] = min(merged[3], y0); merged[4] = max(merged[4], x1); merged[5] = max(merged[5], y1)
+        index = next((n for n, g in enumerate(groups) if delta_e(lab(rgb), lab(g[1])) < 8), None)
+        if index is None:
+            groups.append([count, rgb]); index = len(groups) - 1
         else:
-            groups.append([count, rgb, x0, y0, x1, y1])
-    out = []
-    for count, rgb, x0, y0, x1, y1 in sorted(groups, key=lambda g: -g[0]):
-        share = count / max(1, W * H)
-        if share < 0.005:
+            g = groups[index]; n = g[0] + count
+            g[1] = [(g[1][j] * g[0] + rgb[j] * count) / n for j in range(3)]; g[0] = n
+        group_of[key] = index
+    label = [group_of[k] if k is not None else -1 for k in keys]
+    # Connected areas of each colour (4-neighbour), each with its own share and box.
+    seen = [False] * len(pixels); out = []
+    for i, g in enumerate(label):
+        if g < 0 or seen[i]:
             continue
-        out.append({'hex': hexcolour([round(v) for v in rgb]), 'share': round(share, 4), 'page': page,
-                    'box': [round(y0 / H * 1000), round(x0 / W * 1000), round((y1 + 1) / H * 1000), round((x1 + 1) / W * 1000)]})
-    return out[:10]
+        queue = deque([i]); seen[i] = True; count = 0; x0, y0, x1, y1 = W, H, 0, 0
+        while queue:
+            j = queue.popleft(); count += 1; x, y = j % W, j // W
+            x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+            for k in ((j - 1) if x else -1, (j + 1) if x < W - 1 else -1, j - W, j + W):
+                if 0 <= k < len(pixels) and not seen[k] and label[k] == g:
+                    seen[k] = True; queue.append(k)
+        share = count / max(1, W * H)
+        if share >= 0.005:
+            out.append({'hex': hexcolour([round(v) for v in groups[g][1]]), 'share': round(share, 4), 'page': page,
+                        'box': [round(y0 / H * 1000), round(x0 / W * 1000), round((y1 + 1) / H * 1000), round((x1 + 1) / W * 1000)]})
+    return sorted(out, key=lambda m: -m['share'])[:12]
 
 
 def join_lines(lines):

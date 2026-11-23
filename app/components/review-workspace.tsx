@@ -281,7 +281,7 @@ function CreativeCanvas({
           style={{
             aspectRatio: `${current.width || 4} / ${current.height || 3}`,
             // Tall pages are capped to the viewport so the page arrows and thumbnails stay in view.
-            width: `min(${zoom * 100}%, ${((zoom * 62 * (current.width || 4)) / (current.height || 3)).toFixed(2)}vh)`,
+            width: `min(${zoom * 100}%, ${((zoom * 70 * (current.width || 4)) / (current.height || 3)).toFixed(2)}vh)`,
             margin: "0 auto",
           }}
         >
