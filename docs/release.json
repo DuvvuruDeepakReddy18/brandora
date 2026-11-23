@@ -3,10 +3,10 @@
   "url": "https://brandora-omega-three.vercel.app",
   "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
   "repository_visibility": "public",
-  "deployment_id": "dpl_8nYY34Yf6YcDrWPbXxQGYrfdBthZ",
-  "deployment_url": "https://brandora-io6u8fmhr-duvvurudeepakreddy18s-projects.vercel.app",
-  "application_commit": "38a4708 (main and claude/changes); later commits change documentation only",
-  "previous_production_deployment": "dpl_4gi7EttyvNk8Cs2KQ8QP8U8ra6q1",
+  "deployment_id": "dpl_9v79QEaq35KwUXUbnMr2yA8oBd8u",
+  "deployment_url": "https://brandora-im20shjim-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "c6776e3 (main and claude/changes); later commits change documentation only",
+  "previous_production_deployment": "dpl_8nYY34Yf6YcDrWPbXxQGYrfdBthZ",
   "status": "READY",
   "target": "production",
   "promoted": true,
@@ -38,12 +38,14 @@
     "production_api_flow": "passed on the live URL with a fresh sandbox: 7 seeded items (ad 7 findings, brochure 14 across 10 pages, deck 10 across 6 slides); brochure contrast 2.02:1 on page 1 and 1.76:1 on page 6; deck alt text missing and unhelpful on slide 4, 2.32:1 subtitle, 7 pt footer; page image served as JPEG; reliability endpoint returns the measured report; creator tips; insights flag P02 and unclear claims; replay 35.7% to 100% agreement with 0 confirmed issues missed; manager applied the reviewer's proposal (200); corrected brochure upload created version 2 with zero findings, checked by rules plus live Gemini",
     "canonical_landing_source_sha256_prefix": "3f8540e6ec92 (unchanged)",
     "live_claims": "51/51 documented claims passed on the final deployment with live AI (scripts/verify_live.py; docs/live-verification.json); the daily GitHub Actions run (rules only) also passed",
-    "accessibility_audit": "24 screens across four roles, 4,076 elements, 0 issues after fixing 23 (docs/accessibility-audit.json)"
+    "accessibility_audit": "24 screens across four roles, 4,076 elements, 0 issues after fixing 23 (docs/accessibility-audit.json)",
+    "live_claims_after_landing_fallback": "49/49 rules-only claims passed on production after promotion (scripts/verify_live.py)"
   },
   "owner_next_step": "Existing owners sign in normally. Judges choose Explore demo; the Round 3 features open from More to explore or the cards on Home.",
   "limits": "Functional release verification; no penetration test, large-scale load certification or user study is claimed. The evaluation set is synthetic and team-labelled; it measures the rule engine, not live AI suggestions.",
   "judge_access": "Explore demo; no credentials. Opens on the marked Inkloom AI ad. Four roles, isolated two-hour workspace, sample files and bounded live AI.",
   "follow_up_fixes": "A strict live check of every documented claim found three failures, now fixed: a judgement call accepted on version 1 is carried to the corrected version when the same rule raises the same question with unchanged surrounding wording (labelled carried over), so the walkthrough approves; logo text is exempt from contrast as WCAG allows; the sample footer is darker so the corrected ad passes contrast under live OCR. Also: tone and accessibility rules can be created in the rule editor; Home counts tone and accessibility issues. Live AI behaviour: a suggestion that cannot quote its source is hidden (and counted) without marking the check incomplete, and AI suggestions are not shown on values the rule engine verified against the same approved record.",
   "additions": "Brand colour palette check (judgement call with swatches); check-before-publish API with hashed, revocable, rate-limited workspace keys and an Integrations test console; daily GitHub Actions live claim check; accessibility audit of 24 workspace screens (23 issues fixed, 0 remaining); RESPONSIBLE_DESIGN.md, TESTING.md, ROADMAP.md, CHANGELOG.md, API.md.",
-  "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 14 pages; contact details omitted)"
+  "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 14 pages; contact details omitted)",
+  "landing_without_webgl": "If a browser cannot create a WebGL context, the landing shows a still image of the same 3D scene (desktop and mobile versions, loaded only in that case) in place of the placeholder disc, and a notice explains how to turn on graphics acceleration to see the interactive original. Added by the hosting layer (public/brand-crew/host-still.js); the approved landing source is unchanged (sha256 prefix 3f8540e6ec92). Verified on the staged and production deployments with WebGL disabled (still and notice shown, desktop and mobile) and enabled (live 3D, no notice)."
 }
