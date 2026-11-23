@@ -88,7 +88,7 @@ const passes = (f: Row, filter: Filter) => {
   if (filter === "all") return true;
   if (filter === "verified") return false;
   const g = outcomeMeta(f).group;
-  return filter === "critical" ? g === "critical" || g === "visual" : g === filter;
+  return filter === "critical" ? g === "critical" || (g === "visual" && outcomeMeta(f).tone === "red") : g === filter;
 };
 
 /* Approximate glyph widths so character offsets map onto the region box more accurately. */
@@ -436,13 +436,28 @@ function AltTextBox({
   );
 }
 
+/* Measured colours next to the approved palette. */
+function Swatches({ colours }: { colours: Row[] }) {
+  return (
+    <div className="swatch-row">
+      {colours.map((c) => (
+        <span key={c.hex + (c.name || "")} className="swatch" title={c.name || c.hex}>
+          <i style={{ background: c.hex }} />
+          <b>{c.name || c.hex}</b>
+          <small>{c.share ? `${(c.share * 100).toFixed(1)}% of the area · ΔE ${c.delta_e} · suggested: ${c.nearest}` : c.hex}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /* What an accessibility finding measured, shown in the measured colours or size. */
 function AccessSample({ f, creative }: { f: Row; creative: Row | null }) {
   const m = f.measure || {};
   if (m.fg && m.bg)
     return (
       <div className="contrast-sample">
-        <p style={{ color: m.fg, background: m.bg }}>{f.span}</p>
+        <p style={{ color: m.fg, background: m.bg }} aria-hidden="true" title="Reproduced in the measured colours">{f.span}</p>
         <span>
           <i style={{ background: m.fg }} />
           {m.fg} on <i style={{ background: m.bg }} />
@@ -453,7 +468,7 @@ function AccessSample({ f, creative }: { f: Row; creative: Row | null }) {
   if (m.size_pt)
     return (
       <div className="contrast-sample">
-        <p style={{ fontSize: Math.max(8, m.size_pt * 1.25) }}>{f.span}</p>
+        <p style={{ fontSize: Math.max(8, m.size_pt * 1.25) }} aria-hidden="true">{f.span}</p>
         <span>
           Set at <b>{m.size_pt} pt</b>
         </span>
@@ -696,7 +711,7 @@ function FindingCard({
           {f.span ? (
             <q>{f.span}</q>
           ) : f.kind === "visual" ? (
-            <small>Logo area on the creative</small>
+            <small>{f.measure?.colours ? `${f.measure.colours.length} colour${f.measure.colours.length === 1 ? "" : "s"} outside the palette` : "Logo area on the creative"}</small>
           ) : f.kind === "access" ? (
             <small>{f.measure?.image || "Image"}</small>
           ) : null}
@@ -708,8 +723,10 @@ function FindingCard({
           <div className="evidence-compare">
             <div className="ev-side submitted">
               <small>SUBMITTED CONTENT</small>
-              {f.kind === "visual" && creative ? (
-                <LogoCrop creative={creative} box={f.box} />
+              {f.measure?.colours ? (
+                <Swatches colours={f.measure.colours} />
+              ) : f.kind === "visual" && creative ? (
+                <LogoCrop creative={creative} box={f.box} page={f.page ?? 0} />
               ) : f.kind === "access" ? (
                 <AccessSample f={f} creative={creative} />
               ) : (
@@ -720,7 +737,9 @@ function FindingCard({
             </div>
             <div className="ev-side approved">
               <small>APPROVED COMPANY INFORMATION</small>
-              {f.kind === "visual" ? (
+              {f.measure?.approved ? (
+                <Swatches colours={f.measure.approved} />
+              ) : f.kind === "visual" ? (
                 logo ? (
                   <img className="ev-logo" src={logo.image_url} alt={logo.name} />
                 ) : (
@@ -1662,7 +1681,11 @@ function FixStage({
                   </>
                 ) : f.kind === "visual" ? (
                   <>
-                    <p className="fix-explain">Brandora does not edit images. Replace the logo with the approved reference in your design tool, then upload the revised creative to re-check it.</p>
+                    <p className="fix-explain">
+                      {f.measure?.colours
+                        ? `Brandora does not edit images. Swap ${f.measure.colours.map((c: Row) => c.hex).join(", ")} for approved colours (suggested: ${f.measure.colours.map((c: Row) => c.nearest).join(", ")}) in your design tool, then upload the revised file. A reviewer can also accept them with a reason.`
+                        : "Brandora does not edit images. Replace the logo with the approved reference in your design tool, then upload the revised creative to re-check it."}
+                    </p>
                     {canEdit && (
                       <label className="button small upload-inline">
                         <Upload size={14} /> Upload revised creative

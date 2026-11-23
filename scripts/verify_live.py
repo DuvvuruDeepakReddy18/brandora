@@ -26,8 +26,8 @@ c = visitor(); w = ws(c)
 check('Demo opens with 7 fictional items and AI on', len(w['content']) == 7 and w['workspace']['settings'].get('ai_enabled') in (True, False), f"{len(w['content'])} items, ai={w['workspace']['settings'].get('ai_enabled')}")
 ad = item(w, 'Spring launch ad')
 got = sorted((f['rule_code'], f['outcome']) for f in ad['findings'])
-want = sorted([('P02', 'Verified Contradiction'), ('P02', 'Low Confidence'), ('F02', 'Verified Contradiction'), ('R03', 'Evidence Gap'), ('R03', 'Evidence Gap'), ('LOGO', 'Visual Violation')])
-check('Sample ad shows exactly the six documented findings', got == want, str(got))
+want = sorted([('P02', 'Verified Contradiction'), ('P02', 'Low Confidence'), ('F02', 'Verified Contradiction'), ('R03', 'Evidence Gap'), ('R03', 'Evidence Gap'), ('LOGO', 'Visual Violation'), ('C01', 'Low Confidence')])
+check('Sample ad shows exactly the seven documented findings', got == want, str(got))
 text_f = [f for f in ad['findings'] if f.get('evidence') and f['rule_code'] != 'LOGO']
 check('Every text finding cites source ID, version and exact excerpt', all(f['evidence'].get('source_id') and f['evidence'].get('version') and f['evidence'].get('excerpt') for f in text_f))
 price = next(f for f in ad['findings'] if f['rule_code'] == 'P02' and f['outcome'] == 'Verified Contradiction')
@@ -150,9 +150,17 @@ r = c2.post(f"/api/content/{bro['id']}/creative", data={'expected_version': str(
 check('Corrected brochure upload → v2 with zero findings', r.status_code == 200 and r.json()['version'] == 2 and r.json()['findings'] == [], [summary(f) for f in r.json().get('findings', [])] if r.status_code == 200 else r.text[:200])
 r = upload(c2, 'partner-deck.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'Advertisement')
 check('PowerPoint upload is read page by page', r.status_code == 200 and any(f.get('page') == 3 for f in r.json()['findings']))
+check('Brochure page 6 orange callout is flagged as outside the approved palette', any(f['rule_code'] == 'C01' and f.get('page') == 5 for f in bro['findings']))
+role(c2, 'manager')
+k = c2.post('/api/api-keys', json={'name': 'Live claim check'}).json()
+api = httpx.Client(base_url=BASE, timeout=60)
+res = api.post('/api/v1/check', json={'text': 'Try Inkloom AI free for 30 days.', 'channel': 'Social'}, headers={'Authorization': 'Bearer ' + k.get('key', '')})
+check('Check-before-publish API: blocked verdict with evidence, no AI', res.status_code == 200 and res.json()['verdict'] == 'blocked' and res.json()['ai_used'] is False and res.json()['findings'][0]['evidence'], res.status_code)
+c2.post(f"/api/api-keys/{k.get('id')}/revoke")
+check('A revoked API key is refused (401)', api.post('/api/v1/check', json={'text': 'Hello'}, headers={'Authorization': 'Bearer ' + k.get('key', '')}).status_code == 401)
 if WITH_AI:
     c3 = visitor(); w3 = ws(c3); camp = next(x['id'] for x in w3['campaigns'] if x['name'] == 'Spring launch')
-    for name, expect in (('corrected-creative.png', 'clean'), ('creative.png', 'six')):
+    for name, expect in (('corrected-creative.png', 'clean'), ('creative.png', 'seven')):
         blob = c3.get(f'/api/demo/assets/{name}').content
         logos = json.dumps([l['id'] for l in c3.get('/api/logos').json()][:3])
         r = c3.post('/api/scan/upload', data={'title': name, 'campaign_id': camp, 'subject': 'Inkloom AI', 'channel': 'Advertisement', 'reference_ids': logos}, files={'file': (name, blob, 'image/png')})
@@ -163,8 +171,8 @@ if WITH_AI:
             check('corrected-creative.png comes back clean with live AI', not b['findings'], fs + [b['scan_coverage']])
         else:
             rule_found = sorted(f['rule_code'] + ':' + f['outcome'] for f in b['findings'] if f.get('engine') != 'AI-assisted')
-            check('creative.png: the six documented problems are found again by live OCR (AI suggestions listed separately)',
-                  rule_found == sorted(['P02:Verified Contradiction', 'P02:Low Confidence', 'F02:Verified Contradiction', 'R03:Evidence Gap', 'R03:Evidence Gap', 'LOGO:Visual Violation']), fs + [b['scan_coverage']])
+            check('creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)',
+                  rule_found == sorted(['P02:Verified Contradiction', 'P02:Low Confidence', 'F02:Verified Contradiction', 'R03:Evidence Gap', 'R03:Evidence Gap', 'LOGO:Visual Violation', 'C01:Low Confidence']), fs + [b['scan_coverage']])
     c3.post('/api/demo/reset')
 for cl in (c, c2):
     cl.post('/api/demo/reset')
@@ -178,3 +186,4 @@ if '--write' in sys.argv:
         'checks': [{'claim': n, 'result': 'PASS' if ok else 'FAIL', 'detail': d if isinstance(d, str) else json.dumps(d, ensure_ascii=False, default=lambda x: sorted(x) if isinstance(x, set) else str(x))[:400]} for ok, n, d in results]},
         indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     print('Wrote', out)
+sys.exit(0 if all(ok for ok, _, _ in results) else 1)

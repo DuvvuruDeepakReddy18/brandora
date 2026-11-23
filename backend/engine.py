@@ -165,6 +165,53 @@ def passing_colour(fg,bg,target):
     return ''
 
 GENERIC_ALT=re.compile(r'^(?:an?\s+)?(?:image|picture|photo|graphic|banner|img|screenshot|ad|advert|creative|logo|untitled|dsc|slide)?[\s_\-\d.]*(?:\.(?:png|jpe?g|webp|gif))?$',re.I)
+def lab(rgb):
+    """sRGB (0-255) to CIE Lab (D65)."""
+    def lin(v):
+        v/=255;return v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4
+    r,g,b=(lin(v) for v in rgb[:3])
+    x,y,z=(r*.4124+g*.3576+b*.1805)/.95047,(r*.2126+g*.7152+b*.0722),(r*.0193+g*.1192+b*.9505)/1.08883
+    f=lambda t:t**(1/3) if t>.008856 else 7.787*t+16/116
+    fx,fy,fz=f(x),f(y),f(z)
+    return (116*fy-16,500*(fx-fy),200*(fy-fz))
+def hex_lab(h):return lab([int(h[i:i+2],16) for i in (1,3,5)])
+def delta_e(a,b):return sum((p-q)**2 for p,q in zip(a,b))**.5
+
+def palette(colours,rules,sources,subject,channel,logos=()):
+    """Off-palette colours on a creative or page, against the approved palette. A judgement call, not a verdict:
+    photography may legitimately use other colours, so the finding asks a reviewer to decide."""
+    findings=[];deps=[]
+    for rule in rules:
+        if rule.kind!='palette' or not applies(rule,subject,channel):continue
+        source=sources.get(rule.source_id)
+        if source is None or not current(source):continue
+        cfg=rule.config or {};approved=cfg.get('colours') or {}
+        words=cited(source,(cfg.get('cite') or {}).get('palette',''))
+        # Evidence-gated: every approved colour and the cited sentence must be in the approved source.
+        if not words or not approved or any(h.casefold() not in source.excerpt.casefold() for h in approved.values()):continue
+        deps.append({'rule_id':rule.id,'source_id':source.id,'source_version':source.version})
+        tolerance=float(cfg.get('tolerance',20));minimum=float(cfg.get('min_share',0.015))
+        refs=[(name,h.lower(),hex_lab(h)) for name,h in approved.items()]
+        pages={}
+        for m in colours:
+            if m['share']<minimum:continue
+            if any(m.get('page',0)==l.get('page',0) and l.get('box') and overlaps(m['box'],l['box']) for l in logos):continue
+            here=hex_lab(m['hex']);gap=min(delta_e(here,r[2]) for r in refs)
+            if gap<=tolerance:continue
+            # Suggest a saturated brand colour for a saturated colour (an orange button becomes violet, not cream).
+            chroma=lambda l:(l[1]**2+l[2]**2)**.5
+            pool=[r for r in refs if chroma(r[2])>30] if chroma(here)>40 else refs
+            name,h,_=min(pool or refs,key=lambda r:delta_e(here,r[2]))
+            pages.setdefault(m.get('page',0),[]).append({**m,'nearest':name,'nearest_hex':h,'delta_e':round(gap,1)})
+        for page,off in pages.items():
+            off.sort(key=lambda o:-o['delta_e']*o['share'])  # the most off-brand area is marked first
+            listed='; '.join(f"{o['hex']} ({o['share']*100:.1f}% of the {'page' if len(pages)>1 or page else 'creative'}, ΔE {o['delta_e']} from the closest approved colour; suggested {o['nearest']} {o['nearest_hex']})" for o in off[:4])
+            findings.append({'id':digest(f"palette:{rule.id}:{page}:{','.join(o['hex'] for o in off)}")[:20],'rule_id':rule.id,'rule_code':rule.code,'outcome':'Low Confidence','title':'Colours outside the approved palette',
+                'message':f'Measured colours not in the approved palette: {listed}. A reviewer decides whether they are acceptable here (for example in photography); otherwise use approved colours and upload the revision.',
+                'suggestion':'','severity':'medium','start':0,'end':0,'span':'','kind':'visual','page':page,'box':off[0]['box'],'measure':{'colours':off[:4],'approved':[{'name':n,'hex':h} for n,h,_ in refs]},
+                'engine':'Colour check · measured','resolved':False,'evidence':{**evidence(rule,source),'rule_value':words}})
+    return findings,deps
+
 def overlaps(box,other,share=0.5):
     """True when at least `share` of box lies inside other (both [y0,x0,y1,x1] on a 0-1000 grid)."""
     y0,x0,y1,x1=box;a,b,c,d=other

@@ -1,0 +1,213 @@
+{
+  "date": "2026-11-23",
+  "target": "Brandora workspace (Explore demo), desktop 1440 px, Chromium",
+  "tool": "scripts/a11y-audit.js — Brandora’s own self-contained audit (WCAG 2.2 AA subset). No external script is loaded.",
+  "checks": [
+    "Text contrast from computed styles (4.5:1; 3:1 for large text)",
+    "Accessible names for buttons, links and tabs",
+    "Labels for form fields",
+    "Alt attribute on every image",
+    "Page language and title",
+    "Main landmark",
+    "Heading order",
+    "Duplicate ids"
+  ],
+  "before": {
+    "issues": 23,
+    "found": [
+      "20 texts below 4.5:1: muted navigation numbers and labels (2.44:1–4.35:1), demo-guide role labels (4.44:1), the “Lens” crew label (3.40:1), and status colours used as text on their own tint (red 4.19:1, orange 3.18:1, yellow 3.44:1, green 4.35:1, teal 4.32:1, grey 3.00:1)",
+      "A module number kept its grey on the highlighted (blue) navigation row (1.05:1)",
+      "Two heading-level skips (h2 → h4 on Home and Guideline insights cards; h1 → h3 on Company Hub source cards)"
+    ]
+  },
+  "fixes": [
+    "Status colours darkened so each is readable as text on its own tint: red #c0281d, orange #b54f0a, yellow #8a6500, green #13703a, teal #0c6c75, grey #6b665e",
+    "Muted text #6e6a64 → #5f5b55; navigation numbers inherit the row colour; demo-guide labels #5f5577; crew accent #8a5a00",
+    "Card titles use h3; Company Hub gains a screen-reader heading for its source list",
+    "The evidence panel’s reproduction of a low-contrast text (shown in the measured colours on purpose) is marked decorative; the same words and the measured ratio are given in readable text beside it"
+  ],
+  "after": {
+    "screens": 24,
+    "elements_checked": 4076,
+    "issues": 0
+  },
+  "screens": [
+    {
+      "screen": "Home",
+      "role": "creator",
+      "checked": 265,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Ad review",
+      "role": "creator",
+      "checked": 236,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Ad fix & approve",
+      "role": "creator",
+      "checked": 195,
+      "not_measurable": 6,
+      "issues": 0
+    },
+    {
+      "screen": "Ad original vs corrected",
+      "role": "creator",
+      "checked": 139,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Ad history & audit",
+      "role": "creator",
+      "checked": 116,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Brochure review (10 pages)",
+      "role": "creator",
+      "checked": 352,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Brochure fix & approve",
+      "role": "creator",
+      "checked": 201,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Deck review (6 slides)",
+      "role": "creator",
+      "checked": 285,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Scan & Detect",
+      "role": "creator",
+      "checked": 192,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Verify & Review",
+      "role": "reviewer",
+      "checked": 146,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Fix & Approve queue",
+      "role": "reviewer",
+      "checked": 138,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Guideline insights",
+      "role": "reviewer",
+      "checked": 178,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Impact Monitor",
+      "role": "manager",
+      "checked": 110,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Sources & facts",
+      "role": "manager",
+      "checked": 269,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Brand assets",
+      "role": "manager",
+      "checked": 121,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Campaigns",
+      "role": "manager",
+      "checked": 106,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Team & roles",
+      "role": "manager",
+      "checked": 119,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Source conflicts",
+      "role": "manager",
+      "checked": 102,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Company Hub · Claim lineage",
+      "role": "manager",
+      "checked": 110,
+      "not_measurable": 1,
+      "issues": 0
+    },
+    {
+      "screen": "Trust & Audit · Audit trail",
+      "role": "manager",
+      "checked": 141,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Trust & Audit · Approval receipts",
+      "role": "manager",
+      "checked": 91,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Trust & Audit · Reliability",
+      "role": "manager",
+      "checked": 250,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Trust & Audit · Integrations",
+      "role": "manager",
+      "checked": 100,
+      "not_measurable": 0,
+      "issues": 0
+    },
+    {
+      "screen": "Trust & Audit · Privacy & AI",
+      "role": "manager",
+      "checked": 114,
+      "not_measurable": 0,
+      "issues": 0
+    }
+  ],
+  "also_verified": [
+    "“Skip to content” link to the main landmark",
+    "html lang=\"en\"",
+    "Visible 2 px focus outline on buttons, links and fields (:focus-visible)",
+    "prefers-reduced-motion rules present",
+    "No horizontal page overflow at 375 px on the document viewer"
+  ],
+  "not_measurable_note": "Text over images or gradients is reported as not measurable instead of guessed (7 elements across all screens, mainly creative previews).",
+  "limits": "An automated audit cannot judge alt-text quality, reading order or screen-reader announcements; those need a manual pass with a screen reader. The public landing page is the approved design and was not changed."
+}

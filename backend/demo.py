@@ -165,6 +165,12 @@ def sample_documents():
     with open(DECK_FILE,'rb') as handle:deck=documents.read_pptx(handle.read())
     return {'brochure':brochure,'deck':deck}
 
+@lru_cache(maxsize=64)
+def fixture_colours(key,index):
+    from . import documents
+    image=fixture_page(key,index)
+    return documents.measure_colours(image,page=index) if image else []
+
 def fixture_page(key,index):
     """Seeded document pages are served from this cache, so sandboxes do not store copies of the page images."""
     pages=sample_documents()[key][0]
@@ -189,7 +195,7 @@ def assets():
         'partner-deck.pptx':('application/vnd.openxmlformats-officedocument.presentationml.presentation',open(DECK_FILE,'rb').read())}
 
 PRICING='Inkloom AI plans, effective 1 Nov 2026: Starter ₹999/month. Professional ₹1,999/month. Enterprise: custom pricing. Plan prices exclude GST. Free trial: 14 days from sign-up. Refunds are available within 7 days of the first payment. Never describe a plan as free forever.'
-BRAND='The approved product name is Inkloom AI. Use the approved Inkloom AI logo, the violet ink-drop mark with the dark wordmark, on every creative. Do not recolour, stretch or replace it.'
+BRAND='The approved product name is Inkloom AI. Use the approved Inkloom AI logo, the violet ink-drop mark with the dark wordmark, on every creative. Do not recolour, stretch or replace it. Approved colours: Ink violet #5B3DF5, Violet #7A62F7, Night #17133A, Slate #3A3358, Lavender #E3DCFF, Mist #ECE7FF and Paper #FFF8EE, with white and neutral greys. Do not introduce other brand colours.'
 CLAIMS='Approved claims: Inkloom AI helps marketing teams organise creative workflows. Inkloom AI provides a central workspace for campaign content. Inkloom AI supports collaborative content review.'
 EVIDENCE='No approved study or ranking supports “the world’s No. 1 creative platform” or “reduce your marketing production time by 80%”. Superiority and quantified performance claims need an approved study before use.'
 VOICE='Inkloom AI brand voice guide: write like a calm, expert colleague. Avoid hype words such as “revolutionary”, “game-changing”, “mind-blowing” and “magic”. Avoid pressure phrases such as “act now”, “hurry” and “last chance”. Never promise “instant results” or call an offer “risk-free”. Prefer “use” to “utilise” or “leverage”, and “affordable” to “cheap”. Use at most one exclamation mark in a piece of content. In emails and social posts, do not write whole words in capitals, except acronyms such as GST and AI. Keep sentences under 30 words.'
@@ -204,6 +210,8 @@ TONE_CONFIG={'avoid':{'revolutionary':'','game-changing':'','mind-blowing':'','m
     'cite':{'exclamations':'at most one exclamation mark','shouting':'do not write whole words in capitals','sentences':'Keep sentences under 30 words'}}
 ACCESS_CONFIG={'contrast_normal':4.5,'contrast_large':3,'large_pt':18,'large_bold_pt':14,'min_pt':9,
     'cite':{'contrast':'contrast ratio of at least 4.5:1','contrast_large':'needs at least 3:1','size':'at least 9 pt','alt':'Every image needs alt text'}}
+PALETTE_CONFIG={'colours':{'Ink violet':'#5B3DF5','Violet':'#7A62F7','Night':'#17133A','Slate':'#3A3358','Lavender':'#E3DCFF','Mist':'#ECE7FF','Paper':'#FFF8EE'},
+    'tolerance':18,'min_share':0.012,'cite':{'palette':'Approved colours'}}
 RULES=[('P01','Starter plan price','number','999','pricing',{'metric':'price','plan':'Starter'}),
     ('P02','Professional plan price','number','1999','pricing',{'metric':'price','plan':'Professional','qualifier':'GST','qualifier_review':True,'qualifier_text':'+ GST'}),
     ('F02','Free trial','number','14','pricing',{'metric':'trial'}),
@@ -212,7 +220,8 @@ RULES=[('P01','Starter plan price','number','999','pricing',{'metric':'price','p
     ('B01','No “free forever” wording','banned','free forever','pricing',{'replacement':'free for 14 days'}),
     ('Q01','Refund terms with refund mentions','required','Refunds are available within 7 days of the first payment.','pricing',{'trigger':'refund'}),
     ('V01','Brand voice: tone & messaging','tone','Brand voice guide','voice',TONE_CONFIG),
-    ('A01','Accessibility: contrast, text size, alt text','accessibility','WCAG 2.2 AA','access',ACCESS_CONFIG)]
+    ('A01','Accessibility: contrast, text size, alt text','accessibility','WCAG 2.2 AA','access',ACCESS_CONFIG),
+    ('C01','Approved colour palette','palette','Brand palette','brand',PALETTE_CONFIG)]
 
 def populate(db,ws):
     from .main import password_hash,run_scan,snapshot_source,audit,approve
@@ -331,7 +340,7 @@ def remove_visit(db,visit):
     db.execute(delete(Dependency).where(Dependency.content_id.in_(content_ids)))
     db.execute(delete(ContentVersion).where(ContentVersion.content_id.in_(content_ids)))
     db.execute(delete(SourceVersion).where(SourceVersion.source_id.in_(source_ids)))
-    for cls in (CreativePage,FindingEvent,RuleProposal,Creative,Translation,Approval,Task,Decision,Content,Rule,Source,LogoReference,Campaign,Audit,User):db.execute(delete(cls).where(cls.org_id==org_id))
+    for cls in (ApiKey,CreativePage,FindingEvent,RuleProposal,Creative,Translation,Approval,Task,Decision,Content,Rule,Source,LogoReference,Campaign,Audit,User):db.execute(delete(cls).where(cls.org_id==org_id))
     db.delete(visit);db.flush();db.execute(delete(Workspace).where(Workspace.id==org_id))
     # Keep quota counters until their normal daily boundary, so reset cannot bypass caps.
 

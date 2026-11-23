@@ -266,7 +266,7 @@ const SAMPLES = [
     title: "Wrong ad image",
     channel: "Advertisement",
     kind: "Image · needs live AI",
-    expect: "Gemini reads the image and compares the logo; the same six problems are marked from real OCR, not sample data.",
+    expect: "Gemini reads the image and compares the logo; the same seven problems are marked from real OCR and measured colours, not sample data.",
   },
   {
     file: "corrected-creative.png",

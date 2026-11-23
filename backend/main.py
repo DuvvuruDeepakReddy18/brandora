@@ -1,4 +1,4 @@
-import base64, hashlib, hmac, io, json, math, os, secrets, threading
+import base64, hashlib, hmac, io, json, math, os, re, secrets, threading
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
-from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access, sentence_bounds
+from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access, sentence_bounds, palette
 from . import ai, intelligence, limits, documents, evaluation, insights, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
@@ -223,8 +223,9 @@ def run_scan(db,c,user,ai_reserved=False):
     findings.extend(visual)
     if creative:
         measured,access_deps=access(creative.regions or [],creative_images(creative),rules,sources,c.subject,c.channel,creative.logos or [])
-        findings.extend(measured)
-        for d in access_deps:
+        colour_findings,colour_deps=palette(creative.colours or [],rules,sources,c.subject,c.channel,creative.logos or [])
+        findings.extend(measured+colour_findings)
+        for d in access_deps+colour_deps:
             if not any(x['rule_id']==d['rule_id'] for x in deps):deps.append(d)
     if creative:
         # Text findings carry the page their span sits on, so multi-page documents can be navigated by finding.
@@ -277,7 +278,7 @@ class SourceInput(BaseModel):
         return v
 class RuleInput(BaseModel):
     source_id:str;code:str=Field(min_length=1,max_length=20);title:str=Field(min_length=2,max_length=100)
-    kind:Literal['term','number','required','banned','substantiation','tone','accessibility']
+    kind:Literal['term','number','required','banned','substantiation','tone','accessibility','palette']
     value:str=Field(min_length=1,max_length=300);subject:str=Field(min_length=1,max_length=80)
     config:dict=Field(default_factory=dict)
     @field_validator('config')
@@ -291,6 +292,9 @@ class RuleInput(BaseModel):
         for key,(low,high) in {'max_exclamations':(0,20),'max_sentence_words':(5,200),'contrast_normal':(1,21),'contrast_large':(1,21),'large_pt':(1,200),'large_bold_pt':(1,200),'min_pt':(1,72)}.items():
             if key in v and (isinstance(v[key],bool) or not isinstance(v[key],(int,float)) or not low<=v[key]<=high):raise ValueError(f'{key} must be a number from {low} to {high}.')
         if 'shouting' in v and not isinstance(v['shouting'],bool):raise ValueError('shouting must be true or false.')
+        if 'colours' in v and (not isinstance(v['colours'],dict) or not 0<len(v['colours'])<=24 or any(not isinstance(n,str) or not n or len(n)>60 or not isinstance(h,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',h) for n,h in v['colours'].items())):raise ValueError('colours must map a colour name to a #RRGGBB value.')
+        for key,(low,high) in {'tolerance':(1,100),'min_share':(0.001,0.5)}.items():
+            if key in v and (isinstance(v[key],bool) or not isinstance(v[key],(int,float)) or not low<=v[key]<=high):raise ValueError(f'{key} must be a number from {low} to {high}.')
         for key in ('metric','qualifier','trigger','replacement','plan','qualifier_text'):
             if key in v and (not isinstance(v[key],str) or len(v[key])>300):raise ValueError('Rule conditions must be text of at most 300 characters.')
         if 'qualifier_review' in v and not isinstance(v['qualifier_review'],bool):raise ValueError('qualifier_review must be true or false.')
@@ -852,18 +856,25 @@ async def read_creative(db,actor,blob,refs):
 def new_creative(db,actor,c,blob,name,origin,regions,logos,warnings,alt_text):
     with Image.open(io.BytesIO(blob)) as image:width,height=image.size
     if regions:regions=documents.measure_raster(blob,regions)
-    cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image=base64.b64encode(blob).decode(),width=width,height=height,origin=origin,regions=regions,logos=logos,warnings=warnings[:12],alt_text=alt_text[:600],
+    colours=documents.measure_colours(blob)
+    cr=Creative(colours=colours,org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image=base64.b64encode(blob).decode(),width=width,height=height,origin=origin,regions=regions,logos=logos,warnings=warnings[:12],alt_text=alt_text[:600],
         provider=f'{ai.provider()} · {ai.model()}' if origin=='ai' else 'Sample layout data',sha256=hashlib.sha256(blob).hexdigest(),created_by=actor.name)
     db.add(cr);db.flush();return cr
 
 DOCUMENT_NOTES={'pdf':'Pages rendered from the PDF. Text positions, sizes and colours come from the file; backgrounds are sampled from the rendered page.',
     'pdf-ocr':'Scanned PDF: each page was read with AI OCR. Text positions are AI estimates; contrast is sampled from the page image.',
     'pptx':'Slides drawn by Brandora from the deck file (text boxes, fills and pictures). Fonts and effects are approximated; text colours, fills and sizes come from the file.'}
+def page_colours(page,index):
+    image=page['image']
+    if isinstance(image,str) and image.startswith('fixture:'):
+        _,key,i=image.split(':');return judge_demo.fixture_colours(key,int(i))
+    return documents.measure_colours(base64.b64decode(image) if isinstance(image,str) else image,page=index)
 def new_document(db,actor,c,name,origin,pages,regions,images):
     """A multi-page document or deck tied to one exact content version. Each page is stored and served separately."""
     first=pages[0]
     cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image='',width=first['width'],height=first['height'],origin=origin,regions=regions,logos=[],warnings=[DOCUMENT_NOTES[origin]],
-        alt_text='',provider='Rule engine · no AI' if origin!='pdf-ocr' else f'{ai.provider()} · {ai.model()}',sha256=digest(name+c.body),created_by=actor.name,page_count=len(pages),images=images)
+        alt_text='',provider='Rule engine · no AI' if origin!='pdf-ocr' else f'{ai.provider()} · {ai.model()}',sha256=digest(name+c.body),created_by=actor.name,page_count=len(pages),images=images,
+        colours=[colour for i,page in enumerate(pages) for colour in page_colours(page,i)])
     db.add(cr);db.flush()
     for i,page in enumerate(pages):
         image=page['image'] if isinstance(page['image'],str) else base64.b64encode(page['image']).decode()
@@ -1108,6 +1119,82 @@ def proposal_discard(id:str,data:ProposalDecision,actor=Depends(user),db=Depends
     p.status='Discarded';p.decided_by=actor.name;p.decision_note=data.note;p.decided=now()
     audit(db,actor,'Discarded rule clarification',db.get(Rule,p.rule_id).title,{'proposal_id':p.id,'note':data.note[:300]})
     return proposal_row(db,p)
+
+# --- Check-before-publish API: a CMS, webhook or CI step asks before anything goes live ---
+API_KEY_LIMIT=5
+class ApiKeyInput(BaseModel):
+    name:str=Field(min_length=2,max_length=60)
+
+@app.get('/api/api-keys')
+def api_keys(actor=Depends(user),db=Depends(database)):
+    require(actor,'manager')
+    return [row(k,('key_hash',)) for k in db.scalars(select(ApiKey).where(ApiKey.org_id==actor.org_id).order_by(ApiKey.created.desc()))]
+
+@app.post('/api/api-keys')
+def api_key_create(data:ApiKeyInput,actor=Depends(user),db=Depends(database)):
+    require(actor,'manager')
+    active=len(list(db.scalars(select(ApiKey.id).where(ApiKey.org_id==actor.org_id,ApiKey.revoked==0))))
+    if active>=(2 if judge_demo.visit_for_org(db,actor.org_id) else API_KEY_LIMIT):fail(409,'Revoke an existing key before creating another.')
+    token='brk_'+secrets.token_urlsafe(32)
+    k=ApiKey(org_id=actor.org_id,name=data.name,prefix=token[:10],key_hash=digest(token),created_by=actor.id,creator=actor.name);db.add(k);db.flush()
+    audit(db,actor,'Created API key',data.name,{'key_id':k.id,'prefix':k.prefix})
+    return {**row(k,('key_hash',)),'key':token,'message':'Copy this key now. Brandora stores only a hash and cannot show it again.'}
+
+@app.post('/api/api-keys/{id}/revoke')
+def api_key_revoke(id:str,actor=Depends(user),db=Depends(database)):
+    require(actor,'manager');k=get(db,ApiKey,id,actor);k.revoked=1
+    audit(db,actor,'Revoked API key',k.name,{'key_id':k.id,'prefix':k.prefix});return row(k,('key_hash',))
+
+class CheckInput(BaseModel):
+    text:str=Field(min_length=1,max_length=5000)
+    channel:Literal['Website','Email','Social','Advertisement']='Website'
+    subject:str=Field(default='',max_length=80)
+    title:str=Field(default='API submission',min_length=2,max_length=120)
+    submit:bool=False
+    campaign_id:str=Field(default='',max_length=64)
+
+def api_key_actor(request:Request,db):
+    header=request.headers.get('authorization','')
+    token=header[7:].strip() if header.lower().startswith('bearer ') else ''
+    key=db.scalar(select(ApiKey).where(ApiKey.key_hash==digest(token))) if token.startswith('brk_') else None
+    if not key or key.revoked:fail(401,'Send a valid, unrevoked API key as "Authorization: Bearer brk_...".')
+    if not db.get(Workspace,key.org_id):fail(401,'This key belongs to a workspace that no longer exists.')
+    demo_key=bool(judge_demo.visit_for_org(db,key.org_id))
+    try:limits.reserve([(f'api:{key.id}:{int(datetime.now(timezone.utc).timestamp())//60}',30 if demo_key else 120),(f'api:{key.id}:{limits.day()}',200 if demo_key else 5000)])
+    except limits.LimitReached:fail(429,'This API key has reached its rate limit. Try again shortly.')
+    owner=db.get(User,key.created_by)
+    if not owner or owner.org_id!=key.org_id:fail(401,'The manager who created this key no longer exists. Create a new key.')
+    key.uses+=1;key.last_used=now()
+    return key,owner
+
+API_BLOCKING=('Verified Contradiction','Evidence Gap','Visual Violation')
+@app.post('/api/v1/check')
+def api_check(data:CheckInput,request:Request,db=Depends(database)):
+    """Rules-only check of copy before it is published. It never sends text to an AI provider, never approves and never publishes."""
+    key,owner=api_key_actor(request,db)
+    rules=org_rules(db,owner);sources=org_sources(db,owner)
+    subject=data.subject or (Counter(r.subject for r in rules if r.subject!='*').most_common(1) or [[db.get(Workspace,owner.org_id).name]])[0][0]
+    findings,deps=scan(data.text,subject,data.channel,rules,sources)
+    confirmed=verified_spans(data.text,subject,data.channel,rules,sources)
+    verdict='blocked' if any(f['outcome'] in API_BLOCKING for f in findings) else ('needs_review' if findings else 'clear')
+    ws=db.get(Workspace,owner.org_id)
+    out={'verdict':verdict,
+        'summary':{'blocked':'Do not publish: at least one statement contradicts an approved record or lacks approved evidence.','needs_review':'A person should review the flagged items before publishing.','clear':'No issues in the checked rules. A person must still approve before publishing.'}[verdict],
+        'findings':[{'id':f['id'],'rule':f['rule_code'],'outcome':f['outcome'],'title':f['title'],'message':f['message'],'suggestion':f.get('suggestion',''),'span':f['span'],'start':f['start'],'end':f['end'],
+            'evidence':{'source':f['evidence']['title'],'version':f['evidence']['version'],'excerpt':f['evidence']['excerpt']} if f.get('evidence') else None} for f in findings],
+        'verified':[{'span':v['span'],'rule':v['rule_code'],'source':v['evidence']['title'],'version':v['evidence']['version']} for v in confirmed],
+        'checked_against':{'workspace':ws.name,'subject':subject,'channel':data.channel,'policy_revision':ws.revision,'rules':len(rules),'sources':len(sources)},
+        'ai_used':False,'approval':'This API never approves or publishes. Approval is a separate, human step in Brandora.'}
+    if data.submit:
+        campaign=get(db,Campaign,data.campaign_id,owner) if data.campaign_id else db.scalar(select(Campaign).where(Campaign.org_id==owner.org_id).order_by(Campaign.name))
+        if not campaign:fail(422,'Create a campaign before submitting drafts through the API.')
+        c=Content(org_id=owner.org_id,author_id=owner.id,campaign_id=campaign.id,title=data.title,channel=data.channel,subject=subject,body=data.text);db.add(c);db.flush()
+        db.add(ContentVersion(content_id=c.id,version=1,body=c.body))
+        audit(db,owner,'Submitted draft through the API',c.title,{'content_id':c.id,'key':key.name,'prefix':key.prefix})
+        run_scan(db,c,owner)
+        out['submitted']={'content_id':c.id,'title':c.title,'campaign':campaign.name,'status':c.status,'next':'The draft is in Verify & Review for a person to review and approve.'}
+    audit(db,owner,'API check',key.name,{'prefix':key.prefix,'verdict':verdict,'findings':len(findings),'channel':data.channel,'submitted':bool(data.submit)})
+    return out
 
 def seed():
     if not DEMO:return

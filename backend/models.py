@@ -208,6 +208,7 @@ class Creative(Base):
     created: Mapped[str]=mapped_column(String,default=now)
     page_count: Mapped[int]=mapped_column(Integer,default=1)
     images: Mapped[list]=mapped_column(JSON,default=list)
+    colours: Mapped[list]=mapped_column(JSON,default=list)
 
 class CreativePage(Base):
     """One rendered page of a multi-page document or deck. Regions and findings refer to it by page index."""
@@ -247,6 +248,21 @@ class FindingEvent(Base):
     fictional: Mapped[int]=mapped_column(Integer,default=0)
     created: Mapped[str]=mapped_column(String,default=now)
 
+class ApiKey(Base):
+    """A workspace key for the check-before-publish API. Only a SHA-256 hash of the key is stored."""
+    __tablename__='api_keys'
+    id: Mapped[str]=mapped_column(String,primary_key=True,default=uid)
+    org_id: Mapped[str]=mapped_column(ForeignKey('workspaces.id'),index=True)
+    name: Mapped[str]=mapped_column(String)
+    prefix: Mapped[str]=mapped_column(String)
+    key_hash: Mapped[str]=mapped_column(String,unique=True,index=True)
+    created_by: Mapped[str]=mapped_column(String)
+    creator: Mapped[str]=mapped_column(String,default='')
+    uses: Mapped[int]=mapped_column(Integer,default=0)
+    last_used: Mapped[str]=mapped_column(String,default='')
+    revoked: Mapped[int]=mapped_column(Integer,default=0)
+    created: Mapped[str]=mapped_column(String,default=now)
+
 class RuleProposal(Base):
     """A clarified rule: drafted, replayed on recorded history, then applied only by a different manager."""
     __tablename__='rule_proposals'
@@ -278,5 +294,6 @@ with engine.begin() as connection:
     creative_columns={c['name'] for c in inspect(connection).get_columns('creatives')}
     if 'page_count' not in creative_columns:connection.execute(text('ALTER TABLE creatives ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1'))
     if 'images' not in creative_columns:connection.execute(text("ALTER TABLE creatives ADD COLUMN images JSON NOT NULL DEFAULT '[]'"))
+    if 'colours' not in creative_columns:connection.execute(text("ALTER TABLE creatives ADD COLUMN colours JSON NOT NULL DEFAULT '[]'"))
     event_columns={c['name'] for c in inspect(connection).get_columns('finding_events')}
     if 'review_by' not in event_columns:connection.execute(text("ALTER TABLE finding_events ADD COLUMN review_by VARCHAR NOT NULL DEFAULT ''"))

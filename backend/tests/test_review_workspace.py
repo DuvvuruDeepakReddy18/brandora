@@ -27,10 +27,10 @@ def switch(client,role):
     return client.get('/api/workspace').json()
 def ad_of(state):return next(c for c in state['content'] if c['title']==demo.AD_TITLE)
 
-def test_sample_ad_is_marked_with_the_six_specified_findings():
+def test_sample_ad_is_marked_with_the_seven_specified_findings():
     client,state=visitor();ad=ad_of(state)
     outcomes=sorted((f['rule_code'],f['outcome']) for f in ad['findings'])
-    assert outcomes==sorted([('P02','Verified Contradiction'),('P02','Low Confidence'),('F02','Verified Contradiction'),('R03','Evidence Gap'),('R03','Evidence Gap'),('LOGO','Visual Violation')])
+    assert outcomes==sorted([('P02','Verified Contradiction'),('P02','Low Confidence'),('F02','Verified Contradiction'),('R03','Evidence Gap'),('R03','Evidence Gap'),('LOGO','Visual Violation'),('C01','Low Confidence')])
     spans={f['span'] for f in ad['findings']}
     assert {'₹1,499 per month','30-day',"The world's No. 1 creative platform",'Reduce your marketing production time by 80%'}<=spans
     for f in ad['findings']:
@@ -41,7 +41,9 @@ def test_sample_ad_is_marked_with_the_six_specified_findings():
     creative=next(c for c in state['creatives'] if c['content_id']==ad['id'])
     assert creative['origin']=='fixture' and creative['version']==1 and len(creative['regions'])==6 and creative['logos'][0]['result']=='modified'
     assert all(ad['body'][r['start']:r['end']]==r['text'] for r in creative['regions'])
-    assert len(creative['findings'])==6 and 'image' not in creative
+    assert len(creative['findings'])==7 and 'image' not in creative
+    colours=next(f for f in ad['findings'] if f['rule_code']=='C01')
+    assert colours['kind']=='visual' and colours['measure']['colours'][0]['hex'].startswith('#') and colours['measure']['colours'][0]['delta_e']>18
     image=client.get(creative['image_url']);assert image.status_code==200 and image.headers['content-type']=='image/jpeg'
 
 def test_corrections_clear_findings_show_verified_values_and_keep_the_annotated_original():
@@ -51,7 +53,7 @@ def test_corrections_clear_findings_show_verified_values_and_keep_the_annotated_
     state=client.get('/api/workspace').json();ad=ad_of(state)
     assert {v['span'] for v in ad['verified']}>={'₹1,999 per month','14-day'}
     original=next(c for c in state['creatives'] if c['content_id']==ad['id'])
-    assert original['version']==1 and len(original['findings'])==6
+    assert original['version']==1 and len(original['findings'])==7
     assert client.post('/api/content/'+ad['id']+'/request-review').status_code==200
     switch(client,'reviewer')
     assert client.post('/api/content/'+ad['id']+'/approve').status_code==200

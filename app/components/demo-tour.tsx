@@ -71,7 +71,7 @@ export const STEPS: { key: TourStep; title: string; as: string; text: string; ct
     key: "inspect",
     title: "See the marked-up ad",
     as: "creator",
-    text: "An employee uploaded a wrong Inkloom AI ad. Six numbered marks show what contradicts or is unsupported by Company Hub. Click any mark to see its evidence.",
+    text: "An employee uploaded a wrong Inkloom AI ad. Seven numbered marks show what contradicts, is unsupported by Company Hub or uses off-brand colours. Click any mark to see its evidence.",
     cta: "Open the ad",
   },
   {

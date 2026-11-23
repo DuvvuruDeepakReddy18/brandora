@@ -201,7 +201,7 @@ export function GuidelineInsights({ data, action, busy, notify }: { data: Data; 
             return (
               <div key={r.rule_code} className="insight-card">
                 <small>{r.rule_code}</small>
-                <h4>{r.title}</h4>
+                <h3 className="insight-title">{r.title}</h3>
                 <div>
                   <span className="count">{r.count}</span> <small>findings · {r.last_30_days} in the last 30 days{r.previous_30_days ? `, ${r.previous_30_days} in the 30 before` : ""}</small>
                 </div>
@@ -260,7 +260,7 @@ export function GuidelineInsights({ data, action, busy, notify }: { data: Data; 
             const applied = insight.proposals.find((p: Row) => p.rule_id === u.rule_id && p.status === "Applied");
             return (
               <div key={u.rule_code} className="unclear-card">
-                <h4><AlertTriangle size={15} /> {u.rule_code} · {u.title}</h4>
+                <h3 className="unclear-title"><AlertTriangle size={15} /> {u.rule_code} · {u.title}</h3>
                 <ul>{u.signals.map((x: string) => <li key={x}>{x}</li>)}</ul>
                 {u.reviewer_reason && <p style={{ margin: 0 }}>Reviewers' most common reason: “{u.reviewer_reason}”</p>}
                 <div className="suggestion-box">
@@ -443,6 +443,171 @@ export function CommonMistakes({ revision }: { revision: number }) {
   );
 }
 
+/* ---------- Integrations: the check-before-publish API ---------- */
+const SAMPLE_CHECK = "Try Inkloom AI free for 30 days. Professional is only ₹1,499/month!";
+export function IntegrationsPanel({ data, action, busy }: { data: Data; action: Action; busy: boolean }) {
+  const [keys, setKeys] = useState<Row[]>([]),
+    [name, setName] = useState("CMS publishing check"),
+    [fresh, setFresh] = useState(""),
+    [text, setText] = useState(SAMPLE_CHECK),
+    [channel, setChannel] = useState("Website"),
+    [result, setResult] = useState<Row | null>(null),
+    [error, setError] = useState(""),
+    [sending, setSending] = useState(false);
+  const manager = data.user.role === "manager";
+  const load = useCallback(() => {
+    if (manager) api("/api-keys").then(setKeys).catch(() => setKeys([]));
+  }, [manager]);
+  useEffect(load, [load, data.workspace.revision]);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const curl = `curl -X POST ${origin}/api/v1/check \\\n  -H "Authorization: Bearer ${fresh || "brk_your_key"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"text": "${SAMPLE_CHECK.replace(/'/g, "")}", "channel": "Website"}'`;
+  const create = async () => {
+    const r = await action("/api-keys", "POST", { name }, "API key created · copy it now");
+    if (r?.key) {
+      setFresh(r.key);
+      load();
+    }
+  };
+  const send = async () => {
+    setSending(true);
+    setError("");
+    setResult(null);
+    try {
+      const response = await fetch("/api/v1/check", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${fresh}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ text, channel }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Request failed");
+      setResult(body);
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <div className="r3-stack">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Check before publishing (API)</h2>
+            <p>
+              Connect a CMS, a publishing webhook (Zapier, Make) or a deploy pipeline. Before anything goes live, it sends the copy to Brandora and gets a verdict with evidence. The API runs the rule checks only: it never sends text to an AI provider, never approves and never publishes.
+            </p>
+          </div>
+        </div>
+        {!manager ? (
+          <div className="empty-mini">
+            <p>Managers create and revoke API keys.</p>
+            <SwitchRole role="manager" />
+          </div>
+        ) : (
+          <>
+            <div className="proposal-actions">
+              <label className="field" style={{ flex: "1 1 260px", margin: 0 }}>
+                <span>Key name</span>
+                <input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+              </label>
+              <button className="button primary" disabled={busy || name.trim().length < 2} onClick={create}>
+                Create API key
+              </button>
+            </div>
+            {fresh && (
+              <div className="suggestion-box" style={{ marginTop: 12 }}>
+                <small>NEW KEY · SHOWN ONCE · BRANDORA STORES ONLY A HASH</small>
+                <code style={{ wordBreak: "break-all" }}>{fresh}</code>
+              </div>
+            )}
+            {keys.length > 0 && (
+              <div className="table-scroll" style={{ marginTop: 12 }}>
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Name</th><th>Key</th><th>Created</th><th>Last used</th><th>Calls</th><th /></tr>
+                  </thead>
+                  <tbody>
+                    {keys.map((k) => (
+                      <tr key={k.id}>
+                        <td><b>{k.name}</b><small className="block muted">by {k.creator}</small></td>
+                        <td><code>{k.prefix}…</code></td>
+                        <td>{formatTime(k.created)}</td>
+                        <td>{k.last_used ? formatTime(k.last_used) : "—"}</td>
+                        <td className="num">{k.uses}</td>
+                        <td>
+                          {k.revoked ? (
+                            <span className="status-chip tone-grey"><i />Revoked</span>
+                          ) : (
+                            <button className="button small" disabled={busy} onClick={() => action(`/api-keys/${k.id}/revoke`, "POST", undefined, "API key revoked").then(load)}>
+                              Revoke
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Try it</h2>
+            <p>{fresh ? "Sends a real request with your new key, exactly as your CMS would." : "Create a key above to send a real request from here."}</p>
+          </div>
+        </div>
+        <div className="r3-stack" style={{ gap: 10 }}>
+          <label className="field" style={{ margin: 0 }}>
+            <span>Copy to check</span>
+            <textarea rows={3} value={text} maxLength={5000} onChange={(e) => setText(e.target.value)} />
+          </label>
+          <div className="proposal-actions">
+            <select value={channel} onChange={(e) => setChannel(e.target.value)} aria-label="Channel">
+              {["Website", "Email", "Social", "Advertisement"].map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <button className="button primary" disabled={!fresh || sending || !text.trim()} onClick={send}>
+              {sending ? <Loader2 size={14} className="spin" /> : <PlayCircle size={14} />} Send test request
+            </button>
+          </div>
+          {error && <div className="inline-warn"><AlertTriangle size={15} /> {error}</div>}
+          {result && (
+            <div className={"unclear-card"} style={{ background: "#fff", borderColor: "var(--line)" }}>
+              <h4>
+                <span className={"status-chip tone-" + (result.verdict === "blocked" ? "red" : result.verdict === "needs_review" ? "yellow" : "green")}><i />{result.verdict}</span>{" "}
+                {result.summary}
+              </h4>
+              <ul>
+                {result.findings.map((f: Row) => (
+                  <li key={f.id}>
+                    <b>{f.rule} · {f.title}</b>{f.span ? ` — “${f.span}”` : ""}{f.suggestion ? ` → “${f.suggestion}”` : ""}
+                    {f.evidence && <small className="block muted">{f.evidence.source} v{f.evidence.version}</small>}
+                  </li>
+                ))}
+              </ul>
+              <details>
+                <summary>Raw JSON response</summary>
+                <pre className="json-block">{JSON.stringify(result, null, 2)}</pre>
+              </details>
+            </div>
+          )}
+          <details>
+            <summary>Call it from your own system (curl)</summary>
+            <pre className="json-block">{curl}</pre>
+            <p className="form-note">
+              Add <code>{'"submit": true'}</code> to also place the draft in Verify & Review for a person to approve. Full reference:{" "}
+              <a className="text-button" href={REPO + "docs/API.md"} target="_blank" rel="noreferrer">docs/API.md</a>
+            </p>
+          </details>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function Round3Spotlight({ onExplore }: { onExplore: (key: "brochure" | "deck" | "reliability" | "insights") => void }) {
   const items = [
     { key: "brochure" as const, title: "10-page brochure, page by page", text: "Marks on every page, zoom, measured contrast and tiny text" },
@@ -461,7 +626,7 @@ export function Round3Spotlight({ onExplore }: { onExplore: (key: "brochure" | "
       <div className="insight-cards">
         {items.map((x) => (
           <button key={x.key} className="insight-card" style={{ textAlign: "left", cursor: "pointer" }} onClick={() => onExplore(x.key)}>
-            <h4>{x.title}</h4>
+            <h3 className="insight-title">{x.title}</h3>
             <small>{x.text}</small>
             <span className="text-button">Open <ArrowRight size={13} /></span>
           </button>

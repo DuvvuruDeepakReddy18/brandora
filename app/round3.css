@@ -307,7 +307,8 @@
   display: grid;
   gap: 10px;
 }
-.unclear-card h4 {
+.unclear-card h4,
+.unclear-title {
   margin: 0;
   font: 700 15px var(--sans);
 }
@@ -435,6 +436,10 @@
 .tips-panel small {
   color: var(--muted);
 }
+.r3-spotlight .insight-card h4,
+.insight-cards h4 {
+  font-size: 14px;
+}
 @media (max-width: 760px) {
   .metric-row,
   .config-diff {
@@ -447,4 +452,48 @@
   .canvas-tools {
     flex-wrap: wrap;
   }
+}
+
+.swatch-row {
+  display: grid;
+  gap: 6px;
+}
+.swatch {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  font: 12px/1.35 var(--sans);
+}
+.swatch i {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #0002;
+}
+.swatch b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.swatch small {
+  color: var(--muted);
+}
+
+.json-block {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 11.5px/1.45 ui-monospace, monospace;
+  background: var(--paper, #f6f7f9);
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.insight-title {
+  margin: 0;
+  font: 700 14px/1.35 var(--sans);
+  color: var(--ink);
 }

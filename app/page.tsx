@@ -5,7 +5,7 @@ import { DemoContext, SwitchRole, sampleFile, useDemo } from "./components/demo-
 import { WorkspaceCrew } from "./components/workspace-crew";
 import { LandingPage } from "./components/brand-crew-landing";
 import { AIStatus } from "./components/intelligence";
-import { GuidelineInsights, ReliabilityReport, Round3Spotlight } from "./components/round3";
+import { GuidelineInsights, IntegrationsPanel, ReliabilityReport, Round3Spotlight } from "./components/round3";
 import { ReviewWorkspace, type Stage } from "./components/review-workspace";
 import {
   FixQueue,
@@ -105,7 +105,7 @@ const HUB_TABS = [
   "Claim lineage",
   "Guideline insights",
 ] as const;
-const TRUST_TABS = ["Audit trail", "Approval receipts", "Reliability", "Privacy & AI"] as const;
+const TRUST_TABS = ["Audit trail", "Approval receipts", "Reliability", "Integrations", "Privacy & AI"] as const;
 const ITEM_VIEWS: View[] = ["Scan & Detect", "Verify & Review", "Fix & Approve"];
 const RULE_TEMPLATES = {
   term: {
@@ -154,6 +154,16 @@ const RULE_TEMPLATES = {
       cite: { contrast: "contrast ratio of at least 4.5:1", contrast_large: "needs at least 3:1", size: "at least 9 pt", alt: "Every image needs alt text" },
     },
     help: "Accessibility: measured text contrast on images, PDFs and slides, minimum text size in documents, and missing or unhelpful alt text. Each cited phrase must appear in the source excerpt.",
+  },
+  palette: {
+    value: "Brand palette",
+    config: {
+      colours: { "Ink violet": "#5B3DF5", Night: "#17133A", Paper: "#FFF8EE" },
+      tolerance: 18,
+      min_share: 0.012,
+      cite: { palette: "Approved colours" },
+    },
+    help: "Colour palette: measured dominant colours on images, PDF pages and slides are compared with these approved colours (ΔE tolerance; colours covering less than min_share of the image are ignored; neutrals and the logo area are skipped). Every colour value and the cited phrase must appear in the source excerpt.",
   },
   substantiation: {
     value: "Approved study required",
@@ -1340,6 +1350,7 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                  <h2 className="sr-only">Approved sources</h2>
                   <div className="source-grid">
                     {data.sources.map((s) => (
                       <article className="source-card" key={s.id}>
@@ -1763,6 +1774,7 @@ export default function App() {
                 </section>
               )}
               {trustTab === "Reliability" && <ReliabilityReport />}
+              {trustTab === "Integrations" && <IntegrationsPanel data={data} action={action} busy={busy} />}
               {trustTab === "Privacy & AI" && (
                 <>
                   <section className="privacy-hero">

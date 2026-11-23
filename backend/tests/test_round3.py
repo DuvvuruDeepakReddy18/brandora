@@ -98,7 +98,9 @@ def test_ten_page_brochure_and_deck_have_page_specific_marks_and_measured_contra
     page = client.get(creatives[brochure['id']]['pages'][5]['image_url'])
     assert page.status_code == 200 and page.headers['content-type'] == 'image/jpeg' and page.content[:2] == b'\xff\xd8'
     ad = item(state, demo.AD_TITLE)
-    assert len(ad['findings']) == 6 and not any(f['outcome'] == 'Accessibility' for f in ad['findings'])
+    assert len(ad['findings']) == 7 and not any(f['outcome'] == 'Accessibility' for f in ad['findings'])
+    page6 = [f for f in brochure['findings'] if f['rule_code'] == 'C01']
+    assert [f['page'] for f in page6] == [5] and page6[0]['measure']['colours'][0]['hex'] == '#ffb27a'
 
 
 def test_uploaded_pdf_and_pptx_are_read_page_by_page_without_ai():
@@ -287,3 +289,61 @@ def test_ai_does_not_second_guess_a_verified_value(monkeypatch):
     r = client.post(f"/api/content/{hero['id']}/scan").json()
     assert calls and r['scan_coverage'].startswith('Rules + validated')
     assert not any(f['engine'] == 'AI-assisted' for f in r['findings'])
+
+
+# ---------- Check-before-publish API ----------
+def test_api_key_lifecycle_and_rules_only_verdicts():
+    client, _ = visitor()
+    assert client.post('/api/api-keys', json={'name': 'CMS'}).status_code == 403
+    switch(client, 'manager')
+    created = client.post('/api/api-keys', json={'name': 'CMS publishing check'}).json()
+    key = created['key']
+    assert key.startswith('brk_') and 'key_hash' not in created
+    listed = client.get('/api/api-keys').json()
+    assert listed[0]['prefix'] == key[:10] and 'key_hash' not in listed[0] and key not in str(listed)
+    cms = TestClient(main.app, base_url='https://testserver')
+    assert cms.post('/api/v1/check', json={'text': 'Hello'}).status_code == 401
+    assert cms.post('/api/v1/check', json={'text': 'Hello'}, headers={'Authorization': 'Bearer brk_wrong'}).status_code == 401
+    auth = {'Authorization': 'Bearer ' + key}
+    bad = cms.post('/api/v1/check', json={'text': 'Try Inkloom AI free for 30 days. Professional is only ₹1,499/month!', 'channel': 'Social'}, headers=auth).json()
+    assert bad['verdict'] == 'blocked' and bad['ai_used'] is False and 'never approves' in bad['approval']
+    assert {f['rule'] for f in bad['findings']} >= {'F02', 'P02'} and all(f['evidence'] for f in bad['findings'] if f['rule'] != 'REVIEW')
+    good = cms.post('/api/v1/check', json={'text': 'Inkloom AI Professional is ₹1,999/month + GST. Start with a 14-day free trial.'}, headers=auth).json()
+    assert good['verdict'] == 'clear' and good['findings'] == [] and len(good['verified']) >= 2
+    review = cms.post('/api/v1/check', json={'text': 'Inkloom AI is the best tool for agencies.'}, headers=auth).json()
+    assert review['verdict'] == 'needs_review'
+    keys = client.get('/api/api-keys').json()
+    assert keys[0]['uses'] == 3 and keys[0]['last_used']
+    client.post(f"/api/api-keys/{keys[0]['id']}/revoke")
+    assert cms.post('/api/v1/check', json={'text': 'Hello'}, headers=auth).status_code == 401
+    trail = [a['action'] for a in client.get('/api/workspace').json()['activity']]
+    assert 'Created API key' in trail and 'API check' in trail and 'Revoked API key' in trail
+
+
+def test_api_submission_lands_in_the_review_queue():
+    client, _ = visitor()
+    switch(client, 'manager')
+    key = client.post('/api/api-keys', json={'name': 'Webhook'}).json()['key']
+    cms = TestClient(main.app, base_url='https://testserver')
+    r = cms.post('/api/v1/check', json={'text': 'Start your 30-day free trial of Ink Loom.', 'channel': 'Email', 'title': 'Newsletter intro', 'submit': True}, headers={'Authorization': 'Bearer ' + key}).json()
+    assert r['submitted']['status'] == 'Needs changes'
+    queued = item(client.get('/api/workspace').json(), 'Newsletter intro')
+    assert {f['rule_code'] for f in queued['findings']} >= {'F02', 'T01'}
+
+
+def test_palette_check_flags_off_brand_colours_and_passes_the_corrected_ad():
+    from backend import documents
+    from backend.engine import palette
+    rules, sources = evaluation.register()
+    wrong, _, logo_box = demo.draw_ad(False)
+    right, _, logo2 = demo.draw_ad(True)
+    found = palette(documents.measure_colours(wrong), rules, sources, demo.COMPANY, 'Advertisement', [{'box': logo_box}])[0]
+    assert len(found) == 1 and found[0]['outcome'] == 'Low Confidence' and found[0]['kind'] == 'visual'
+    first = found[0]['measure']['colours'][0]
+    assert first['delta_e'] > 60 and first['nearest'] in ('Violet', 'Ink violet') and found[0]['evidence']['rule_value'] == 'Approved colours'
+    assert not palette(documents.measure_colours(right), rules, sources, demo.COMPANY, 'Advertisement', [{'box': logo2}])[0]
+    # Evidence-gated: a palette colour missing from the approved source silences the check.
+    from types import SimpleNamespace
+    rule = next(r for r in rules if r.kind == 'palette')
+    broken = SimpleNamespace(**{**vars(rule), 'config': {**rule.config, 'colours': {**rule.config['colours'], 'Orange': '#FF6A13'}}})
+    assert not palette(documents.measure_colours(wrong), [broken], sources, demo.COMPANY, 'Advertisement')[0]

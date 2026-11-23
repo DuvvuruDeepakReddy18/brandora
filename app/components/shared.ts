@@ -142,6 +142,18 @@ export function outcomeMeta(f: Row): {
         : "Fix it in the design file and upload the revision, or a reviewer records an exemption.",
       group: "access",
     };
+  if (f.kind === "visual" && f.outcome === "Low Confidence")
+    return {
+      tone: "yellow",
+      label: String(f.title).includes("palette") ? "Off-palette colours" : "Needs human review",
+      confidence: String(f.title).includes("palette")
+        ? "Measured colours · a reviewer decides (photography may use other colours)"
+        : "Low · requires reviewer judgement",
+      next: String(f.title).includes("palette")
+        ? "Use approved colours in the design and upload the revision, or a reviewer accepts them with a reason."
+        : "A reviewer decides whether it applies and records why.",
+      group: "visual",
+    };
   if (f.engine === "AI-assisted")
     return {
       tone: "blue",

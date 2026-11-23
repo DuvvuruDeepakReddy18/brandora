@@ -1,20 +1,20 @@
 /* Six-module workspace, annotated review and correction flow. Built on the Brand Crew tokens. */
 .app-shell {
-  --t-red: #d92d20;
+  --t-red: #c0281d;
   --t-red-bg: #fdebe8;
-  --t-orange: #e0620d;
+  --t-orange: #b54f0a;
   --t-orange-bg: #fff0e2;
-  --t-yellow: #a77c00;
+  --t-yellow: #8a6500;
   --t-yellow-bg: #fff4c7;
   --t-blue: #3a2bff;
   --t-blue-bg: #eeecff;
-  --t-green: #15803d;
+  --t-green: #13703a;
   --t-green-bg: #e2f3e7;
-  --t-grey: #8a857c;
+  --t-grey: #6b665e;
   --t-grey-bg: #ece8e0;
   --t-violet: #8b2fc9;
   --t-violet-bg: #f5e8fd;
-  --t-teal: #0f7c86;
+  --t-teal: #0c6c75;
   --t-teal-bg: #def4f5;
 }
 .tone-red { --tone: var(--t-red); --tone-bg: var(--t-red-bg); }
@@ -39,7 +39,7 @@
 }
 .app-shell .nav-num {
   font: 9px var(--mono);
-  color: #9a948a;
+  color: inherit;
   width: 16px;
 }
 .app-shell .nav-item.module.active .nav-num {
@@ -49,7 +49,7 @@
 .app-shell .nav-flow {
   margin: 14px 12px 0;
   font: 9px/1.6 var(--mono);
-  color: #9a948a;
+  color: #5f5b55;
   letter-spacing: 0.3px;
 }
 .app-shell button.mode-note {
@@ -993,7 +993,7 @@ mark.ev-hit {
   background: #ece8e0;
 }
 .suggest-box.resolved small {
-  color: #6e6a64;
+  color: #5f5b55;
 }
 .decision-actions {
   display: flex;
@@ -1756,7 +1756,7 @@ mark.ev-hit {
 .tour-step small {
   font: 9px var(--mono);
   text-transform: uppercase;
-  color: #7a6f8e;
+  color: #5f5577;
   letter-spacing: 0.5px;
 }
 .tour-step p {
