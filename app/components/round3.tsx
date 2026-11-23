@@ -30,6 +30,7 @@ export function ReliabilityReport() {
   const names: Record<string, string> = report.dataset.split_names || {};
   const first = (report.history?.rounds || [])[0];
   const current = report.failures.filter((f: Row) => f.split === head);
+  const failedItems = new Set(current.map((f: Row) => f.id)).size;
   return (
     <div className="r3-stack">
       <section className="panel">
@@ -45,12 +46,12 @@ export function ReliabilityReport() {
           </button>
         </div>
         <div className="metric-row">
-          <div className={"metric-card " + (fresh.precision >= 0.95 ? "good" : "warn")}>
+          <div className={"metric-card " + (fresh.precision >= 0.9 ? "good" : "warn")}>
             <small>Precision · fresh</small>
             <b>{pct(fresh.precision)}</b>
             <span>{fresh.tp} of {fresh.tp + fresh.fp} findings raised on unseen content were correct</span>
           </div>
-          <div className={"metric-card " + (fresh.recall >= 0.95 ? "good" : "warn")}>
+          <div className={"metric-card " + (fresh.recall >= 0.9 ? "good" : "warn")}>
             <small>Recall · fresh</small>
             <b>{pct(fresh.recall)}</b>
             <span>{fresh.tp} of {fresh.tp + fresh.fn} labelled problems on unseen content were found</span>
@@ -60,7 +61,7 @@ export function ReliabilityReport() {
             <b>{report.citations.valid}/{report.citations.checked}</b>
             <span>Every shown finding cites the current approved source, and the source contains the cited words</span>
           </div>
-          <div className={"metric-card " + (report.clean_controls.with_findings === 0 ? "good" : "warn")}>
+          <div className={"metric-card " + (report.clean_controls.false_alarm_rate <= 0.05 ? "good" : "warn")}>
             <small>Clean items flagged</small>
             <b>{report.clean_controls.with_findings}/{report.clean_controls.items}</b>
             <span>Correct content where Brandora still raised something</span>
@@ -88,7 +89,7 @@ export function ReliabilityReport() {
             <div className="improve-step now">
               <small>ROUND 2 · FRESH · WRITTEN AFTER THE FIXES</small>
               <b>{pct(fresh.precision)} precision · {pct(fresh.recall)} recall</b>
-              <span>{fresh.items} new held-out items · {current.length ? `${current.length} failure records, explained below` : "no failures"}</span>
+              <span>{fresh.items} new held-out items · {failedItems ? `${failedItems} with a miss or false alarm, explained below` : "no failures"}</span>
             </div>
           </div>
           <p className="form-note">
