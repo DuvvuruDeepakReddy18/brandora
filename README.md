@@ -4,7 +4,7 @@
 
 [![Verify Brandora](https://github.com/DuvvuruDeepakReddy18/brandora/actions/workflows/ci.yml/badge.svg)](https://github.com/DuvvuruDeepakReddy18/brandora/actions/workflows/ci.yml) [![Live claim check](https://github.com/DuvvuruDeepakReddy18/brandora/actions/workflows/live-check.yml/badge.svg)](https://github.com/DuvvuruDeepakReddy18/brandora/actions/workflows/live-check.yml)
 
-**Docs:** [Testing & reliability](docs/TESTING.md) · [Privacy, security, accessibility & responsible design](docs/RESPONSIBLE_DESIGN.md) · [Check-before-publish API](docs/API.md) · [Known limitations & roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+**Round 3 report (PDF):** [docs/Brandora_Round3_Final_Report.pdf](docs/Brandora_Round3_Final_Report.pdf) · **Docs:** [Testing & reliability](docs/TESTING.md) · [Privacy, security, accessibility & responsible design](docs/RESPONSIBLE_DESIGN.md) · [Check-before-publish API](docs/API.md) · [Known limitations & roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
 
 Marketing teams publish ads with wrong prices, outdated trial periods, unsupported "No. 1" claims and the wrong logo. Brandora checks every ad, image, PDF or piece of copy against the company's **own approved records**, **marks each problem directly on the content** with its evidence, lets a **human reviewer decide**, helps **fix and re-check** it, **approves one exact version**, and keeps a **complete audit trail**. When an approved fact changes later, it finds every piece of content that relied on it.
 

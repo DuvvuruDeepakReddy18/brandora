@@ -3,10 +3,10 @@
   "url": "https://brandora-omega-three.vercel.app",
   "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
   "repository_visibility": "public",
-  "deployment_id": "dpl_Dq3xG3nAi3TUVCFnMWsbaV8MxcHY",
-  "deployment_url": "https://brandora-kgjg036jh-duvvurudeepakreddy18s-projects.vercel.app",
-  "application_commit": "b9426f2 (main and claude/changes)",
-  "previous_production_deployment": "dpl_FuU2V96jkPBiD7SsY7iUR9dNqd4V",
+  "deployment_id": "dpl_FLLayKZbBjQQgb8XiUcrzEiDoCLK",
+  "deployment_url": "https://brandora-cas3tipis-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "c6a0572 (main and claude/changes)",
+  "previous_production_deployment": "dpl_Dq3xG3nAi3TUVCFnMWsbaV8MxcHY",
   "status": "READY",
   "target": "production",
   "promoted": true,
@@ -35,12 +35,13 @@
     "local_browser": "desktop 1440px and mobile 375px: brochure page view with page arrows, thumbnails with per-page counts and zoom to 150%; clicking a finding jumps to its page; contrast evidence shows measured colours and ratio; deck uploaded through Use this sample and read page by page; slide 4 alt-text marks; Fix & approve shows Revised file upload for documents; Reliability and Guideline insights screens; reviewer draft, replay and manager approval; original ad still shows exactly six findings; no page-level horizontal overflow on mobile",
     "production_api_flow": "passed on the live URL with a fresh sandbox: 7 seeded items (ad 6 findings, brochure 13 across 10 pages, deck 10 across 6 slides); brochure contrast 2.02:1 on page 1 and 1.76:1 on page 6; deck alt text missing and unhelpful on slide 4, 2.32:1 subtitle, 7 pt footer; page image served as JPEG; reliability endpoint returns the measured report; creator tips; insights flag P02 and unclear claims; replay 35.7% to 100% agreement with 0 confirmed issues missed; manager applied the reviewer's proposal (200); corrected brochure upload created version 2 with zero findings, checked by rules plus live Gemini",
     "canonical_landing_source_sha256_prefix": "3f8540e6ec92 (unchanged)",
-    "live_claims": "51/51 documented claims passed on the live URL with live AI (scripts/verify_live.py; docs/live-verification.json)",
+    "live_claims": "51/51 documented claims passed on the final deployment with live AI (scripts/verify_live.py; docs/live-verification.json); the daily GitHub Actions run (rules only) also passed",
     "accessibility_audit": "24 screens across four roles, 4,076 elements, 0 issues after fixing 23 (docs/accessibility-audit.json)"
   },
   "owner_next_step": "Existing owners sign in normally. Judges choose Explore demo; the Round 3 features open from More to explore or the cards on Home.",
   "limits": "Functional release verification; no penetration test, large-scale load certification or user study is claimed. The evaluation set is synthetic and team-labelled; it measures the rule engine, not live AI suggestions.",
   "judge_access": "Explore demo; no credentials. Opens on the marked Inkloom AI ad. Four roles, isolated two-hour workspace, sample files and bounded live AI.",
   "follow_up_fixes": "A strict live check of every documented claim found three failures, now fixed: a judgement call accepted on version 1 is carried to the corrected version when the same rule raises the same question with unchanged surrounding wording (labelled carried over), so the walkthrough approves; logo text is exempt from contrast as WCAG allows; the sample footer is darker so the corrected ad passes contrast under live OCR. Also: tone and accessibility rules can be created in the rule editor; Home counts tone and accessibility issues. Live AI behaviour: a suggestion that cannot quote its source is hidden (and counted) without marking the check incomplete, and AI suggestions are not shown on values the rule engine verified against the same approved record.",
-  "additions": "Brand colour palette check (judgement call with swatches); check-before-publish API with hashed, revocable, rate-limited workspace keys and an Integrations test console; daily GitHub Actions live claim check; accessibility audit of 24 workspace screens (23 issues fixed, 0 remaining); RESPONSIBLE_DESIGN.md, TESTING.md, ROADMAP.md, CHANGELOG.md, API.md."
+  "additions": "Brand colour palette check (judgement call with swatches); check-before-publish API with hashed, revocable, rate-limited workspace keys and an Integrations test console; daily GitHub Actions live claim check; accessibility audit of 24 workspace screens (23 issues fixed, 0 remaining); RESPONSIBLE_DESIGN.md, TESTING.md, ROADMAP.md, CHANGELOG.md, API.md.",
+  "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 13 pages; contact details omitted)"
 }

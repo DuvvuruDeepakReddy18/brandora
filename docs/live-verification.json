@@ -1,6 +1,6 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-23T02:01:25+00:00",
+  "checked_at": "2026-11-23T02:16:45+00:00",
   "live_ai": true,
   "passed": 51,
   "total": 51,
@@ -258,7 +258,7 @@
     {
       "claim": "creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)",
       "result": "PASS",
-      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\"]"
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"T01:Low Confidence:Ik inkloom\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\"]"
     }
   ]
 }
