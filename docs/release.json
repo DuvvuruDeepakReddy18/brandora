@@ -3,21 +3,21 @@
   "url": "https://brandora-omega-three.vercel.app",
   "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
   "repository_visibility": "public",
-  "deployment_id": "dpl_FLLayKZbBjQQgb8XiUcrzEiDoCLK",
-  "deployment_url": "https://brandora-cas3tipis-duvvurudeepakreddy18s-projects.vercel.app",
-  "application_commit": "c6a0572 (main and claude/changes)",
-  "previous_production_deployment": "dpl_Dq3xG3nAi3TUVCFnMWsbaV8MxcHY",
+  "deployment_id": "dpl_8nYY34Yf6YcDrWPbXxQGYrfdBthZ",
+  "deployment_url": "https://brandora-io6u8fmhr-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "38a4708 (main and claude/changes); later commits change documentation only",
+  "previous_production_deployment": "dpl_4gi7EttyvNk8Cs2KQ8QP8U8ra6q1",
   "status": "READY",
   "target": "production",
   "promoted": true,
   "topology": "Vercel Services: Next.js and FastAPI; dedicated Neon PostgreSQL",
   "provider": "gemini",
   "model": "gemini-3.5-flash-lite",
-  "release_summary": "Round 3. (1) Measured, trustworthy findings: an 80-item labelled evaluation (40 development, 40 held-out, 22 clean controls) run by the production engine, shown in Trust & Audit → Reliability and enforced in CI; tone & messaging checks citing the approved brand voice guide. (2) Every format, page by page: multi-page PDFs and PowerPoint decks with page navigation, thumbnails and zoom; measured accessibility findings (text contrast against WCAG 4.5:1 / 3:1, small text, missing or unhelpful alt text); documents revised by uploading the corrected file. (3) From repeated mistakes to clearer guidelines: insights by rule, channel, campaign and team; possibly unclear rules flagged from reviewer overrides and needs-review volume; clarified rules replayed on history and applied only by a different manager with an audit record. Landing page unchanged.",
+  "release_summary": "Round 3. (1) Measured, trustworthy findings: a 120-item labelled evaluation (40 development, 40 held-out round 1, 40 fresh held-out round 2; 33 clean controls) run by the production engine; round 1 measured 96.2% precision / 86.2% recall, its five failures were fixed in the engine, and the fresh round 2 measured 93.5% / 93.5%, shown in Trust & Audit → Reliability and enforced in CI; tone & messaging checks citing the approved brand voice guide. (2) Every format, page by page: multi-page PDFs and PowerPoint decks with page navigation, thumbnails and zoom; measured accessibility findings (text contrast against WCAG 4.5:1 / 3:1, small text, missing or unhelpful alt text); documents revised by uploading the corrected file. (3) From repeated mistakes to clearer guidelines: insights by rule, channel, campaign and team; possibly unclear rules flagged from reviewer overrides and needs-review volume; clarified rules replayed on history and applied only by a different manager with an audit record. Landing page unchanged.",
   "schema_change": "Additive: new tables creative_pages, finding_events and rule_proposals; creatives gains page_count and images columns (ALTER ... ADD COLUMN with defaults). No column removed or retyped. Follow-up: finding_events gains review_by (ALTER ... ADD COLUMN with default). Round 3 additions: api_keys table; creatives gains colours (ALTER ... ADD COLUMN with default).",
   "dependency_change": "pypdfium2 5.15.2 added (PDF page rendering and text positions). The sample deck is committed as a file; python-pptx is used only by scripts/make_sample_deck.py and is not a runtime dependency.",
   "verification": {
-    "regression_tests": 84,
+    "regression_tests": 85,
     "regression_result": "passed",
     "landing_bridge_tests": "3 passed",
     "brand_crew_entry_check": "passed",
@@ -26,14 +26,16 @@
     "release_secret_scan": "passed",
     "staged_health": "passed before promotion (production database, new tables created at startup)",
     "evaluation": {
-      "development": "40 items · precision 100% · recall 100%",
-      "held_out": "40 items · precision 96.2% (25/26) · recall 86.2% (25/29)",
-      "citation_validity": "50/50",
-      "clean_controls_flagged": "1/22",
-      "note": "Held-out items were written after the checks were frozen and are reported as they came out. The five failures are listed in docs/reliability.json with their reasons and were deliberately not tuned away."
+      "development": "40 items · precision 100% (31/31) · recall 100% (31/31)",
+      "held_out_round_1_first_run": "40 items · precision 96.2% (25/26) · recall 86.2% (25/29) · engine d42a2b55a103 · kept in backend/eval/history.json",
+      "held_out_round_1_after_fixes": "40 items · precision 100% (29/29) · recall 100% (29/29) · now development data",
+      "held_out_round_2_fresh": "40 items · precision 93.5% (29/31) · recall 93.5% (29/31) · engine 963a95b806dc · the headline",
+      "citation_validity": "79/79",
+      "clean_controls_flagged": "1/33",
+      "note": "Round 2 was written after round 1's fixes, with the engine frozen, and measured once. Its three failures are listed in docs/reliability.json with their reasons and were not tuned away."
     },
-    "local_browser": "desktop 1440px and mobile 375px: brochure page view with page arrows, thumbnails with per-page counts and zoom to 150%; clicking a finding jumps to its page; contrast evidence shows measured colours and ratio; deck uploaded through Use this sample and read page by page; slide 4 alt-text marks; Fix & approve shows Revised file upload for documents; Reliability and Guideline insights screens; reviewer draft, replay and manager approval; original ad still shows exactly six findings; no page-level horizontal overflow on mobile",
-    "production_api_flow": "passed on the live URL with a fresh sandbox: 7 seeded items (ad 6 findings, brochure 13 across 10 pages, deck 10 across 6 slides); brochure contrast 2.02:1 on page 1 and 1.76:1 on page 6; deck alt text missing and unhelpful on slide 4, 2.32:1 subtitle, 7 pt footer; page image served as JPEG; reliability endpoint returns the measured report; creator tips; insights flag P02 and unclear claims; replay 35.7% to 100% agreement with 0 confirmed issues missed; manager applied the reviewer's proposal (200); corrected brochure upload created version 2 with zero findings, checked by rules plus live Gemini",
+    "local_browser": "desktop 1440px and mobile 375px: brochure page view with page arrows, thumbnails with per-page counts and zoom to 150%; clicking a finding jumps to its page; contrast evidence shows measured colours and ratio; deck uploaded through Use this sample and read page by page; slide 4 alt-text marks; Fix & approve shows Revised file upload for documents; Reliability and Guideline insights screens; reviewer draft, replay and manager approval; original ad shows exactly seven findings (including the colour check); no page-level horizontal overflow on mobile",
+    "production_api_flow": "passed on the live URL with a fresh sandbox: 7 seeded items (ad 7 findings, brochure 14 across 10 pages, deck 10 across 6 slides); brochure contrast 2.02:1 on page 1 and 1.76:1 on page 6; deck alt text missing and unhelpful on slide 4, 2.32:1 subtitle, 7 pt footer; page image served as JPEG; reliability endpoint returns the measured report; creator tips; insights flag P02 and unclear claims; replay 35.7% to 100% agreement with 0 confirmed issues missed; manager applied the reviewer's proposal (200); corrected brochure upload created version 2 with zero findings, checked by rules plus live Gemini",
     "canonical_landing_source_sha256_prefix": "3f8540e6ec92 (unchanged)",
     "live_claims": "51/51 documented claims passed on the final deployment with live AI (scripts/verify_live.py; docs/live-verification.json); the daily GitHub Actions run (rules only) also passed",
     "accessibility_audit": "24 screens across four roles, 4,076 elements, 0 issues after fixing 23 (docs/accessibility-audit.json)"
@@ -43,5 +45,5 @@
   "judge_access": "Explore demo; no credentials. Opens on the marked Inkloom AI ad. Four roles, isolated two-hour workspace, sample files and bounded live AI.",
   "follow_up_fixes": "A strict live check of every documented claim found three failures, now fixed: a judgement call accepted on version 1 is carried to the corrected version when the same rule raises the same question with unchanged surrounding wording (labelled carried over), so the walkthrough approves; logo text is exempt from contrast as WCAG allows; the sample footer is darker so the corrected ad passes contrast under live OCR. Also: tone and accessibility rules can be created in the rule editor; Home counts tone and accessibility issues. Live AI behaviour: a suggestion that cannot quote its source is hidden (and counted) without marking the check incomplete, and AI suggestions are not shown on values the rule engine verified against the same approved record.",
   "additions": "Brand colour palette check (judgement call with swatches); check-before-publish API with hashed, revocable, rate-limited workspace keys and an Integrations test console; daily GitHub Actions live claim check; accessibility audit of 24 workspace screens (23 issues fixed, 0 remaining); RESPONSIBLE_DESIGN.md, TESTING.md, ROADMAP.md, CHANGELOG.md, API.md.",
-  "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 13 pages; contact details omitted)"
+  "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 14 pages; contact details omitted)"
 }
