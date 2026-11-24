@@ -1,11 +1,17 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-24T08:00:00+00:00",
+  "checked_at": "2026-11-24T08:49:57+00:00",
   "live_ai": true,
   "passed": 51,
   "total": 51,
-  "deployment": "dpl_3jFvLiJXNKmSE4UjfbgS2iTqJf4t (fixes after the ChatGPT review: billing period, negated values, logo set, AI disclosure)",
+  "deployment": "dpl_BxXrMXXPoa6o2ZNKyrt1AtVaR6Gt (second ChatGPT review round: pricing clause, withdrawn approved wording, logo checks, labels)",
   "earlier_runs": [
+    {
+      "checked_at": "2026-11-24T08:00:00+00:00",
+      "deployment": "dpl_3jFvLiJXNKmSE4UjfbgS2iTqJf4t",
+      "passed": 51,
+      "total": 51
+    },
     {
       "checked_at": "2026-11-24T05:37:15+00:00",
       "deployment": "dpl_AM9xLBaRZ8VzGsJf3yQSgBnGtu7K",
@@ -86,7 +92,7 @@
     {
       "claim": "Corrected version shows green verified values",
       "result": "PASS",
-      "detail": "2"
+      "detail": "4"
     },
     {
       "claim": "Request review (200)",
@@ -281,12 +287,12 @@
     {
       "claim": "corrected-creative.png comes back clean with live AI",
       "result": "PASS",
-      "detail": "[\"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.1-flash-lite\"]"
+      "detail": "[\"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
     },
     {
       "claim": "creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)",
       "result": "PASS",
-      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"T01:Low Confidence:inkloom\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
     }
   ]
 }
