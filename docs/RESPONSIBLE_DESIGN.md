@@ -17,7 +17,12 @@ Brandora checks content before it is published. It handles unreleased campaigns,
 ## 2. Privacy
 
 - **AI is a workspace setting.** A manager turns AI on or off in Trust & Audit → Privacy & AI. Real workspaces start with AI off. Demo workspaces (fictional data) start with it on, and the demo bar says so. Turning AI on or off invalidates prior scans, so approvals never rest on a check made under a different policy.
-- **Only what is checked is sent.** When AI is on, only the content being checked (its text, or the image or scanned page) goes to the configured provider (Google Gemini; Anthropic is supported for text-only features). The API key stays on the server, and calls are server-side only ([`backend/ai.py`](../backend/ai.py)). Email addresses and phone numbers are masked before text is sent (`mask`). The provider is told to treat content as data, never instructions.
+- **Exactly what is sent, and when.** When AI is on, these go to the configured provider (Google Gemini; Anthropic is supported for text-only features):
+  - **Text review:** the text being checked, plus the approved rule values and source excerpts that apply to it, so suggestions can cite them. Email addresses and phone numbers are masked in both (`mask` in [`backend/ai.py`](../backend/ai.py)).
+  - **Image reading and logo comparison:** the image or scanned page, plus the approved reference logos it is compared with ([`inspect_visual`](../backend/intelligence.py)). Images cannot be masked.
+  - **Translation:** the text, with contact details and approved names replaced by placeholders.
+  - **Never sent:** rule checks, document parsing, contrast and colour measurements, the check-before-publish API, decisions, users and the audit trail. A manager can turn AI off in Trust & Audit → Privacy & AI to keep every check on Brandora’s server; the same list is shown there.
+  The API key stays on the server, and calls are server-side only. The provider is told to treat content as data, never instructions.
 - **The rule engine needs no AI.** Text, PDF, PowerPoint, DOCX, accessibility and colour checks run on Brandora's own server. The check-before-publish API never sends text to an AI provider.
 - **Image metadata is stripped.** Uploaded images are re-encoded (orientation applied, metadata dropped) before storage or analysis ([`normalize_image`](../backend/intelligence.py)).
 - **Workspace isolation.** Every query is scoped to the signed-in user's organisation on the server. Partners are limited to assigned campaigns by the API, not just hidden in the interface.

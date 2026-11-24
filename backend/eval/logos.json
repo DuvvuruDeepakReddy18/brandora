@@ -1,0 +1,195 @@
+{
+  "checked_at": "2026-11-24T07:49:09+00:00",
+  "provider": "gemini",
+  "reference": "Inkloom AI approved logo (the demo’s registered reference)",
+  "method": "Twelve synthetic creatives drawn in code (backend/logo_eval.py), labelled before running. Each was sent once, with the approved reference logo, through the same logo comparison the product uses. AI output can differ between runs: this is one recorded run, and every miss is listed. Separate from the rule-engine evaluation, which never uses AI.",
+  "items": [
+    {
+      "id": "approved-ad",
+      "group": "approved",
+      "description": "The corrected sample ad with the approved logo",
+      "expected": [
+        "match"
+      ],
+      "result": "match",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo featuring the purple rounded square with white water droplet icon and adjacent dark text matches the reference perfectly."
+    },
+    {
+      "id": "approved-social",
+      "group": "approved",
+      "description": "Approved logo on a square social card",
+      "expected": [
+        "match"
+      ],
+      "result": "match",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing the rounded purple icon with a white droplet and the text 'Inkloom AI' matches the reference logo exactly."
+    },
+    {
+      "id": "approved-small",
+      "group": "approved",
+      "description": "Approved logo small, bottom-right of a banner",
+      "expected": [
+        "match"
+      ],
+      "result": "match",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing a purple rounded square with a white water drop icon followed by the text 'Inkloom AI' appears in the bottom right corner, matching the approved reference."
+    },
+    {
+      "id": "altered-colour",
+      "group": "altered",
+      "description": "Approved logo with the violet mark recoloured orange",
+      "expected": [
+        "modified"
+      ],
+      "result": "modified",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo icon has an orange background instead of the purple background in the reference."
+    },
+    {
+      "id": "altered-stretch",
+      "group": "altered",
+      "description": "Approved logo stretched to 1.7 times its width",
+      "expected": [
+        "modified"
+      ],
+      "result": "match",
+      "correct": false,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing a purple rounded square with a white drop and the text Inkloom AI matches the reference exactly."
+    },
+    {
+      "id": "altered-name",
+      "group": "altered",
+      "description": "Approved mark with a misspelt wordmark (“Inkbloom AI”)",
+      "expected": [
+        "modified"
+      ],
+      "result": "match",
+      "correct": false,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing the rounded purple square with a white teardrop and text is present and matches the reference logo."
+    },
+    {
+      "id": "wrong-ad",
+      "group": "wrong",
+      "description": "The employee-uploaded sample ad with the outdated orange logo",
+      "expected": [
+        "modified",
+        "not_found"
+      ],
+      "result": "modified",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The creative displays an orange oval icon with 'Ik' and 'inkloom' text, which differs in color and style from the purple droplet icon and 'Inkloom AI' text in the reference logo-1."
+    },
+    {
+      "id": "wrong-card",
+      "group": "wrong",
+      "description": "The outdated orange logo on a plain card",
+      "expected": [
+        "modified",
+        "not_found"
+      ],
+      "result": "modified",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The creative shows an orange oval icon with 'Ik' inside and the word 'inkloom' in orange, whereas the reference logo shows a purple square icon with a drop symbol and the text 'Inkloom AI' in dark blue."
+    },
+    {
+      "id": "absent-text",
+      "group": "absent",
+      "description": "A text-only creative with no logo",
+      "expected": [
+        "not_found"
+      ],
+      "result": "not_found",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo is not present in the creative."
+    },
+    {
+      "id": "absent-other",
+      "group": "absent",
+      "description": "Another company’s logo (“Northwind”)",
+      "expected": [
+        "not_found"
+      ],
+      "result": "not_found",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo is not present in the creative. The creative shows the Northwind brand instead."
+    },
+    {
+      "id": "degraded-lowres",
+      "group": "degraded",
+      "description": "Approved logo at very low resolution, blurred",
+      "expected": [
+        "match",
+        "uncertain"
+      ],
+      "result": "match",
+      "correct": true,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo featuring a purple rounded square with a white water drop icon followed by the text Inkloom AI matches the reference."
+    },
+    {
+      "id": "degraded-rotated",
+      "group": "degraded",
+      "description": "Approved logo rotated 10° on a gradient",
+      "expected": [
+        "match",
+        "uncertain"
+      ],
+      "result": "modified",
+      "correct": false,
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo is present in the top-left corner inside a white box, but it is rotated clockwise compared to the reference image."
+    }
+  ],
+  "summary": {
+    "items": 12,
+    "ran": 12,
+    "correct": 9,
+    "violations": 7,
+    "violations_caught": 5,
+    "genuine": 5,
+    "false_alarms": 1
+  },
+  "tried_and_not_kept": [
+    {
+      "checked_at": "2026-11-24T07:52:49+00:00",
+      "change": "Stricter comparison instructions: a match needs the same colours, proportions and wordmark spelling; rotated, blurred or cropped logos go to a person as uncertain.",
+      "summary": {
+        "items": 12,
+        "ran": 12,
+        "correct": 9,
+        "violations": 7,
+        "violations_caught": 5,
+        "genuine": 5,
+        "false_alarms": 1
+      },
+      "results": {
+        "approved-ad": "match",
+        "approved-social": "match",
+        "approved-small": "match",
+        "altered-colour": "modified",
+        "altered-stretch": "match",
+        "altered-name": "match",
+        "wrong-ad": "not_found",
+        "wrong-card": "modified",
+        "absent-text": "not_found",
+        "absent-other": "not_found",
+        "degraded-lowres": "uncertain",
+        "degraded-rotated": "modified"
+      },
+      "outcome": "Same score on the same 12 items, with the same two misses on altered logos, so the product keeps the original instructions (the ones behind the results above and the 51/51 live check)."
+    }
+  ]
+}

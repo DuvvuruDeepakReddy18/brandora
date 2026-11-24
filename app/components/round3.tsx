@@ -57,9 +57,9 @@ export function ReliabilityReport() {
             <span>{fresh.tp} of {fresh.tp + fresh.fn} labelled problems on unseen content were found</span>
           </div>
           <div className={"metric-card " + (report.citations.rate === 1 ? "good" : "warn")}>
-            <small>Citation validity</small>
+            <small>Citation validity · all rounds</small>
             <b>{report.citations.valid}/{report.citations.checked}</b>
-            <span>Every shown finding cites the current approved source, and the source contains the cited words</span>
+            <span>Every shown finding cites the current approved source, and the source contains the cited words. Fresh round: {fresh.citations.valid}/{fresh.citations.checked}</span>
           </div>
           <div className={"metric-card " + (report.clean_controls.false_alarm_rate <= 0.05 ? "good" : "warn")}>
             <small>Clean items flagged</small>
@@ -68,6 +68,7 @@ export function ReliabilityReport() {
           </div>
         </div>
       </section>
+      {report.logos && <LogoEvaluation logos={report.logos} />}
       {first && (
         <section className="panel">
           <div className="panel-header">
@@ -158,6 +159,70 @@ export function ReliabilityReport() {
         </p>
       </section>
     </div>
+  );
+}
+
+/* A separate, labelled logo set run once through the live AI comparison: recorded results, misses included. */
+const LOGO_RESULT: Record<string, string> = { match: "Match", modified: "Modified", not_found: "Not found", uncertain: "Uncertain", error: "Provider error" };
+function LogoEvaluation({ logos }: { logos: Row }) {
+  const s = logos.summary;
+  const when = String(logos.checked_at || "").slice(0, 10);
+  const models = Array.from(new Set((logos.items as Row[]).map((i) => i.model).filter(Boolean))).join(", ");
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <div>
+          <h2>Logo comparison · separate labelled set</h2>
+          <p>
+            Logo checks use the AI provider, not the rule engine, so they are measured on their own: {s.items} creatives drawn in code and labelled
+            before running (approved, altered, wrong, absent and degraded logos), each sent once through the same comparison the product uses. One
+            recorded run on {when}{models ? ` (${models})` : ""}. Results can differ between runs; every miss is listed.
+          </p>
+        </div>
+      </div>
+      <div className="metric-row">
+        <div className={"metric-card " + (s.violations_caught === s.violations ? "good" : "warn")}>
+          <small>Logo problems caught</small>
+          <b>{s.violations_caught}/{s.violations}</b>
+          <span>Altered, wrong or missing logos that were not accepted as a match</span>
+        </div>
+        <div className={"metric-card " + (s.false_alarms === 0 ? "good" : "warn")}>
+          <small>False alarms</small>
+          <b>{s.false_alarms}/{s.genuine}</b>
+          <span>Genuine logos (including blurred or rotated) reported as modified or missing</span>
+        </div>
+        <div className={"metric-card " + (s.correct === s.ran ? "good" : "warn")}>
+          <small>Exactly as labelled</small>
+          <b>{s.correct}/{s.ran}</b>
+          <span>Result in the labelled category (match, modified, not found or uncertain)</span>
+        </div>
+      </div>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead><tr><th>Creative</th><th>Expected</th><th>Result</th><th></th></tr></thead>
+          <tbody>
+            {(logos.items as Row[]).map((i) => (
+              <tr key={i.id}>
+                <td>{i.description}</td>
+                <td>{(i.expected as string[]).map((e) => LOGO_RESULT[e] || e).join(" or ")}</td>
+                <td>{LOGO_RESULT[i.result] || i.result}</td>
+                <td>{i.correct ? "✓" : "Miss"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {(logos.tried_and_not_kept as Row[] | undefined)?.map((t) => (
+        <p className="ai-data-sent" key={t.checked_at}>
+          <b>Tried and not kept ({String(t.checked_at).slice(0, 10)}):</b> {t.change} Result: {t.summary.correct}/{t.summary.ran} exactly as labelled,{" "}
+          {t.summary.violations_caught}/{t.summary.violations} problems caught, {t.summary.false_alarms}/{t.summary.genuine} false alarms. {t.outcome}
+        </p>
+      ))}
+      <p className="form-note">
+        <a className="text-button" href={REPO + "backend/eval/logos.json"} target="_blank" rel="noreferrer">Read every result</a>{" "}
+        <a className="text-button" href={REPO + "backend/logo_eval.py"} target="_blank" rel="noreferrer">Read how the set is drawn and run</a>
+      </p>
+    </section>
   );
 }
 

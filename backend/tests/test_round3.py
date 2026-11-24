@@ -323,6 +323,54 @@ def test_api_key_lifecycle_and_rules_only_verdicts():
     assert 'Created API key' in trail and 'API check' in trail and 'Revoked API key' in trail
 
 
+def test_logo_evaluation_is_labelled_and_its_published_counts_follow_from_the_results():
+    from backend import logo_eval
+    cases = logo_eval.cases()
+    assert len(cases) == 12 and len({c[0] for c in cases}) == 12
+    assert {g for _, g, _, _ in cases} == set(logo_eval.ACCEPT)
+    report = logo_eval.published()
+    assert report, 'Run python -m backend.logo_eval --write and commit backend/eval/logos.json'
+    assert [(i['id'], i['group']) for i in report['items']] == [(c[0], c[1]) for c in cases]
+    for i in report['items']:
+        assert i['expected'] == logo_eval.ACCEPT[i['group']] and i['correct'] == (i['result'] in i['expected'])
+        assert i['result'] == 'error' or i['model']
+    assert report['summary'] == logo_eval.summarise(report['items'])
+    groups = {c[0]: c[1] for c in cases}
+    for run in report.get('tried_and_not_kept', []):
+        rebuilt = [{'group': groups[k], 'result': r, 'correct': r in logo_eval.ACCEPT[groups[k]]} for k, r in run['results'].items()]
+        assert set(run['results']) == set(groups) and run['summary'] == logo_eval.summarise(rebuilt) and run['change'] and run['outcome']
+    client, _ = visitor()
+    assert client.get('/api/reliability').json()['logos']['summary'] == report['summary']
+
+
+def test_price_period_and_negated_values_from_an_outside_review():
+    """Cases an outside reviewer found on 24 Nov: the right amount for the wrong billing period was marked verified, and a
+    corrected statement ("no longer 30 days") was called a contradiction. Both now go the right way through the API."""
+    client, _ = visitor()
+    switch(client, 'manager')
+    key = client.post('/api/api-keys', json={'name': 'Regression'}).json()['key']
+    cms = TestClient(main.app, base_url='https://testserver')
+    check = lambda text: cms.post('/api/v1/check', json={'text': text}, headers={'Authorization': 'Bearer ' + key}).json()
+    monthly = check('Professional costs ₹1,999 per month. Prices exclude GST.')
+    assert monthly['verdict'] == 'clear' and any(v['span'] == '₹1,999 per month' for v in monthly['verified'])
+    for text, span, fix in (('Professional costs ₹1,999 per year. Prices exclude GST.', '₹1,999 per year', '₹1,999 per month'),
+                            ('Professional costs ₹1,999 yearly. Prices exclude GST.', '₹1,999 yearly', '₹1,999 per month'),
+                            ('Professional costs ₹2,499 a year. Prices exclude GST.', '₹2,499 a year', '₹1,999 per month')):
+        result = check(text)
+        assert result['verdict'] == 'blocked', text
+        assert not result['verified'], text
+        assert [(f['rule'], f['span'], f['suggestion']) for f in result['findings']] == [('P02', span, fix)], result['findings']
+    assert check('Professional costs ₹2,499 per month. Prices exclude GST.')['verdict'] == 'blocked'
+    # No period written: the amount is still checked, and the right amount is verified.
+    assert check('Professional costs ₹1,999. Prices exclude GST.')['verdict'] == 'clear'
+    for text in ('Our free trial is no longer 30 days. It is now 14 days.', 'Our free trial is no longer 14 days.', 'The Professional plan was ₹1,499 per month. Prices exclude GST.'):
+        result = check(text)
+        assert result['verdict'] == 'needs_review', (text, result['findings'])
+        assert all(f['outcome'] == 'Low Confidence' for f in result['findings']) and not result['verified'], text
+    # An ordinary sentence that merely contains "don't" is still checked as a claim.
+    assert check("Don't miss our 30-day free trial.")['verdict'] == 'blocked'
+
+
 def test_api_submission_lands_in_the_review_queue():
     client, _ = visitor()
     switch(client, 'manager')

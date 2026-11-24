@@ -10,7 +10,7 @@ from sqlalchemy import select, delete
 from PIL import Image, UnidentifiedImageError
 from .models import *
 from .engine import scan, digest, current, applies, verified as verified_spans, conflict_key, amount, access, sentence_bounds, palette
-from . import ai, intelligence, limits, documents, evaluation, insights, demo as judge_demo
+from . import ai, intelligence, limits, documents, evaluation, insights, logo_eval, demo as judge_demo
 
 app=FastAPI(title='Brandora API',version='1.0.0',docs_url=None if os.getenv('BRANDORA_ENV')=='production' else '/docs',redoc_url=None)
 PRODUCTION=os.getenv('BRANDORA_ENV')=='production'
@@ -1045,8 +1045,9 @@ def finding_decision(id:str,finding_id:str,data:FindingDecision,actor=Depends(us
 # --- Measured reliability, guideline insights and clarified rules ---
 @app.get('/api/reliability')
 def reliability(actor=Depends(user)):
-    """The labelled evaluation, re-run by the same engine the product uses (and by CI on every push)."""
-    return evaluation.evaluate()
+    """The labelled evaluation, re-run by the same engine the product uses (and by CI on every push), plus the recorded
+    run of the separate logo set through the live AI comparison."""
+    return {**evaluation.evaluate(),'logos':logo_eval.published()}
 
 def history(db,actor):
     return list(db.scalars(select(FindingEvent).where(FindingEvent.org_id==actor.org_id).order_by(FindingEvent.created)))

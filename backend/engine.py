@@ -79,6 +79,31 @@ def sentence_bounds(text,start,end):
 def evidence(rule,source):
     return {'source_id':source.id,'title':source.title,'version':source.version,'excerpt':source.excerpt,'owner':source.owner,'rule_value':rule.value}
 
+# The billing period written right after a price: "₹1,999/month", "₹1,999 per year", "1,999 rupees a month", "₹999 yearly".
+PERIOD_AFTER=re.compile(r'(?:\s*(?:rupees|rs\.?|inr)\b)?(?:\s*/\s*|\s+(?:per|a|an|each|every)\s+|\s+)(month(?:ly)?|mo|mth|year(?:ly)?|yr|annum|annually|week(?:ly)?|wk|day|daily)\b',re.I)
+def billing_period(text,end):
+    """'month', 'year', 'week' or 'day' when a period is written directly after the amount ending at `end`; '' otherwise."""
+    m=PERIOD_AFTER.match(text,end)
+    if not m:return '',end
+    w=m.group(1).lower()
+    return ('month' if w.startswith(('mo','mth')) else 'year' if w.startswith(('y','annu')) else 'week' if w.startswith('w') else 'day'),m.end()
+def approved_period(rule,source):
+    """The billing period the approved record states for this price, or '' when it does not state exactly one."""
+    if (rule.config or {}).get('period') in ('month','year','week','day'):return rule.config['period']
+    excerpt=(source.excerpt if source else '') or ''
+    found={billing_period(excerpt,m.end(1))[0] for p in (PATTERNS['price'],PRICE_AFTER) for m in re.finditer(p,excerpt,re.I) if amount(m.group(1))==amount(rule.value)}
+    found.discard('')
+    return found.pop() if len(found)==1 else ''
+# A value stated as no longer, previously or not true is not a current claim: a person reads it.
+NEGATED=re.compile(r"\b(?:no\s+longer|not|isn['’]t|wasn['’]t|aren['’]t|weren['’]t|was|were|used\s+to\s+be|previously|formerly|instead\s+of|rather\s+than|replac(?:es|ed|ing)|down\s+from|up\s+from|until|unlike)\b",re.I)
+def negated(text,start,end):
+    """The negating or past-tense cue before a value in its own clause ("no longer 30 days"), or ''."""
+    a,b=sentence_bounds(text,start,end)
+    lo,_=clause(text,start,end,a,b)
+    cue=None
+    for cue in NEGATED.finditer(text,lo,start):pass
+    return cue.group() if cue else ''
+
 def number_matches(text,rule):
     cfg=rule.config or {}
     if cfg.get('metric')=='trial':
@@ -346,11 +371,24 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
             for span in matched:add(rule,span,'Verified Contradiction','Use the approved name',f'The approved term is “{rule.value}”.',rule.value)
         elif kind=='number':
             label=cfg.get('plan','') and cfg['plan']+' plan '
+            metric=cfg.get("metric","value")
+            want=approved_period(rule,source) if metric=='price' else ''
             for m in matched:
                 fixed=m.group()
+                cue=negated(text,*m.span())
+                if cue:
+                    # "no longer 30 days", "was ₹1,499": the engine does not guess what the sentence means.
+                    add(rule,m.span(),'Low Confidence','Check this changed or negated value',f'“{cue}” suggests this {metric} is not the current offer. Brandora does not decide what the sentence means: a reviewer confirms it matches the approved {label}{metric}: {rule.value}.','','medium')
+                    continue
+                got,period_end=billing_period(text,m.end(1)) if want and not isinstance(m,Hit) else ('',0)
                 if amount(m.group(1))!=amount(rule.value):
                     fixed=m.fix(rule.value) if isinstance(m,Hit) else m.group().replace(m.group(1),group_like(m.group(1),rule.value),1)
-                    add(rule,m.span(),'Verified Contradiction',f'Check the {label}{cfg.get("metric","value")}',f'Approved {label}{cfg.get("metric","value")}: {rule.value}. Applies to {rule.subject}.',fixed)
+                    if got and got!=want:fixed=text[m.start():m.start(1)]+group_like(m.group(1),rule.value)+' per '+want
+                    add(rule,(m.start(),max(m.end(),period_end)),'Verified Contradiction',f'Check the {label}{metric}',f'Approved {label}{metric}: {rule.value}{" per "+want if want else ""}. Applies to {rule.subject}.',fixed)
+                elif got and got!=want:
+                    # The right amount for the wrong period ("₹1,999 per year" for ₹1,999 a month) is a different price.
+                    fixed=text[m.start():m.end(1)]+' per '+want
+                    add(rule,(m.start(),period_end),'Verified Contradiction',f'Check the {label}billing period',f'Approved {label}{metric}: {rule.value} per {want}. This says per {got}. Applies to {rule.subject}.',fixed)
                 # qualifier_channels limits where the condition must be shown (a clarified rule can exclude a channel).
                 if cfg.get('qualifier') and (not cfg.get('qualifier_channels') or channel in cfg['qualifier_channels']) and cfg['qualifier'].casefold() not in text.casefold():
                     if cfg.get('qualifier_review'):
@@ -397,7 +435,9 @@ def verified(text,subject,channel,rules,sources):
         if not applies(rule,subject,channel) or source is None or not current(source) or not supported_by(rule,source):continue
         found=[]
         if rule.kind=='number':
-            found=[m.span() for m in number_matches(text,rule) if amount(m.group(1))==amount(rule.value)]
+            want=approved_period(rule,source) if (rule.config or {}).get('metric')=='price' else ''
+            found=[m.span() for m in number_matches(text,rule) if amount(m.group(1))==amount(rule.value) and not negated(text,*m.span())
+                   and (isinstance(m,Hit) or not want or billing_period(text,m.end(1))[0] in ('',want))]
         elif rule.kind=='term':
             found=[(m.start(),m.end()) for m in re.finditer(re.escape(rule.value),text)]
         elif rule.kind=='required' and rule.value:

@@ -1830,6 +1830,32 @@ export default function App() {
                           Only managers change this. <SwitchRole role="manager" />
                         </p>
                       )}
+                      <div className="ai-data-sent">
+                        <b>What leaves this workspace when AI is on</b>
+                        <ul>
+                          <li>
+                            <b>Text review:</b> the text being checked, plus the
+                            approved rule values and source excerpts that apply to
+                            it, so suggestions can cite them. Emails and phone
+                            numbers are masked in both.
+                          </li>
+                          <li>
+                            <b>Image reading and logo comparison:</b> the image or
+                            scanned page, plus the approved reference logos it is
+                            compared with. Images cannot be masked.
+                          </li>
+                          <li>
+                            <b>Translation:</b> the text, with contact details and
+                            approved names replaced by placeholders.
+                          </li>
+                          <li>
+                            <b>Never sent:</b> rule checks, document parsing,
+                            contrast and colour measurements, the check-before-publish
+                            API, decisions, users and the audit trail. Turn AI off to
+                            keep every check on Brandora&apos;s server.
+                          </li>
+                        </ul>
+                      </div>
                       <ul className="privacy-list">
                         <li>
                           <Check size={16} />

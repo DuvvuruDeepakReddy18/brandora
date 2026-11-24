@@ -77,10 +77,12 @@ export function AIStatus() {
             used today (UTC). Failed provider calls count toward this limit.
           </p>
           <p className="form-note">
-            Text assistance masks email and phone details. OCR sends the
-            selected image or document to the provider; these files cannot be
-            masked before transcription. Translation protects contact details
-            and approved names with placeholders. Outputs always need review.
+            Text assistance sends the text and the approved rule values and
+            source excerpts that apply to it, with email and phone details
+            masked. OCR and logo comparison send the selected image or document
+            and the approved reference logos; images cannot be masked.
+            Translation protects contact details and approved names with
+            placeholders. Outputs always need review.
           </p>
         </>
       )}
