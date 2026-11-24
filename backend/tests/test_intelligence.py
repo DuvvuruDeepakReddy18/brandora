@@ -68,11 +68,74 @@ def test_busy_provider_is_retried_twice_with_backoff(monkeypatch):
 
 def test_provider_still_busy_after_retries_reports_a_temporary_problem(monkeypatch):
     calls,pauses=busy_provider(monkeypatch,10)
+    monkeypatch.setenv('GEMINI_FALLBACK_MODEL','')
     with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
     assert len(calls)==3 and pauses==[1.0,3.0]
     message=str(error.value)
     assert 'temporarily busy (HTTP 503)' in message and 'Try again in a minute' in message
     assert 'configuration' not in message and 'private-provider-detail' not in message and 'synthetic-unit-test-key' not in message
+
+def two_models(monkeypatch,main_status,backup_status):
+    """The main Gemini model answers `main_status`; the free backup answers `backup_status` (200 succeeds)."""
+    import httpx
+    original=httpx.Client
+    calls,pauses=[],[]
+    def handle(request):
+        name=request.url.path.rsplit('/',1)[-1].split(':')[0]
+        calls.append(name)
+        status=main_status if name=='gemini-3.5-flash-lite' else backup_status
+        if status!=200:return httpx.Response(status,json={'error':{'message':'Overloaded or not found. private-provider-detail'}},request=request)
+        return httpx.Response(200,json={'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':'{"findings":[]}'}]}}]},request=request)
+    monkeypatch.setattr(ai.httpx,'Client',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+    monkeypatch.setattr(ai,'available',lambda:True)
+    monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
+    monkeypatch.setenv('GEMINI_API_KEY','synthetic-unit-test-key')
+    monkeypatch.delenv('GEMINI_MODEL',raising=False);monkeypatch.delenv('GEMINI_FALLBACK_MODEL',raising=False)
+    monkeypatch.setattr(ai.time,'sleep',pauses.append)
+    return calls,pauses
+
+def test_busy_main_model_falls_back_to_the_free_backup_and_labels_it(monkeypatch):
+    calls,pauses=two_models(monkeypatch,503,200)
+    ai.track()
+    assert provider_generate('Review',{},ai.Suggestions).findings==[]
+    assert calls==['gemini-3.5-flash-lite']*3+['gemini-3.1-flash-lite'] and pauses==[1.0,3.0]
+    assert ai.label()=='gemini · gemini-3.1-flash-lite'
+
+def test_main_model_out_of_free_quota_uses_the_backup_without_waiting(monkeypatch):
+    calls,pauses=two_models(monkeypatch,429,200)
+    ai.track()
+    assert provider_generate('Review',{},ai.Suggestions).findings==[]
+    assert calls==['gemini-3.5-flash-lite','gemini-3.1-flash-lite'] and pauses==[]
+    assert ai.answered_by()=='gemini-3.1-flash-lite'
+
+def test_both_models_busy_says_so_without_provider_detail(monkeypatch):
+    calls,_=two_models(monkeypatch,503,503)
+    with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
+    assert calls==['gemini-3.5-flash-lite']*3+['gemini-3.1-flash-lite']*3
+    message=str(error.value)
+    assert 'temporarily busy on the main and backup models (HTTP 503)' in message and 'Try again in a minute' in message
+    assert 'private-provider-detail' not in message and 'synthetic-unit-test-key' not in message
+
+def test_unavailable_backup_reports_the_real_temporary_problem(monkeypatch):
+    two_models(monkeypatch,503,404)
+    with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
+    assert 'temporarily busy' in str(error.value) and 'model is unavailable' not in str(error.value)
+
+def test_configuration_errors_never_switch_models(monkeypatch):
+    calls,_=two_models(monkeypatch,404,200)
+    with pytest.raises(ai.ProviderError) as error:provider_generate('Review',{},ai.Suggestions)
+    assert calls==['gemini-3.5-flash-lite'] and 'configured model is unavailable' in str(error.value)
+
+def test_fallback_model_is_recorded_from_a_worker_thread(monkeypatch):
+    """Endpoints run AI calls in a thread pool, which copies the request context; the label must still be truthful."""
+    import contextvars,threading
+    two_models(monkeypatch,503,200)
+    ai.track()
+    worker=threading.Thread(target=contextvars.copy_context().run,args=(provider_generate,'Review',{},ai.Suggestions))
+    worker.start();worker.join()
+    assert ai.label()=='gemini · gemini-3.1-flash-lite'
+    ai.track()
+    assert ai.label()=='gemini · gemini-3.5-flash-lite'
 
 def image_bytes():
     output=io.BytesIO();Image.new('RGB',(100,100),'white').save(output,format='PNG');return output.getvalue()
@@ -107,6 +170,21 @@ def test_visual_requires_enabled_ai_and_rejects_foreign_refs(workspace):
     manager.put('/api/settings',json={'ai_enabled':False})
     assert manager.post('/api/visual/analyze',files={'file':('image.png',image_bytes(),'image/png')}).status_code==409
     assert manager.post('/api/visual/analyze',data={'reference_ids':'["foreign"]'},files={'file':('image.png',image_bytes(),'image/png')}).status_code==404
+
+def test_visual_result_names_the_model_that_answered(workspace,monkeypatch):
+    """Through the real endpoint (middleware, then the thread pool): a result produced by the backup is labelled with it."""
+    manager,_,_=workspace
+    monkeypatch.setenv('BRANDORA_AI_PROVIDER','gemini')
+    monkeypatch.delenv('GEMINI_MODEL',raising=False);monkeypatch.delenv('GEMINI_FALLBACK_MODEL',raising=False)
+    def answered_by_backup(blob,refs):
+        ai._answered.get().append('gemini-3.1-flash-lite')
+        return {'ocr':{'text':'Hi','language':'en','regions':[],'warnings':[]},'logos':[],'suggested_alt_text':'Image','warnings':[]}
+    monkeypatch.setattr(intelligence,'inspect_visual',answered_by_backup)
+    r=manager.post('/api/visual/analyze',files={'file':('image.png',image_bytes(),'image/png')})
+    assert r.status_code==200,r.text
+    assert r.json()['model']=='gemini-3.1-flash-lite'
+    status=manager.get('/api/intelligence/status').json()
+    assert status['model']=='gemini-3.5-flash-lite' and status['fallback_model']=='gemini-3.1-flash-lite'
 
 def test_vision_rejects_invented_reference_and_bad_box(monkeypatch):
     result=intelligence.VisionResult(ocr={'text':'hi','language':'en','regions':[],'warnings':[]},logos=[{'reference_id':'invented','result':'match','box':[0,0,100,100],'explanation':'match'}],suggested_alt_text='Image',warnings=[])

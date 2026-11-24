@@ -65,6 +65,13 @@ export function AIStatus() {
               ? `${status.provider} · ${status.model}`
               : "No provider configured"}
           </p>
+          {status.configured && status.fallback_model && (
+            <p className="muted">
+              If {status.model} is busy or out of free quota, Brandora tries
+              the free backup model {status.fallback_model}. Each result names
+              the model that produced it.
+            </p>
+          )}
           <p className="muted">
             {status.requests_today} / {status.daily_limit} workspace requests
             used today (UTC). Failed provider calls count toward this limit.

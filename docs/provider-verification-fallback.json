@@ -1,0 +1,117 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.1-flash-lite",
+  "role": "Free backup model, used only when the main model (gemini-3.5-flash-lite) is busy or out of free quota",
+  "checked_at": "2026-11-24",
+  "synthetic_only": true,
+  "ocr_and_logo": {
+    "ocr": {
+      "text": "HarborDesk\nA clearer workday\nTry it free for 14 days.\nINR 499/month, billed annually.",
+      "language": "en",
+      "regions": [
+        {
+          "text": "HarborDesk",
+          "box": [
+            115,
+            155,
+            205,
+            367
+          ]
+        },
+        {
+          "text": "A clearer workday",
+          "box": [
+            388,
+            65,
+            448,
+            392
+          ]
+        },
+        {
+          "text": "Try it free for 14 days.",
+          "box": [
+            522,
+            65,
+            582,
+            464
+          ]
+        },
+        {
+          "text": "INR 499/month, billed annually.",
+          "box": [
+            656,
+            65,
+            716,
+            628
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    "logos": [
+      {
+        "reference_id": "fixture-logo",
+        "result": "match",
+        "explanation": "The logo in the creative matches the provided reference logo.",
+        "box": [
+          115,
+          66,
+          235,
+          367
+        ]
+      }
+    ],
+    "suggested_alt_text": "HarborDesk logo followed by the text: A clearer workday. Try it free for 14 days. INR 499/month, billed annually.",
+    "warnings": []
+  },
+  "translation": {
+    "translated_text": "HarborDesk की कीमत INR 499/month है, जिसका बिल वार्षिक रूप से भेजा जाता है। इसे 14 दिनों के लिए निःशुल्क आज़माएं।",
+    "back_translation": "HarborDesk costs INR 499/month, which is billed annually. Try it for free for 14 days.",
+    "warnings": [
+      "The term 'billed annually' can be translated in multiple ways in Hindi; 'वार्षिक रूप से बिल किया जाता है' is used here for clarity.",
+      "The word 'free' is translated as 'निःशुल्क', which is formal and appropriate for business contexts."
+    ],
+    "target_language": "hi",
+    "protected_terms": [
+      "HarborDesk",
+      "499/month",
+      "14"
+    ],
+    "requires_human_review": true
+  },
+  "scanned_pdf_ocr": {
+    "text": "HarborDesk\n\nA clearer workday\n\nTry it free for 14 days.\n\nINR 499/month, billed annually.",
+    "language": "en",
+    "regions": [],
+    "warnings": []
+  },
+  "semantic_review": {
+    "coverage": "Rules + validated gemini suggestions",
+    "findings": [
+      {
+        "id": "b1321eee717e1c5b456f",
+        "rule_id": "tone-rule",
+        "rule_code": "TONE",
+        "outcome": "Low Confidence",
+        "title": "Suggested semantic review",
+        "message": "The word 'Obviously' can be perceived as dismissive.",
+        "suggestion": "Consider removing the word to maintain a more supportive and respectful tone.",
+        "severity": "medium",
+        "span": "Obviously",
+        "start": 0,
+        "end": 9,
+        "engine": "AI-assisted",
+        "resolved": false,
+        "evidence": {
+          "source_id": "tone-source",
+          "title": "Fictional voice guide",
+          "version": 1,
+          "excerpt": "Use supportive, respectful language. Avoid the word obviously and a dismissive tone.",
+          "owner": "Test brand owner",
+          "rule_value": "obviously"
+        }
+      }
+    ],
+    "hidden": 0
+  }
+}

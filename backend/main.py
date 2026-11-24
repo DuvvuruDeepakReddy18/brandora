@@ -43,6 +43,7 @@ def audit(db,user,action,target,detail=None):db.add(Audit(org_id=user.org_id,act
 
 @app.middleware('http')
 async def headers(request,call_next):
+    ai.track()
     if request.method in ('POST','PUT','PATCH','DELETE'):
         origin=request.headers.get('origin')
         if origin and origin not in ALLOWED_ORIGINS:return JSONResponse({'detail':'Origin is not allowed.'},403)
@@ -695,7 +696,7 @@ async def extract_source(file:UploadFile=File(...),actor=Depends(user)):
 def intelligence_status(actor=Depends(user),db=Depends(database)):
     used=db.get(Quota,f'ai:{actor.org_id}:{limits.day()}')
     cap=judge_demo.AI_LIMIT if judge_demo.visit_for_org(db,actor.org_id) else AI_DAILY_LIMIT
-    return {'provider':ai.provider(),'model':ai.model(),'configured':ai.available(),'vision_configured':ai.vision_available(),'enabled':bool(db.get(Workspace,actor.org_id).settings.get('ai_enabled')),'requests_today':used.count if used else 0,'daily_limit':cap,'languages':intelligence.LANGUAGES}
+    return {'provider':ai.provider(),'model':ai.model(),'fallback_model':ai.fallback_model(),'configured':ai.available(),'vision_configured':ai.vision_available(),'enabled':bool(db.get(Workspace,actor.org_id).settings.get('ai_enabled')),'requests_today':used.count if used else 0,'daily_limit':cap,'languages':intelligence.LANGUAGES}
 
 @app.get('/api/logos')
 def logos(actor=Depends(user),db=Depends(database)):
@@ -739,7 +740,7 @@ async def visual_analyze(file:UploadFile=File(...),reference_ids:str=Form(defaul
     try:result=await run_in_threadpool(intelligence.inspect_visual,blob,refs)
     except ai.ProviderError as exc:fail(502,str(exc))
     audit(db,actor,'Ran OCR and logo review','Creative image',{'reference_ids':ids,'input_hash':hashlib.sha256(blob).hexdigest()})
-    return {**result,'requires_human_review':True,'provider':ai.provider(),'model':ai.model(),'stored':False,'reference_names':{r['id']:r['name'] for r in refs}}
+    return {**result,'requires_human_review':True,'provider':ai.provider(),'model':ai.answered_by(),'stored':False,'reference_names':{r['id']:r['name'] for r in refs}}
 
 @app.post('/api/sources/ocr')
 async def source_ocr(file:UploadFile=File(...),actor=Depends(user),db=Depends(database)):
@@ -858,7 +859,7 @@ def new_creative(db,actor,c,blob,name,origin,regions,logos,warnings,alt_text):
     if regions:regions=documents.measure_raster(blob,regions)
     colours=documents.measure_colours(blob)
     cr=Creative(colours=colours,org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image=base64.b64encode(blob).decode(),width=width,height=height,origin=origin,regions=regions,logos=logos,warnings=warnings[:12],alt_text=alt_text[:600],
-        provider=f'{ai.provider()} · {ai.model()}' if origin=='ai' else 'Sample layout data',sha256=hashlib.sha256(blob).hexdigest(),created_by=actor.name)
+        provider=ai.label() if origin=='ai' else 'Sample layout data',sha256=hashlib.sha256(blob).hexdigest(),created_by=actor.name)
     db.add(cr);db.flush();return cr
 
 DOCUMENT_NOTES={'pdf':'Pages rendered from the PDF. Text positions, sizes and colours come from the file; backgrounds are sampled from the rendered page.',
@@ -873,7 +874,7 @@ def new_document(db,actor,c,name,origin,pages,regions,images):
     """A multi-page document or deck tied to one exact content version. Each page is stored and served separately."""
     first=pages[0]
     cr=Creative(org_id=actor.org_id,content_id=c.id,version=c.version,name=name[:120],image='',width=first['width'],height=first['height'],origin=origin,regions=regions,logos=[],warnings=[DOCUMENT_NOTES[origin]],
-        alt_text='',provider='Rule engine · no AI' if origin!='pdf-ocr' else f'{ai.provider()} · {ai.model()}',sha256=digest(name+c.body),created_by=actor.name,page_count=len(pages),images=images,
+        alt_text='',provider='Rule engine · no AI' if origin!='pdf-ocr' else ai.label(),sha256=digest(name+c.body),created_by=actor.name,page_count=len(pages),images=images,
         colours=[colour for i,page in enumerate(pages) for colour in page_colours(page,i)])
     db.add(cr);db.flush()
     for i,page in enumerate(pages):
