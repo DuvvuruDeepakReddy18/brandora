@@ -441,6 +441,23 @@ def test_withdrawn_approved_wording_sends_approved_content_back_for_reassessment
     switch(client, 'creator')
     rechecked = client.post(f"/api/content/{c['id']}/scan").json()
     assert [(f['title'], f['outcome'], f['span']) for f in rechecked['findings']] == [('Check this approved wording', 'Low Confidence', phrase)]
+    # Withdrawing by quoting the claim in a prohibition ("Do not use ...") must not turn it green again (third review round).
+    def register_says(sentence):
+        switch(client, 'manager')
+        client.put(f"/api/sources/{register['id']}", json={'title': register['title'], 'owner': register['owner'], 'review_date': register.get('review_date') or '',
+                                                           'excerpt': register['excerpt'].replace('Inkloom AI provides a central workspace for campaign content.', sentence)})
+        switch(client, 'creator')
+        found = client.post(f"/api/content/{c['id']}/scan").json()['findings']
+        green = [v['title'] for v in next(x for x in client.get('/api/workspace').json()['content'] if x['id'] == c['id'])['verified']]
+        return found, green
+    for sentence in ('Do not use the claim that Inkloom AI provides a central workspace for campaign content.',
+                     'The claim that Inkloom AI provides a central workspace for campaign content is withdrawn.'):
+        found, green = register_says(sentence)
+        assert [(f['title'], f['outcome']) for f in found] == [('Check this approved wording', 'Low Confidence')] and 'Approved wording' not in green, sentence
+        assert found[0]['evidence']['title'] == 'Approved claims register' and found[0]['evidence']['rule_value'] == sentence
+    # Restoring the approving sentence makes the wording verified again.
+    found, green = register_says('Inkloom AI provides a central workspace for campaign content.')
+    assert found == [] and 'Approved wording' in green
 
 
 def test_api_submission_lands_in_the_review_queue():

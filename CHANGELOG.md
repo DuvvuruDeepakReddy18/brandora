@@ -50,6 +50,7 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - A version that was approved and then invalidated reads “Previously approved · needs reassessment” wherever it appears.
   - Every AI logo “match” is re-checked: Brandora measures the logo’s proportions against the reference and reads the wordmark; a disagreement becomes “uncertain” for a reviewer. On 20 labelled creatives (8 fresh): 10 of 12 problems caught (8 detected, 2 sent to a person), 1 false alarm in 8 genuine logos. Misspelt wordmarks are still missed.
   - The daily live check is described exactly: 49 workflow checks, with the two live-AI image checks only on request.
+- **After a third ChatGPT review round (24 Nov), reproduced first:** a register sentence that withdraws or forbids approved wording (“Do not use the claim that…”, “…is withdrawn”, “no longer…”) is never treated as support, even though it quotes the wording; the content goes to a reviewer with that sentence cited. The comparison screen says “Recheck required” instead of “Re-checked · no issues” when its check is out of date.
   - Privacy & AI now lists exactly what leaves the workspace when AI is on, including the approved rule excerpts and reference logos.
   - Metrics say which split and which run they come from. The reliability scores are unchanged; 96 tests pass.
 - **Phone layout:** walkthrough cards stack in one column, an item's title gets its own row next to the back link, and long origin labels wrap, so no screen scrolls sideways at 375 px.

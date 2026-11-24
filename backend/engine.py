@@ -120,23 +120,28 @@ def clause_period(text,m):
 STOP={'the','a','an','and','or','of','for','to','in','on','with','your','our','its','their','is','are','be','by','at','one','all','every','more','from','that','this'}
 def content_words(text,drop=()):
     return [w for w in re.findall(r"[a-z0-9]+",fold(text).lower()) if w not in STOP and w not in drop and len(w)>2]
+# A register sentence that withdraws or forbids wording is never support for it, even when it quotes that wording.
+PROHIBITS=re.compile(r"\b(?:do\s+not|don['’]t|never|no\s+longer|must\s+not|may\s+not|should\s+not|cannot|can['’]t|not\s+(?:be\s+)?(?:used|approved|allowed|permitted|supported)|withdrawn|withdraw|retired|retire|prohibited|banned|avoid|stop\s+using|unapproved|no\s+approved|not\s+to\s+use|remove)\b",re.I)
 def wording_source(phrase,sources,subject=''):
-    """The current approved source with a sentence that covers at least 60% of the phrase's content words, or None."""
+    """(source, sentence, prohibited) for the current approved sentence that best covers at least 60% of the phrase's content
+    words; (None, '', False) when none does. Any covering sentence that withdraws or forbids the wording wins, so it goes to a person."""
     words=set(content_words(phrase,content_words(subject)))
-    if not words:return None
-    best,score=None,0.0
+    if not words:return None,'',False
+    best,score,ban=None,0.0,None
     for s in sources.values():
         if not current(s):continue
         for a,b in sentences(s.excerpt or ''):
-            cover=len(words & set(content_words(s.excerpt[a:b])))/len(words)
-            if cover>score:best,score=s,cover
-    return best if score>=0.6 else None
+            sentence=s.excerpt[a:b];cover=len(words & set(content_words(sentence)))/len(words)
+            if cover>=0.6 and PROHIBITS.search(sentence) and not ban:ban=(s,sentence)
+            if cover>score:best,score=(s,sentence),cover
+    if ban:return ban[0],ban[1],True
+    return (best[0],best[1],False) if score>=0.6 else (None,'',False)
 def approved_wording(text,rule,sources):
-    """(span, phrase, supporting source or None) for each approved replacement of a substantiation rule found in the text."""
+    """(span, phrase, source, sentence, prohibited) for each approved replacement of a substantiation rule found in the text."""
     out=[]
     for phrase in dict.fromkeys(((rule.config or {}).get('replacements') or {}).values()):
         if not phrase:continue
-        for span in claim_spans(text,phrase):out.append((span,phrase,wording_source(phrase,sources,rule.subject)))
+        for span in claim_spans(text,phrase):out.append((span,phrase)+wording_source(phrase,sources,rule.subject))
     return out
 # A value stated as no longer, previously or not true is not a current claim: a person reads it.
 NEGATED=re.compile(r"\b(?:no\s+longer|not|isn['’]t|wasn['’]t|aren['’]t|weren['’]t|was|were|used\s+to\s+be|previously|formerly|instead\s+of|rather\s+than|replac(?:es|ed|ing)|down\s+from|up\s+from|until|unlike)\b",re.I)
@@ -395,9 +400,12 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
             # Approved replacement wording in the content depends on the source that approves it (e.g. the claims register),
             # so withdrawing that wording sends the content back for reassessment.
             if source is not None and current(source):
-                for span,phrase,backing in approved_wording(text,rule,sources):
+                for span,phrase,backing,sentence,prohibited in approved_wording(text,rule,sources):
                     if backing:dependencies[f'{rule.id}:wording:{backing.id}']={'rule_id':rule.id,'source_id':backing.id,'source_version':backing.version}
-                    else:
+                    if prohibited:
+                        add(rule,span,'Low Confidence','Check this approved wording',f'“{backing.title}” now says: “{sentence}” This wording may be withdrawn. A reviewer confirms whether it can still be used.','','medium')
+                        findings[-1]['evidence']={**evidence(rule,backing),'rule_value':sentence}
+                    elif not backing:
                         add(rule,span,'Low Confidence','Check this approved wording',f'“{phrase}” was registered as approved wording, but no current approved source contains it any more. A reviewer confirms it can still be used.','','medium')
                         if findings[-1]['evidence']:findings[-1]['evidence']['rule_value']=phrase
         elif kind=='banned': matched=literal_spans(text,rule.value);relevant=matched
@@ -496,8 +504,8 @@ def verified(text,subject,channel,rules,sources):
         source=sources.get(rule.source_id)
         if rule.kind=='substantiation' and applies(rule,subject,channel) and source is not None and current(source):
             # Approved replacement wording is shown green with the source that approves it.
-            for (start,end),phrase,backing in approved_wording(text,rule,sources):
-                if backing:spans.append({'id':digest(f'verified:{rule.id}:{start}:{end}:{text}')[:20],'rule_id':rule.id,'rule_code':rule.code,'title':'Approved wording','span':text[start:end],'start':start,'end':end,'evidence':{**evidence(rule,backing),'rule_value':phrase}})
+            for (start,end),phrase,backing,sentence,prohibited in approved_wording(text,rule,sources):
+                if backing and not prohibited:spans.append({'id':digest(f'verified:{rule.id}:{start}:{end}:{text}')[:20],'rule_id':rule.id,'rule_code':rule.code,'title':'Approved wording','span':text[start:end],'start':start,'end':end,'evidence':{**evidence(rule,backing),'rule_value':phrase}})
             continue
         if not applies(rule,subject,channel) or source is None or not current(source) or not supported_by(rule,source):continue
         found=[]

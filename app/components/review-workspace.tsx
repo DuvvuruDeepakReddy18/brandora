@@ -1996,11 +1996,13 @@ function CompareStage({
             <div>
               <h2>Corrected · v{item.version}</h2>
               <p>
-                {item.findings.length
-                  ? `${item.findings.length} open finding${item.findings.length === 1 ? "" : "s"}`
-                  : item.scan_hash
-                    ? `Re-checked · no issues · ${(item.verified || []).length} verified value${(item.verified || []).length === 1 ? "" : "s"}`
-                    : "Not checked yet"}
+                {item.scan_hash && (item.scan_revision !== data.workspace.revision || item.status === "Needs reassessment")
+                  ? "Recheck required · approved records changed since the last check"
+                  : item.findings.length
+                    ? `${item.findings.length} open finding${item.findings.length === 1 ? "" : "s"}`
+                    : item.scan_hash
+                      ? `Re-checked · no issues · ${(item.verified || []).length} verified value${(item.verified || []).length === 1 ? "" : "s"}`
+                      : "Not checked yet"}
               </p>
             </div>
             <span className={"status-chip tone-" + (item.status === "Approved" ? "green" : item.status === "Needs reassessment" ? "orange" : "yellow")}>
