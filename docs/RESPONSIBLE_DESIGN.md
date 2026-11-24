@@ -56,6 +56,6 @@ Not claimed: no penetration test or formal threat-model review has been done. Ac
 
 ## 5. Disclosure
 
-- **In the product:** every AI output is labelled with its source (for example *Analysed with gemini · gemini-3.5-flash-lite*, *AI suggestion*). Demo sample data is labelled *DEMO SAMPLE*. Seeded history is labelled fictional.
+- **In the product:** every AI output is labelled with its source (for example *Analysed with gemini · gemini-3.5-flash-lite*, *AI suggestion*). When the free backup model answers because the main one is busy, the label names the backup. Demo sample data is labelled *DEMO SAMPLE*. Seeded history is labelled fictional.
 - **External services:** Vercel (hosting), Neon (PostgreSQL), Google Gemini (optional AI). Libraries are pinned in [`backend/requirements-lock.txt`](../backend/requirements-lock.txt) and `package-lock.json`. The PDF renderer is PDFium via `pypdfium2`.
 - **Development:** Codex and Claude Code assisted planning, implementation, testing and deployment. All sample companies, people, campaigns and figures are fictional.

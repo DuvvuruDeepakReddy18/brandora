@@ -168,12 +168,14 @@ if WITH_AI:
         if r.status_code != 200:
             check(f'Live AI upload of {name}', False, r.text[:200]); continue
         b = r.json(); fs = [summary(f) for f in b['findings']]
+        # Which model read the image: the main one, or the free backup if the main one was busy.
+        read_by = next((cr.get('provider') for cr in ws(c3).get('creatives', []) if cr.get('content_id') == b.get('id')), 'unknown')
         if expect == 'clean':
-            check('corrected-creative.png comes back clean with live AI', not b['findings'], fs + [b['scan_coverage']])
+            check('corrected-creative.png comes back clean with live AI', not b['findings'], fs + [b['scan_coverage'], 'read by ' + str(read_by)])
         else:
             rule_found = sorted(f['rule_code'] + ':' + f['outcome'] for f in b['findings'] if f.get('engine') != 'AI-assisted')
             check('creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)',
-                  rule_found == sorted(['P02:Verified Contradiction', 'P02:Low Confidence', 'F02:Verified Contradiction', 'R03:Evidence Gap', 'R03:Evidence Gap', 'LOGO:Visual Violation', 'C01:Low Confidence']), fs + [b['scan_coverage']])
+                  rule_found == sorted(['P02:Verified Contradiction', 'P02:Low Confidence', 'F02:Verified Contradiction', 'R03:Evidence Gap', 'R03:Evidence Gap', 'LOGO:Visual Violation', 'C01:Low Confidence']), fs + [b['scan_coverage'], 'read by ' + str(read_by)])
     c3.post('/api/demo/reset')
 for cl in (c, c2):
     cl.post('/api/demo/reset')

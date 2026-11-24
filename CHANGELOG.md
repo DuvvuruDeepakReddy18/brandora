@@ -38,6 +38,7 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - AI no longer second-guesses rule-verified values.
   - Tone and accessibility rules can be created in the editor.
   - A busy AI provider (HTTP 500–504) is retried twice, after 1 s and 3 s, within the 55-second limit, and the message says the service is busy rather than pointing at configuration. Found when Gemini briefly returned 503 during the final live check.
+  - If the main model is still busy, or its free daily quota is used up, a second free model (Gemini 3.1 Flash Lite, separate capacity and quota) answers. Configuration errors never switch models; each result names the model that produced it, and the AI status panel names the backup. No paid tier is used.
 - **Landing without WebGL:** if a browser cannot start the 3D scene, it shows a still image of that same scene in place of the placeholder disc. A notice explains how to turn on graphics acceleration to see the interactive original. The approved landing source is unchanged; the fallback is added by the hosting layer.
 - **Documentation:** [docs/RESPONSIBLE_DESIGN.md](docs/RESPONSIBLE_DESIGN.md), [docs/TESTING.md](docs/TESTING.md), [ROADMAP.md](ROADMAP.md) and the Round 3 report.
 
