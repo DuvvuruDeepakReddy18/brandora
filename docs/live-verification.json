@@ -1,11 +1,30 @@
 {
   "target": "https://brandora-omega-three.vercel.app",
-  "checked_at": "2026-11-24T08:49:57+00:00",
+  "checked_at": "2026-11-24T09:10:06+00:00",
   "live_ai": true,
   "passed": 51,
   "total": 51,
-  "deployment": "dpl_BxXrMXXPoa6o2ZNKyrt1AtVaR6Gt (second ChatGPT review round: pricing clause, withdrawn approved wording, logo checks, labels)",
+  "deployment": "dpl_BQfX82zNCY6gMz6VL4JrBnpLSUCt (third ChatGPT review round: quoted withdrawals of approved wording, stale comparison subtitle)",
   "earlier_runs": [
+    {
+      "checked_at": "2026-11-24T09:07:39+00:00",
+      "deployment": "dpl_BQfX82zNCY6gMz6VL4JrBnpLSUCt (same build)",
+      "passed": 50,
+      "total": 51,
+      "failed": [
+        {
+          "claim": "creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)",
+          "detail": "[\"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"T01:Low Confidence:inkloom\", \"P02:Low Confidence:1,499\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
+        }
+      ],
+      "explanation": "The AI read the sample ad’s price as \"1,499\" without the ₹ sign, so the rule engine marked it uncertain (P02 Low Confidence) instead of a verified contradiction: the same signature as the 01:18 UTC run on an earlier build. Three repeat reads of the same image right after returned \"₹1,499\". The next run on the same build passed 51/51."
+    },
+    {
+      "checked_at": "2026-11-24T08:49:57+00:00",
+      "deployment": "dpl_BxXrMXXPoa6o2ZNKyrt1AtVaR6Gt",
+      "passed": 51,
+      "total": 51
+    },
     {
       "checked_at": "2026-11-24T08:00:00+00:00",
       "deployment": "dpl_3jFvLiJXNKmSE4UjfbgS2iTqJf4t",
@@ -292,7 +311,7 @@
     {
       "claim": "creative.png: the seven documented problems are found again by live OCR (AI suggestions listed separately)",
       "result": "PASS",
-      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"T01:Low Confidence:inkloom\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
+      "detail": "[\"P02:Verified Contradiction:₹1,499 per month\", \"P02:Low Confidence:₹1,499 per month\", \"F02:Verified Contradiction:30-day\", \"R03:Evidence Gap:The world's No. 1 creative pla\", \"R03:Evidence Gap:Reduce your marketing producti\", \"T01:Low Confidence:Ik inkloom\", \"LOGO:Visual Violation:\", \"C01:Low Confidence:\", \"Rules + validated gemini suggestions\", \"read by gemini · gemini-3.5-flash-lite\"]"
     }
   ]
 }
