@@ -343,8 +343,8 @@ def test_logo_evaluation_is_labelled_and_its_published_counts_follow_from_the_re
     assert client.get('/api/reliability').json()['logos']['summary'] == report['summary']
 
 
-def test_price_period_and_negated_values_from_an_outside_review():
-    """Cases an outside reviewer found on 24 Nov: the right amount for the wrong billing period was marked verified, and a
+def test_price_period_and_negated_values_from_an_ai_review():
+    """Cases a ChatGPT review of the near-final product found on 24 Nov (both reproduced before fixing): the right amount for the wrong billing period was marked verified, and a
     corrected statement ("no longer 30 days") was called a contradiction. Both now go the right way through the API."""
     client, _ = visitor()
     switch(client, 'manager')

@@ -40,7 +40,7 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - A busy AI provider (HTTP 500–504) is retried twice, after 1 s and 3 s, within the 55-second limit, and the message says the service is busy rather than pointing at configuration. Found when Gemini briefly returned 503 during the final live check.
   - If the main model is still busy, or its free daily quota is used up, a second free model (Gemini 3.1 Flash Lite, separate capacity and quota) answers. Configuration errors never switch models; each result names the model that produced it, and the AI status panel names the backup. No paid tier is used.
 - **Faster demo start and image checks (24 Nov):** contrast and brand-colour measurement now work out each distinct colour once instead of once per pixel. Opening a demo went from 6.7 s to 1.8 s of server work in a local profile, and uploaded images and pages are checked faster. Results are identical: the old and new measurements were compared on every sample image, and the 94 tests pass.
-- **After an outside review (24 Nov):**
+- **After a review of the near-final product by ChatGPT (24 Nov), each finding reproduced first:**
   - A price with the right amount but the wrong billing period ("₹1,999 per year" for ₹1,999 a month) is now a contradiction, not verified.
   - A value stated as no longer, previously or not true ("no longer 30 days") goes to a reviewer instead of being called a contradiction or verified.
   - A separate labelled logo set (12 creatives) measures the live AI logo comparison, with every miss published; a stricter prompt that did not change the score was not kept.

@@ -3,10 +3,10 @@
   "url": "https://brandora-omega-three.vercel.app",
   "repository": "https://github.com/DuvvuruDeepakReddy18/brandora",
   "repository_visibility": "public",
-  "deployment_id": "dpl_AM9xLBaRZ8VzGsJf3yQSgBnGtu7K",
-  "deployment_url": "https://brandora-rjzf1526r-duvvurudeepakreddy18s-projects.vercel.app",
-  "application_commit": "9578de5 (main and claude/changes); later commits change documentation only",
-  "previous_production_deployment": "dpl_9grqanmDY1yFZUQrPJcmd5t2nX4L",
+  "deployment_id": "dpl_3jFvLiJXNKmSE4UjfbgS2iTqJf4t",
+  "deployment_url": "https://brandora-2zwuc5w0f-duvvurudeepakreddy18s-projects.vercel.app",
+  "application_commit": "7bd90fd (main and claude/changes); later commits change documentation only",
+  "previous_production_deployment": "dpl_AM9xLBaRZ8VzGsJf3yQSgBnGtu7K",
   "status": "READY",
   "target": "production",
   "promoted": true,
@@ -18,7 +18,7 @@
   "schema_change": "Additive: new tables creative_pages, finding_events and rule_proposals; creatives gains page_count and images columns (ALTER ... ADD COLUMN with defaults). No column removed or retyped. Follow-up: finding_events gains review_by (ALTER ... ADD COLUMN with default). Round 3 additions: api_keys table; creatives gains colours (ALTER ... ADD COLUMN with default).",
   "dependency_change": "pypdfium2 5.15.2 added (PDF page rendering and text positions). The sample deck is committed as a file; python-pptx is used only by scripts/make_sample_deck.py and is not a runtime dependency.",
   "verification": {
-    "regression_tests": 94,
+    "regression_tests": 96,
     "regression_result": "passed",
     "landing_bridge_tests": "3 passed",
     "brand_crew_entry_check": "passed",
@@ -38,11 +38,12 @@
     "local_browser": "desktop 1440px and mobile 375px: brochure page view with page arrows, thumbnails with per-page counts and zoom to 150%; clicking a finding jumps to its page; contrast evidence shows measured colours and ratio; deck uploaded through Use this sample and read page by page; slide 4 alt-text marks; Fix & approve shows Revised file upload for documents; Reliability and Guideline insights screens; reviewer draft, replay and manager approval; original ad shows exactly seven findings (including the colour check); no page-level horizontal overflow on mobile",
     "production_api_flow": "passed on the live URL with a fresh sandbox: 7 seeded items (ad 7 findings, brochure 14 across 10 pages, deck 10 across 6 slides); brochure contrast 2.02:1 on page 1 and 1.76:1 on page 6; deck alt text missing and unhelpful on slide 4, 2.32:1 subtitle, 7 pt footer; page image served as JPEG; reliability endpoint returns the measured report; creator tips; insights flag P02 and unclear claims; replay 35.7% to 100% agreement with 0 confirmed issues missed; manager applied the reviewer's proposal (200); corrected brochure upload created version 2 with zero findings, checked by rules plus live Gemini",
     "canonical_landing_source_sha256_prefix": "3f8540e6ec92 (unchanged)",
-    "live_claims": "Final build (24 Nov, faster demo start): 51/51 with live AI. The previous build passed 51/51 too; one run on it passed 50/51 because the AI read the sample ad’s price without its ₹ sign once, so the rule engine marked it uncertain instead of contradicted. Every run is in docs/live-verification.json. Earlier on 24 Nov, before the backup model, Google’s free tier refused the 2 AI image uploads with HTTP 503. The daily GitHub Actions run (rules only) passes.",
+    "live_claims": "Final build (24 Nov, after the fixes from the ChatGPT review): 51/51 with live AI. The two builds before it also passed 51/51; one earlier run passed 50/51 because the AI read the sample ad’s price without its ₹ sign once, so the rule engine marked it uncertain instead of contradicted. Every run is in docs/live-verification.json. The daily GitHub Actions run re-checks the 49 rule-based claims without AI.",
     "accessibility_audit": "24 screens across four roles, 4,076 elements, 0 issues after fixing 23 (docs/accessibility-audit.json)",
     "live_claims_after_landing_fallback": "49/49 rules-only claims passed on production after promotion (scripts/verify_live.py)",
     "backup_model_check": "gemini-3.1-flash-lite passed all five live AI checks (OCR, logo match, Hindi translation, scanned PDF, semantic review) on synthetic fixtures (docs/provider-verification-fallback.json).",
-    "demo_start": "Opening a demo takes 1.9–3.2 s on the final build, measured on its staged URL, down from 6.0 s: contrast and colour checks now measure each distinct colour once. Outputs are identical on every sample image."
+    "demo_start": "Opening a demo takes 1.9–3.2 s on the final build, measured on its staged URL, down from 6.0 s: contrast and colour checks now measure each distinct colour once. Outputs are identical on every sample image.",
+    "logo_evaluation": "Separate labelled set of 12 creatives through the live AI comparison (backend/eval/logos.json): 5/7 logo problems caught, 1/5 false alarms, 9/12 exactly as labelled. A stricter prompt scored the same on the same set and was not kept."
   },
   "owner_next_step": "Existing owners sign in normally. Judges choose Explore demo; the Round 3 features open from More to explore or the cards on Home.",
   "limits": "Functional release verification; no penetration test, large-scale load certification or user study is claimed. The evaluation set is synthetic and team-labelled; it measures the rule engine, not live AI suggestions.",
@@ -52,5 +53,6 @@
   "report": "docs/Brandora_Round3_Final_Report.pdf (public edition, 14 pages; contact details omitted)",
   "landing_without_webgl": "If a browser cannot create a WebGL context, the landing shows a still image of the same 3D scene (desktop and mobile versions, loaded only in that case) in place of the placeholder disc, and a notice explains how to turn on graphics acceleration to see the interactive original. Added by the hosting layer (public/brand-crew/host-still.js); the approved landing source is unchanged (sha256 prefix 3f8540e6ec92). Verified on the staged and production deployments with WebGL disabled (still and notice shown, desktop and mobile) and enabled (live 3D, no notice).",
   "ai_retry": "Found by the final live check: a busy AI provider (HTTP 500-504) is now retried twice, after 1 s and 3 s, within the 55-second limit, and the message says the service is temporarily busy instead of pointing at configuration. 2 tests added (87 total).",
-  "ai_fallback": "Free backup model: if gemini-3.5-flash-lite is still busy after its retries (HTTP 500-504) or out of free daily quota (HTTP 429), gemini-3.1-flash-lite answers. Configuration errors never switch models, an unavailable backup never hides the real problem, and every result is labelled with the model that produced it. No paid tier is used. 7 tests added (94 total)."
+  "ai_fallback": "Free backup model: if gemini-3.5-flash-lite is still busy after its retries (HTTP 500-504) or out of free daily quota (HTTP 429), gemini-3.1-flash-lite answers. Configuration errors never switch models, an unavailable backup never hides the real problem, and every result is labelled with the model that produced it. No paid tier is used. 7 tests added (94 total).",
+  "ai_review": "24 Nov: a review of the near-final product by ChatGPT found that the right amount with the wrong billing period was verified, and that a negated value (\"no longer 30 days\") was called a contradiction. Both reproduced and fixed with regression tests; reliability scores unchanged. The missing logo evaluation was added, and Privacy & AI now lists exactly what is sent to the provider."
 }
