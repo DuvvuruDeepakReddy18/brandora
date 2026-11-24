@@ -1881,6 +1881,23 @@ mark.ev-hit {
   .anno-tip {
     display: none;
   }
+  /* Long origin labels wrap instead of pushing the page sideways. */
+  .origin-tag {
+    white-space: normal;
+    max-width: 100%;
+  }
+  /* The item title gets its own row on phones instead of sharing one with the back link. */
+  .ws-top {
+    gap: 8px 16px;
+  }
+  .ws-title {
+    flex-basis: 100%;
+    order: 2;
+  }
+  .ws-top > .status-pill {
+    order: 1;
+    margin-left: auto;
+  }
 }
 @media (max-width: 760px) {
   .anno-box > .anno-num {
@@ -1951,6 +1968,17 @@ mark.ev-hit {
 }
 .tour-steps {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* Phones: the rule above comes after the responsive block, so narrow screens need their own override. */
+@media (max-width: 760px) {
+  .tour-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .tour-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .tour-step.done {
   background: #f1faf4;

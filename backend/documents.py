@@ -60,7 +60,11 @@ def measure_raster(blob, regions):
             out.append(region); continue
         crop.thumbnail((600, 120))
         pixels = list(crop.get_flattened_data() if hasattr(crop, "get_flattened_data") else crop.getdata())
-        scored = sorted(((contrast_ratio(hexcolour(p), bg), p) for p in pixels), key=lambda t: t[0])
+        ratios = {}  # a crop has few distinct colours: measure each one once
+        for p in pixels:
+            if p not in ratios:
+                ratios[p] = contrast_ratio(hexcolour(p), bg)
+        scored = sorted(((ratios[p], p) for p in pixels), key=lambda t: t[0])
         ink = [t for t in scored if t[0] >= 1.35]
         if len(ink) < 6:
             out.append(region); continue
@@ -68,7 +72,7 @@ def measure_raster(blob, regions):
         rows = set()
         cw = crop.width
         for i, p in enumerate(pixels):
-            if contrast_ratio(hexcolour(p), bg) >= 1.35:
+            if ratios[p] >= 1.35:
                 rows.add(i // cw)
         px_height = len(rows) * (box[3] - box[1]) / max(1, crop.height)
         out.append({**region, 'px': round(px_height, 1), 'contrast': {'fg': fg, 'bg': bg, 'ratio': contrast_ratio(fg, bg), 'method': 'pixel sample of the image'}})
@@ -86,9 +90,11 @@ def measure_colours(blob, page=0):
     image.thumbnail((180, 180))
     W, H = image.size
     pixels = list(image.get_flattened_data() if hasattr(image, 'get_flattened_data') else image.getdata())
-    bins, keys = {}, [None] * len(pixels)
+    bins, keys, labs = {}, [None] * len(pixels), {}  # convert each distinct colour once
     for i, rgb in enumerate(pixels):
-        L, a, b = lab(rgb)
+        if rgb not in labs:
+            labs[rgb] = lab(rgb)
+        L, a, b = labs[rgb]
         if (a * a + b * b) ** 0.5 < 12:
             continue
         key = (round(L / 12), round(a / 12), round(b / 12))
