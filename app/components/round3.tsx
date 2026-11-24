@@ -168,6 +168,9 @@ function LogoEvaluation({ logos }: { logos: Row }) {
   const s = logos.summary;
   const when = String(logos.checked_at || "").slice(0, 10);
   const models = Array.from(new Set((logos.items as Row[]).map((i) => i.model).filter(Boolean))).join(", ");
+  const sets = logos.by_set as Record<string, Row> | undefined;
+  const line = (x: Row) =>
+    `${x.violations_caught}/${x.violations} logo problems caught (${x.violations_detected ?? x.violations_caught} detected, ${x.violations_to_person ?? 0} sent to a person) · ${x.false_alarms}/${x.genuine} false alarms`;
   return (
     <section className="panel">
       <div className="panel-header">
@@ -175,8 +178,10 @@ function LogoEvaluation({ logos }: { logos: Row }) {
           <h2>Logo comparison · separate labelled set</h2>
           <p>
             Logo checks use the AI provider, not the rule engine, so they are measured on their own: {s.items} creatives drawn in code and labelled
-            before running (approved, altered, wrong, absent and degraded logos), each sent once through the same comparison the product uses. One
-            recorded run on {when}{models ? ` (${models})` : ""}. Results can differ between runs; every miss is listed.
+            before running (approved, altered, wrong, absent and degraded logos), each sent once through the same comparison the product uses. When
+            the AI says “match”, Brandora also measures the logo’s proportions against the reference and reads the wordmark; if either disagrees,
+            the result becomes “uncertain” and a reviewer has to decide. One recorded run on {when}{models ? ` (${models})` : ""}. Results can differ
+            between runs; every miss is listed.
           </p>
         </div>
       </div>
@@ -184,12 +189,14 @@ function LogoEvaluation({ logos }: { logos: Row }) {
         <div className={"metric-card " + (s.violations_caught === s.violations ? "good" : "warn")}>
           <small>Logo problems caught</small>
           <b>{s.violations_caught}/{s.violations}</b>
-          <span>Altered, wrong or missing logos that were not accepted as a match</span>
+          <span>
+            {s.violations_detected ?? s.violations_caught} detected by the comparison, {s.violations_to_person ?? 0} sent to a person as uncertain
+          </span>
         </div>
         <div className={"metric-card " + (s.false_alarms === 0 ? "good" : "warn")}>
           <small>False alarms</small>
           <b>{s.false_alarms}/{s.genuine}</b>
-          <span>Genuine logos (including blurred or rotated) reported as modified or missing</span>
+          <span>Genuine logos reported as modified or missing{s.genuine_to_person ? ` (${s.genuine_to_person} more sent to a person)` : ""}</span>
         </div>
         <div className={"metric-card " + (s.correct === s.ran ? "good" : "warn")}>
           <small>Exactly as labelled</small>
@@ -197,14 +204,27 @@ function LogoEvaluation({ logos }: { logos: Row }) {
           <span>Result in the labelled category (match, modified, not found or uncertain)</span>
         </div>
       </div>
+      {sets && (
+        <p className="ai-data-sent">
+          <b>Original 12:</b> {line(sets.original)}. <b>Fresh 8</b> (drawn and labelled after Brandora’s checks were written, before running):{" "}
+          {line(sets.fresh)}.
+          {(logos.earlier_runs as Row[] | undefined)?.map((r) => (
+            <span key={r.checked_at}>
+              {" "}
+              <b>Earlier run ({String(r.checked_at).slice(0, 10)}):</b> {r.note} {line(r.summary)}.
+            </span>
+          ))}
+        </p>
+      )}
       <div className="table-scroll">
         <table className="data-table">
-          <thead><tr><th>Creative</th><th>Expected</th><th>Result</th><th></th></tr></thead>
+          <thead><tr><th>Creative</th><th>Expected</th><th>AI said</th><th>Result</th><th></th></tr></thead>
           <tbody>
             {(logos.items as Row[]).map((i) => (
               <tr key={i.id}>
-                <td>{i.description}</td>
+                <td>{i.description}{i.checked_by_brandora ? <small className="muted"> · {i.checked_by_brandora}</small> : null}</td>
                 <td>{(i.expected as string[]).map((e) => LOGO_RESULT[e] || e).join(" or ")}</td>
+                <td>{LOGO_RESULT[i.ai_result || i.result] || i.ai_result || i.result}</td>
                 <td>{LOGO_RESULT[i.result] || i.result}</td>
                 <td>{i.correct ? "✓" : "Miss"}</td>
               </tr>
@@ -214,8 +234,8 @@ function LogoEvaluation({ logos }: { logos: Row }) {
       </div>
       {(logos.tried_and_not_kept as Row[] | undefined)?.map((t) => (
         <p className="ai-data-sent" key={t.checked_at}>
-          <b>Tried and not kept ({String(t.checked_at).slice(0, 10)}):</b> {t.change} Result: {t.summary.correct}/{t.summary.ran} exactly as labelled,{" "}
-          {t.summary.violations_caught}/{t.summary.violations} problems caught, {t.summary.false_alarms}/{t.summary.genuine} false alarms. {t.outcome}
+          <b>Tried and not kept ({String(t.checked_at).slice(0, 10)}):</b> {t.change} Result on the original 12: {t.summary.correct}/{t.summary.ran} exactly as
+          labelled, {t.summary.violations_caught}/{t.summary.violations} problems caught, {t.summary.false_alarms}/{t.summary.genuine} false alarms. {t.outcome}
         </p>
       ))}
       <p className="form-note">

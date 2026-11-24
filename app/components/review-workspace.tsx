@@ -937,18 +937,28 @@ function splitLines(text: string) {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+/* One label for a version's review state, used wherever that version appears. */
+function versionLabel(status: string, previouslyApproved: boolean) {
+  if (status === "Approved") return "Approved";
+  if (status === "Needs reassessment") return previouslyApproved ? "Previously approved · needs reassessment" : "Needs reassessment";
+  if (status === "In review") return "In review · awaiting approval";
+  return "Draft · awaiting approval";
+}
+
 function AdPreview({
   text,
   logo,
   status,
   verified = [],
   workspace,
+  previouslyApproved = false,
 }: {
   text: string;
   logo?: Row;
   status: string;
   verified?: Row[];
   workspace: string;
+  previouslyApproved?: boolean;
 }) {
   const lines = splitLines(text);
   let cursor = 0;
@@ -976,7 +986,7 @@ function AdPreview({
   return (
     <div className={"ad-preview" + (approved ? " approved" : "")}>
       <span className={"ad-ribbon" + (approved ? " ok" : "")}>
-        {approved ? "Approved version" : "Draft · awaiting human approval"}
+        {approved ? "Approved version" : status === "Draft" ? "Draft · awaiting human approval" : versionLabel(status, previouslyApproved)}
       </span>
       <div className="ad-logo">
         {logo ? <img src={logo.image_url} alt={logo.name} /> : <b>{workspace}</b>}
@@ -1800,7 +1810,7 @@ function FixStage({
           ) : (
             <>
           {fromCreative ? (
-            <AdPreview text={draft} logo={logos[0]} status={dirty ? "Draft" : item.status} verified={dirty ? [] : item.verified} workspace={data.workspace.name} />
+            <AdPreview text={draft} logo={logos[0]} status={dirty ? "Draft" : item.status} verified={dirty ? [] : item.verified} workspace={data.workspace.name} previouslyApproved={!dirty && data.approvals.some((a) => a.content_id === item.id && a.version === item.version)} />
           ) : (
             <div className="annotated-paper">
               <DiffView before={item.body} after={draft} side="after" />
@@ -1993,9 +2003,9 @@ function CompareStage({
                     : "Not checked yet"}
               </p>
             </div>
-            <span className={"status-chip tone-" + (item.status === "Approved" ? "green" : "yellow")}>
+            <span className={"status-chip tone-" + (item.status === "Approved" ? "green" : item.status === "Needs reassessment" ? "orange" : "yellow")}>
               <i />
-              {item.status === "Approved" ? "Approved" : "Draft · awaiting approval"}
+              {versionLabel(item.status, data.approvals.some((a) => a.content_id === item.id && a.version === item.version))}
             </span>
           </div>
           <div className="compare-body">
@@ -2021,7 +2031,7 @@ function CompareStage({
                 compact
               />
             ) : original ? (
-              <AdPreview text={item.body} logo={logos[0]} status={item.status} verified={item.verified} workspace={data.workspace.name} />
+              <AdPreview text={item.body} logo={logos[0]} status={item.status} verified={item.verified} workspace={data.workspace.name} previouslyApproved={data.approvals.some((a) => a.content_id === item.id && a.version === item.version)} />
             ) : (
               <div className="annotated-paper">
                 <DiffView before={first?.body || item.body} after={item.body} side="after" />

@@ -326,7 +326,7 @@ def test_api_key_lifecycle_and_rules_only_verdicts():
 def test_logo_evaluation_is_labelled_and_its_published_counts_follow_from_the_results():
     from backend import logo_eval
     cases = logo_eval.cases()
-    assert len(cases) == 12 and len({c[0] for c in cases}) == 12
+    assert len(cases) == 20 and len({c[0] for c in cases}) == 20 and sum(c[0].startswith('fresh-') for c in cases) == 8
     assert {g for _, g, _, _ in cases} == set(logo_eval.ACCEPT)
     report = logo_eval.published()
     assert report, 'Run python -m backend.logo_eval --write and commit backend/eval/logos.json'
@@ -334,13 +334,36 @@ def test_logo_evaluation_is_labelled_and_its_published_counts_follow_from_the_re
     for i in report['items']:
         assert i['expected'] == logo_eval.ACCEPT[i['group']] and i['correct'] == (i['result'] in i['expected'])
         assert i['result'] == 'error' or i['model']
+        assert i['set'] == ('fresh' if i['id'].startswith('fresh-') else 'original')
+        assert bool(i['checked_by_brandora']) == (i['ai_result'] == 'match' and i['result'] == 'uncertain')
     assert report['summary'] == logo_eval.summarise(report['items'])
+    assert report['by_set'] == {n: logo_eval.summarise([i for i in report['items'] if i['set'] == n]) for n in ('original', 'fresh')}
     groups = {c[0]: c[1] for c in cases}
-    for run in report.get('tried_and_not_kept', []):
-        rebuilt = [{'group': groups[k], 'result': r, 'correct': r in logo_eval.ACCEPT[groups[k]]} for k, r in run['results'].items()]
-        assert set(run['results']) == set(groups) and run['summary'] == logo_eval.summarise(rebuilt) and run['change'] and run['outcome']
+    for run in report.get('tried_and_not_kept', []) + report.get('earlier_runs', []):
+        assert set(run['results']) <= set(groups) and run['summary'] == logo_eval.rebuild(run['results'])
+    assert all(t['change'] and t['outcome'] for t in report.get('tried_and_not_kept', []))
     client, _ = visitor()
     assert client.get('/api/reliability').json()['logos']['summary'] == report['summary']
+
+
+def test_brandora_checks_every_ai_logo_match_and_sends_doubts_to_a_person(monkeypatch):
+    """An AI "match" is re-checked with what Brandora can measure: proportions against the reference, and the text read
+    inside the logo against the approved name. A disagreement turns it into "uncertain", which needs a reviewer."""
+    from backend import intelligence, logo_eval, ai
+    from backend.intelligence import VisionResult, OCRResult, Region, LogoMatch
+    cases = {c[0]: c[3] for c in logo_eval.cases()}
+    ref = [{'id': 'logo-1', 'name': 'Inkloom AI approved logo', 'blob': intelligence.normalize_image(demo.assets()['logo.png'][1], reference=True)}]
+    def answer(box, words):
+        result = VisionResult(ocr=OCRResult(text=words, language='en', regions=[Region(text=words, box=box)], warnings=[]),
+                              logos=[LogoMatch(reference_id='logo-1', result='match', explanation='Looks the same.', box=box)], suggested_alt_text='Ad', warnings=[])
+        monkeypatch.setattr(ai, 'generate', lambda *a, **k: result)
+    card_box = [40, 30, 200, 450]   # where card() pastes a 460x120 logo on a 1200x900 creative, with a margin
+    answer(card_box, 'Inkloom AI'); assert intelligence.inspect_visual(cases['altered-colour'], ref)['logos'][0]['result'] == 'match'
+    answer([40, 20, 200, 700], 'Inkloom AI'); stretched = intelligence.inspect_visual(cases['altered-stretch'], ref)['logos'][0]
+    assert stretched['result'] == 'uncertain' and 'stretched or squashed' in stretched['checked_by_brandora']
+    answer(card_box, 'Inkbloom AI'); misspelt = intelligence.inspect_visual(cases['altered-name'], ref)['logos'][0]
+    assert misspelt['result'] == 'uncertain' and '“Inkbloom”' in misspelt['checked_by_brandora'] and '“Inkloom”' in misspelt['checked_by_brandora']
+    assert intelligence.near_miss('Inkloon', 'Inkloom') and not intelligence.near_miss('Inkloom', 'Inkloom') and not intelligence.near_miss('Campaign', 'Inkloom')
 
 
 def test_price_period_and_negated_values_from_an_ai_review():
@@ -369,6 +392,55 @@ def test_price_period_and_negated_values_from_an_ai_review():
         assert all(f['outcome'] == 'Low Confidence' for f in result['findings']) and not result['verified'], text
     # An ordinary sentence that merely contains "don't" is still checked as a claim.
     assert check("Don't miss our 30-day free trial.")['verdict'] == 'blocked'
+    # A second review round found period wording elsewhere in the pricing clause.
+    for text, span, fix in (('The annual price for Professional is ₹1,999. Prices exclude GST.', '₹1,999', ''),
+                            ('Our yearly Professional plan costs ₹1,999. Prices exclude GST.', '₹1,999', ''),
+                            ('Professional costs ₹1,999 for a full year. Prices exclude GST.', '₹1,999 for a full year', '₹1,999 per month')):
+        result = check(text)
+        assert result['verdict'] == 'blocked' and not result['verified'], (text, result)
+        assert [(f['rule'], f['span'], f['suggestion']) for f in result['findings']] == [('P02', span, fix)], result['findings']
+    # Billing frequency is not the price period: this control stays clear and verified.
+    billed = check('Professional costs ₹1,999 per month, billed annually. Prices exclude GST.')
+    assert billed['verdict'] == 'clear' and [v['span'] for v in billed['verified'] if v['rule'] == 'P02'] == ['₹1,999 per month']
+    # Only the billing frequency, no period: a person decides.
+    unclear = check('Professional costs ₹1,999, billed annually. Prices exclude GST.')
+    assert unclear['verdict'] == 'needs_review' and [f['outcome'] for f in unclear['findings']] == ['Low Confidence']
+    # Each plan's own period counts, not its neighbour's.
+    assert check('Starter is ₹999 a month and Professional is ₹1,999 a month. Prices exclude GST.')['verdict'] == 'clear'
+
+
+def test_withdrawn_approved_wording_sends_approved_content_back_for_reassessment():
+    """Content approved with registered replacement wording depends on the claims register: withdrawing that wording
+    flags it for reassessment, the receipt names the register, and the original receipt is kept."""
+    client, state = visitor()
+    phrase = 'The central workspace for campaign content'
+    body = phrase + '. Inkloom AI Professional is ₹1,999/month + GST. Start with a 14-day free trial.'
+    switch(client, 'creator')
+    c = client.post('/api/content', json={'title': 'Approved wording', 'body': body, 'subject': 'Inkloom AI', 'channel': 'Website', 'campaign_id': state['campaigns'][0]['id']}).json()
+    scanned = client.post(f"/api/content/{c['id']}/scan").json()
+    assert scanned['findings'] == []
+    item = next(x for x in client.get('/api/workspace').json()['content'] if x['id'] == c['id'])
+    wording = [v for v in item['verified'] if v['title'] == 'Approved wording']
+    assert [v['span'] for v in wording] == [phrase] and wording[0]['evidence']['title'] == 'Approved claims register'
+    assert client.post(f"/api/content/{c['id']}/request-review").status_code == 200
+    switch(client, 'reviewer')
+    assert client.post(f"/api/content/{c['id']}/approve").status_code == 200
+    state = client.get('/api/workspace').json()
+    receipt = next(a for a in state['approvals'] if a['content_id'] == c['id'])
+    assert any(d['source_title'] == 'Approved claims register' and d['rule_value'] == 'Approved wording in use' for d in receipt['snapshot']['dependencies'])
+    register = next(s for s in state['sources'] if s['title'] == 'Approved claims register')
+    switch(client, 'manager')
+    withdrawn = register['excerpt'].replace(' Inkloom AI provides a central workspace for campaign content.', '')
+    assert withdrawn != register['excerpt']
+    edited = client.put(f"/api/sources/{register['id']}", json={'title': register['title'], 'owner': register['owner'], 'excerpt': withdrawn, 'review_date': register.get('review_date') or ''}).json()
+    assert c['id'] in edited['affected']
+    state = client.get('/api/workspace').json()
+    assert next(x for x in state['content'] if x['id'] == c['id'])['status'] == 'Needs reassessment'
+    kept = next(a for a in state['approvals'] if a['content_id'] == c['id'])
+    assert kept['id'] == receipt['id'] and kept['content_hash'] == receipt['content_hash'] and kept['snapshot'] == receipt['snapshot']
+    switch(client, 'creator')
+    rechecked = client.post(f"/api/content/{c['id']}/scan").json()
+    assert [(f['title'], f['outcome'], f['span']) for f in rechecked['findings']] == [('Check this approved wording', 'Low Confidence', phrase)]
 
 
 def test_api_submission_lands_in_the_review_queue():

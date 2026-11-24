@@ -560,7 +560,7 @@ def approve(id:str,actor=Depends(user),db=Depends(database)):
         s=db.get(Source,dep.source_id)
         if not current(s) or s.version!=dep.source_version:fail(409,'A source changed or expired. Rescan first.')
     approved_creative=current_creative(db,c)
-    a=Approval(org_id=actor.org_id,content_id=c.id,reviewer_id=actor.id,version=c.version,content_hash=digest(c.body),snapshot={'title':c.title,'body':c.body,'alt_text':approved_creative.alt_text if approved_creative else '','pages':approved_creative.page_count if approved_creative else 0,'reviewer':actor.name,'coverage':c.scan_coverage,'language':c.language,'language_review':c.language_review,'policy_revision':ws.revision,'dependencies':[dict(row(dep),source_title=db.get(Source,dep.source_id).title,rule_value=db.get(Rule,dep.rule_id).value) for dep in deps]})
+    a=Approval(org_id=actor.org_id,content_id=c.id,reviewer_id=actor.id,version=c.version,content_hash=digest(c.body),snapshot={'title':c.title,'body':c.body,'alt_text':approved_creative.alt_text if approved_creative else '','pages':approved_creative.page_count if approved_creative else 0,'reviewer':actor.name,'coverage':c.scan_coverage,'language':c.language,'language_review':c.language_review,'policy_revision':ws.revision,'dependencies':[dict(row(dep),source_title=db.get(Source,dep.source_id).title,rule_value=db.get(Rule,dep.rule_id).value if db.get(Rule,dep.rule_id).source_id==dep.source_id else 'Approved wording in use') for dep in deps]})
     db.add(a);db.flush();c.status='Approved';c.updated=now();audit(db,actor,'Approved exact version',c.title,{'content_id':c.id,'receipt_id':a.id,'version':c.version});return row(a)
 @app.get('/api/content/{id}/history')
 def content_history(id:str,actor=Depends(user),db=Depends(database)):

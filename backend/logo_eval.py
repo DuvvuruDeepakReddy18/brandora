@@ -81,16 +81,46 @@ def cases():
         ('absent-other', 'absent', 'Another company’s logo (“Northwind”)', png(card(other_brand()))),
         ('degraded-lowres', 'degraded', 'Approved logo at very low resolution, blurred', png(card(lowres))),
         ('degraded-rotated', 'degraded', 'Approved logo rotated 10° on a gradient', png(rotated_bg)),
+    ] + fresh_cases()
+
+
+def fresh_cases():
+    """Eight more creatives, drawn and labelled on 24 Nov after Brandora's own logo checks were written, before any were run."""
+    approved = demo.approved_logo()
+    night = Image.new('RGB', (1200, 628), '#17133a'); night.paste(approved.resize((414, 108)), (60, 60))
+    demo.write(ImageDraw.Draw(night), (64, 300), 'Launch reviews in one place.', 56, 'white', bold=True)
+    busy = card(None, headline='Spring launch: what is new'); d = ImageDraw.Draw(busy)
+    for i in range(4):
+        d.rounded_rectangle((640 + i * 130, 620, 740 + i * 130, 760), 14, fill=('#e3dcff', '#ffd9b8', '#ece7ff', '#f6dcc4')[i])
+    busy.paste(approved.resize((230, 60)), (930, 40))
+    return [
+        ('fresh-hero', 'approved', 'Fresh: approved logo large and centred on a hero banner', png(card(approved.resize((690, 180)), (1200, 900), '#ffffff', (255, 60)))),
+        ('fresh-night', 'approved', 'Fresh: approved logo on its white plate over a dark banner', png(night)),
+        ('fresh-corner', 'approved', 'Fresh: approved logo small, top-right of a busy layout', png(busy)),
+        ('fresh-squash', 'altered', 'Fresh: approved logo squashed to 60% of its width', png(card(approved.resize((276, 120))))),
+        ('fresh-green', 'altered', 'Fresh: approved logo with the mark recoloured green', png(card(logo(mark='#1f9d55')))),
+        ('fresh-misspelt', 'altered', 'Fresh: approved mark with a misspelt wordmark (“Inkloon AI”)', png(card(logo(name='Inkloon AI')))),
+        ('fresh-old-stretched', 'wrong', 'Fresh: the outdated orange logo, stretched', png(card(demo.outdated_logo().resize((560, 96))))),
+        ('fresh-name-only', 'absent', 'Fresh: the company name typed as a heading, with no logo', png(card(None, headline='Inkloom AI for campaign teams'))),
     ]
 
 
 def summarise(items):
+    """Counts for a run. A logo problem is caught when it is either detected (modified or not found) or sent to a person
+    (uncertain); a false alarm is a genuine logo reported as modified or not found."""
     ran = [i for i in items if i['result'] != 'error']
-    caught = [i for i in ran if i['group'] in VIOLATIONS and i['result'] != 'match']
-    alarms = [i for i in ran if i['group'] in GENUINE and i['result'] in ('modified', 'not_found')]
+    bad = [i for i in ran if i['group'] in VIOLATIONS]; good = [i for i in ran if i['group'] in GENUINE]
+    detected = sum(i['result'] in ('modified', 'not_found') for i in bad); to_person = sum(i['result'] == 'uncertain' for i in bad)
     return {'items': len(items), 'ran': len(ran), 'correct': sum(i['correct'] for i in ran),
-            'violations': sum(i['group'] in VIOLATIONS for i in ran), 'violations_caught': len(caught),
-            'genuine': sum(i['group'] in GENUINE for i in ran), 'false_alarms': len(alarms)}
+            'violations': len(bad), 'violations_caught': detected + to_person, 'violations_detected': detected, 'violations_to_person': to_person,
+            'genuine': len(good), 'false_alarms': sum(i['result'] in ('modified', 'not_found') for i in good),
+            'genuine_to_person': sum(i['result'] == 'uncertain' for i in good)}
+
+
+def rebuild(results):
+    """A run's summary from its stored per-item results."""
+    groups = {c[0]: c[1] for c in cases()}
+    return summarise([{'group': groups[k], 'result': r, 'correct': r in ACCEPT[groups[k]]} for k, r in results.items()])
 
 
 def published():
@@ -107,25 +137,29 @@ def run():
     reference = [{'id': 'logo-1', 'name': 'Inkloom AI approved logo', 'blob': intelligence.normalize_image(demo.assets()['logo.png'][1], reference=True)}]
     items = []
     for case_id, group, description, blob in cases():
-        result, model, note = 'error', '', ''
+        result, model, note, checked = 'error', '', '', ''
         for attempt in range(2):
             ai.track()
             try:
                 found = intelligence.inspect_visual(blob, reference)['logos'][0]
-                result, model, note = found['result'], ai.answered_by(), (found.get('explanation') or '')[:240]
+                result, model, note = found['result'], ai.answered_by(), (found.get('explanation') or '')[:400]
+                checked = found.get('checked_by_brandora', '')
                 break
             except ai.ProviderError as exc:
                 note = str(exc)[:240]; time.sleep(20)
-        items.append({'id': case_id, 'group': group, 'description': description, 'expected': ACCEPT[group], 'result': result,
-                      'correct': result in ACCEPT[group], 'model': model, 'note': note})
+        items.append({'id': case_id, 'set': 'fresh' if case_id.startswith('fresh-') else 'original', 'group': group, 'description': description,
+                      'expected': ACCEPT[group], 'ai_result': 'match' if checked else result, 'result': result, 'correct': result in ACCEPT[group],
+                      'checked_by_brandora': checked, 'model': model, 'note': note})
         print(f"{case_id:18} {group:9} expected {'/'.join(ACCEPT[group]):19} got {result:10} {'ok' if result in ACCEPT[group] else 'MISS'}  {model}")
         time.sleep(4)
     return {'checked_at': datetime.now(timezone.utc).replace(microsecond=0).isoformat(), 'provider': ai.provider(),
             'reference': 'Inkloom AI approved logo (the demo’s registered reference)',
-            'method': ('Twelve synthetic creatives drawn in code (backend/logo_eval.py), labelled before running. Each was sent once, with the approved '
-                       'reference logo, through the same logo comparison the product uses. AI output can differ between runs: this is one recorded run, '
-                       'and every miss is listed. Separate from the rule-engine evaluation, which never uses AI.'),
-            'items': items, 'summary': summarise(items)}
+            'method': ('Synthetic creatives drawn in code (backend/logo_eval.py), each labelled before it was run: the original 12, and 8 fresh ones drawn '
+                       'after Brandora’s own logo checks were written. Each was sent once, with the approved reference logo, through the same logo comparison '
+                       'the product uses, including Brandora’s proportion and wordmark checks on every AI “match”. AI output can differ between runs: this is '
+                       'one recorded run, and every miss is listed. Separate from the rule-engine evaluation, which never uses AI.'),
+            'items': items, 'summary': summarise(items),
+            'by_set': {name: summarise([i for i in items if i['set'] == name]) for name in ('original', 'fresh')}}
 
 
 if __name__ == '__main__':
@@ -133,7 +167,13 @@ if __name__ == '__main__':
     print(json.dumps(report['summary']))
     if '--write' in sys.argv:
         previous = published()
-        if previous and previous.get('tried_and_not_kept'):
-            report['tried_and_not_kept'] = previous['tried_and_not_kept']  # keep the record of changes that did not help
+        if previous and previous.get('tried_and_not_kept'):  # keep the record of changes that did not help
+            report['tried_and_not_kept'] = [dict(t, summary=rebuild(t['results'])) for t in previous['tried_and_not_kept']]
+        if previous and previous.get('earlier_runs'):
+            report['earlier_runs'] = previous['earlier_runs']
+        elif previous and '--keep-previous' in sys.argv:
+            results = {i['id']: i['result'] for i in previous['items']}
+            report['earlier_runs'] = [{'checked_at': previous['checked_at'], 'results': results, 'summary': rebuild(results),
+                                       'note': 'AI only, before Brandora’s own proportion and wordmark checks; the original 12 creatives.'}]
         OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
         print('Wrote', OUT)

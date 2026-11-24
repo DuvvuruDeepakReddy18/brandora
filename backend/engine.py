@@ -94,6 +94,50 @@ def approved_period(rule,source):
     found={billing_period(excerpt,m.end(1))[0] for p in (PATTERNS['price'],PRICE_AFTER) for m in re.finditer(p,excerpt,re.I) if amount(m.group(1))==amount(rule.value)}
     found.discard('')
     return found.pop() if len(found)==1 else ''
+# A period stated elsewhere in the pricing clause: "The annual price is ₹1,999", "₹1,999 for a full year".
+YEAR_CUE=re.compile(r"\b(?:annual(?:ly)?|yearly|per\s+(?:year|annum)|a\s+year|each\s+year|every\s+year|for\s+(?:a|one|the|1)\s+(?:full\s+|whole\s+)?year|(?:12|twelve)[\s-]+months?)\b",re.I)
+MONTH_CUE=re.compile(r"\b(?:monthly|per\s+month|a\s+month|each\s+month|every\s+month|for\s+(?:a|one|the|1)\s+(?:full\s+|whole\s+)?month)\b",re.I)
+# How often a price is charged is not the period the price covers ("₹1,999 per month, billed annually").
+BILLED=re.compile(r"\b(?:billed|paid|charged|invoiced)\s+(?:annually|yearly|monthly|every\s+(?:year|month)|each\s+(?:year|month))\b",re.I)
+def clause_period(text,m):
+    """The period the pricing clause around a price states when none is written right after it:
+    ('year'|'month', cue match) when exactly one is stated, ('ambiguous', cue) when both are or only billing frequency is,
+    ('', None) when the clause says nothing about a period. Other prices' own periods in the clause are ignored."""
+    others=list(re.finditer(PATTERNS['price'],text,re.I))
+    others+=[x for x in re.finditer(PRICE_AFTER,text,re.I) if not any(x.start()<o.end() and o.start()<x.end() for o in others)]
+    a,b=sentence_bounds(text,*m.span())
+    lo,hi=clause(text,*m.span(),a,b) if sum(a<=o.start()<b for o in others)>1 else (a,b)
+    blank=lambda s,spans:''.join(' ' if any(x<=i<y for x,y in spans) else ch for i,ch in enumerate(s))
+    spans=[(o.start(),billing_period(text,o.end(1))[1] or o.end()) for o in others if o.start()!=m.start() and lo<=o.start()<hi]
+    scope=blank(text[:hi],[(x,y) for x,y in spans]+[(0,lo)])
+    billed=[x.span() for x in BILLED.finditer(scope,lo)]
+    scope=blank(scope,billed)
+    year=next(YEAR_CUE.finditer(scope,lo),None);month=next(MONTH_CUE.finditer(scope,lo),None)
+    if year and month:return 'ambiguous',year
+    if year or month:return ('year' if year else 'month'),(year or month)
+    return ('ambiguous',BILLED.search(text,lo,hi)) if billed else ('',None)
+# Approved replacement wording in use ties the content to the source that approves that wording.
+STOP={'the','a','an','and','or','of','for','to','in','on','with','your','our','its','their','is','are','be','by','at','one','all','every','more','from','that','this'}
+def content_words(text,drop=()):
+    return [w for w in re.findall(r"[a-z0-9]+",fold(text).lower()) if w not in STOP and w not in drop and len(w)>2]
+def wording_source(phrase,sources,subject=''):
+    """The current approved source with a sentence that covers at least 60% of the phrase's content words, or None."""
+    words=set(content_words(phrase,content_words(subject)))
+    if not words:return None
+    best,score=None,0.0
+    for s in sources.values():
+        if not current(s):continue
+        for a,b in sentences(s.excerpt or ''):
+            cover=len(words & set(content_words(s.excerpt[a:b])))/len(words)
+            if cover>score:best,score=s,cover
+    return best if score>=0.6 else None
+def approved_wording(text,rule,sources):
+    """(span, phrase, supporting source or None) for each approved replacement of a substantiation rule found in the text."""
+    out=[]
+    for phrase in dict.fromkeys(((rule.config or {}).get('replacements') or {}).values()):
+        if not phrase:continue
+        for span in claim_spans(text,phrase):out.append((span,phrase,wording_source(phrase,sources,rule.subject)))
+    return out
 # A value stated as no longer, previously or not true is not a current claim: a person reads it.
 NEGATED=re.compile(r"\b(?:no\s+longer|not|isn['’]t|wasn['’]t|aren['’]t|weren['’]t|was|were|used\s+to\s+be|previously|formerly|instead\s+of|rather\s+than|replac(?:es|ed|ing)|down\s+from|up\s+from|until|unlike)\b",re.I)
 def negated(text,start,end):
@@ -348,6 +392,14 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
         elif kind=='substantiation':
             matched=[(term,span) for term in cfg.get('unsupported_terms',[]) for span in claim_spans(text,term)];relevant=matched
             mapped_guarantees.extend(span for _,span in matched)
+            # Approved replacement wording in the content depends on the source that approves it (e.g. the claims register),
+            # so withdrawing that wording sends the content back for reassessment.
+            if source is not None and current(source):
+                for span,phrase,backing in approved_wording(text,rule,sources):
+                    if backing:dependencies[f'{rule.id}:wording:{backing.id}']={'rule_id':rule.id,'source_id':backing.id,'source_version':backing.version}
+                    else:
+                        add(rule,span,'Low Confidence','Check this approved wording',f'“{phrase}” was registered as approved wording, but no current approved source contains it any more. A reviewer confirms it can still be used.','','medium')
+                        if findings[-1]['evidence']:findings[-1]['evidence']['rule_value']=phrase
         elif kind=='banned': matched=literal_spans(text,rule.value);relevant=matched
         elif kind=='required': relevant=not cfg.get('trigger') or bool(literal_spans(text,cfg['trigger']))
         elif kind=='tone':
@@ -381,6 +433,8 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
                     add(rule,m.span(),'Low Confidence','Check this changed or negated value',f'“{cue}” suggests this {metric} is not the current offer. Brandora does not decide what the sentence means: a reviewer confirms it matches the approved {label}{metric}: {rule.value}.','','medium')
                     continue
                 got,period_end=billing_period(text,m.end(1)) if want and not isinstance(m,Hit) else ('',0)
+                # No period right after the amount: read the rest of the pricing clause ("The annual price is ₹1,999").
+                stated,cue_m=clause_period(text,m) if want and not isinstance(m,Hit) and not got else ('',None)
                 if amount(m.group(1))!=amount(rule.value):
                     fixed=m.fix(rule.value) if isinstance(m,Hit) else m.group().replace(m.group(1),group_like(m.group(1),rule.value),1)
                     if got and got!=want:fixed=text[m.start():m.start(1)]+group_like(m.group(1),rule.value)+' per '+want
@@ -389,6 +443,14 @@ def scan(text,subject,channel,rules,sources,hypothetical=()):
                     # The right amount for the wrong period ("₹1,999 per year" for ₹1,999 a month) is a different price.
                     fixed=text[m.start():m.end(1)]+' per '+want
                     add(rule,(m.start(),period_end),'Verified Contradiction',f'Check the {label}billing period',f'Approved {label}{metric}: {rule.value} per {want}. This says per {got}. Applies to {rule.subject}.',fixed)
+                elif stated in ('year','month','week','day') and stated!=want:
+                    # "₹1,999 for a full year" can be fixed in place; "The annual price ... is ₹1,999" needs the sentence rewritten.
+                    adjacent=not text[m.end():cue_m.start()].strip() and cue_m.start()>=m.end()
+                    span=(m.start(),cue_m.end()) if adjacent else m.span()
+                    fixed=text[m.start():m.end(1)]+' per '+want if adjacent else ''
+                    add(rule,span,'Verified Contradiction',f'Check the {label}billing period',f'Approved {label}{metric}: {rule.value} per {want}. This sentence states it per {stated} (“{cue_m.group()}”). Applies to {rule.subject}.',fixed)
+                elif stated=='ambiguous':
+                    add(rule,m.span(),'Low Confidence','Check the billing period',f'This sentence mentions “{cue_m.group() if cue_m else "a billing period"}” but does not clearly say what period {rule.value} covers. Approved {label}{metric}: {rule.value} per {want}.','','medium')
                 # qualifier_channels limits where the condition must be shown (a clarified rule can exclude a channel).
                 if cfg.get('qualifier') and (not cfg.get('qualifier_channels') or channel in cfg['qualifier_channels']) and cfg['qualifier'].casefold() not in text.casefold():
                     if cfg.get('qualifier_review'):
@@ -432,12 +494,20 @@ def verified(text,subject,channel,rules,sources):
     spans=[]
     for rule in rules:
         source=sources.get(rule.source_id)
+        if rule.kind=='substantiation' and applies(rule,subject,channel) and source is not None and current(source):
+            # Approved replacement wording is shown green with the source that approves it.
+            for (start,end),phrase,backing in approved_wording(text,rule,sources):
+                if backing:spans.append({'id':digest(f'verified:{rule.id}:{start}:{end}:{text}')[:20],'rule_id':rule.id,'rule_code':rule.code,'title':'Approved wording','span':text[start:end],'start':start,'end':end,'evidence':{**evidence(rule,backing),'rule_value':phrase}})
+            continue
         if not applies(rule,subject,channel) or source is None or not current(source) or not supported_by(rule,source):continue
         found=[]
         if rule.kind=='number':
             want=approved_period(rule,source) if (rule.config or {}).get('metric')=='price' else ''
-            found=[m.span() for m in number_matches(text,rule) if amount(m.group(1))==amount(rule.value) and not negated(text,*m.span())
-                   and (isinstance(m,Hit) or not want or billing_period(text,m.end(1))[0] in ('',want))]
+            def period_ok(m):
+                if isinstance(m,Hit) or not want:return True
+                attached=billing_period(text,m.end(1))[0]
+                return attached==want if attached else clause_period(text,m)[0] in ('',want)
+            found=[m.span() for m in number_matches(text,rule) if amount(m.group(1))==amount(rule.value) and not negated(text,*m.span()) and period_ok(m)]
         elif rule.kind=='term':
             found=[(m.start(),m.end()) for m in re.finditer(re.escape(rule.value),text)]
         elif rule.kind=='required' and rule.value:

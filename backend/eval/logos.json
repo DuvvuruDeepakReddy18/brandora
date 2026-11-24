@@ -1,166 +1,352 @@
 {
-  "checked_at": "2026-11-24T07:49:09+00:00",
+  "checked_at": "2026-11-24T08:43:07+00:00",
   "provider": "gemini",
   "reference": "Inkloom AI approved logo (the demo’s registered reference)",
-  "method": "Twelve synthetic creatives drawn in code (backend/logo_eval.py), labelled before running. Each was sent once, with the approved reference logo, through the same logo comparison the product uses. AI output can differ between runs: this is one recorded run, and every miss is listed. Separate from the rule-engine evaluation, which never uses AI.",
+  "method": "Synthetic creatives drawn in code (backend/logo_eval.py), each labelled before it was run: the original 12, and 8 fresh ones drawn after Brandora’s own logo checks were written. Each was sent once, with the approved reference logo, through the same logo comparison the product uses, including Brandora’s proportion and wordmark checks on every AI “match”. AI output can differ between runs: this is one recorded run, and every miss is listed. Separate from the rule-engine evaluation, which never uses AI.",
   "items": [
     {
       "id": "approved-ad",
+      "set": "original",
       "group": "approved",
       "description": "The corrected sample ad with the approved logo",
       "expected": [
         "match"
       ],
+      "ai_result": "match",
       "result": "match",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo featuring the purple rounded square with white water droplet icon and adjacent dark text matches the reference perfectly."
+      "note": "The Inkloom AI logo featuring a rounded square purple icon with a white drop and accompanying text matches the approved reference."
     },
     {
       "id": "approved-social",
+      "set": "original",
       "group": "approved",
       "description": "Approved logo on a square social card",
       "expected": [
         "match"
       ],
+      "ai_result": "match",
       "result": "match",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo containing the rounded purple icon with a white droplet and the text 'Inkloom AI' matches the reference logo exactly."
+      "note": "The Inkloom AI logo containing a purple rounded square with a white drop and the text 'Inkloom AI' matches the reference logo."
     },
     {
       "id": "approved-small",
+      "set": "original",
       "group": "approved",
       "description": "Approved logo small, bottom-right of a banner",
       "expected": [
         "match"
       ],
+      "ai_result": "match",
       "result": "match",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo containing a purple rounded square with a white water drop icon followed by the text 'Inkloom AI' appears in the bottom right corner, matching the approved reference."
+      "note": "The Inkloom AI logo featuring a rounded square purple icon with a white droplet and the text 'Inkloom AI' matches the reference logo exactly."
     },
     {
       "id": "altered-colour",
+      "set": "original",
       "group": "altered",
       "description": "Approved logo with the violet mark recoloured orange",
       "expected": [
         "modified"
       ],
+      "ai_result": "modified",
       "result": "modified",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo icon has an orange background instead of the purple background in the reference."
+      "note": "The icon background color is orange instead of the purple shown in the reference logo."
     },
     {
       "id": "altered-stretch",
+      "set": "original",
       "group": "altered",
       "description": "Approved logo stretched to 1.7 times its width",
       "expected": [
         "modified"
       ],
-      "result": "match",
+      "ai_result": "match",
+      "result": "uncertain",
       "correct": false,
+      "checked_by_brandora": "Brandora measured the logo at 1.70 times the width-to-height ratio of the approved reference, so it may be stretched or squashed.",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo containing a purple rounded square with a white drop and the text Inkloom AI matches the reference exactly."
+      "note": "The Inkloom AI logo containing a purple rounded square with a white drop and the text Inkloom AI matches the reference. Brandora measured the logo at 1.70 times the width-to-height ratio of the approved reference, so it may be stretched or squashed."
     },
     {
       "id": "altered-name",
+      "set": "original",
       "group": "altered",
       "description": "Approved mark with a misspelt wordmark (“Inkbloom AI”)",
       "expected": [
         "modified"
       ],
+      "ai_result": "match",
       "result": "match",
       "correct": false,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo containing the rounded purple square with a white teardrop and text is present and matches the reference logo."
+      "note": "The Inkloom AI logo featuring a purple rounded square with a white drop icon next to the text Inkloom AI matches the approved reference perfectly."
     },
     {
       "id": "wrong-ad",
+      "set": "original",
       "group": "wrong",
       "description": "The employee-uploaded sample ad with the outdated orange logo",
       "expected": [
         "modified",
         "not_found"
       ],
+      "ai_result": "modified",
       "result": "modified",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The creative displays an orange oval icon with 'Ik' and 'inkloom' text, which differs in color and style from the purple droplet icon and 'Inkloom AI' text in the reference logo-1."
+      "note": "The creative uses an orange oval symbol with the letters Ik and orange text inkloom, whereas the approved reference has a purple rounded square icon with a water droplet and the text Inkloom AI in dark blue."
     },
     {
       "id": "wrong-card",
+      "set": "original",
       "group": "wrong",
       "description": "The outdated orange logo on a plain card",
       "expected": [
         "modified",
         "not_found"
       ],
+      "ai_result": "modified",
       "result": "modified",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The creative shows an orange oval icon with 'Ik' inside and the word 'inkloom' in orange, whereas the reference logo shows a purple square icon with a drop symbol and the text 'Inkloom AI' in dark blue."
+      "note": "The creative shows an orange oval icon with 'lk' and the word 'inkloom' in orange, whereas the reference shows a purple rounded square with a water drop and the text 'Inkloom AI' in dark blue."
     },
     {
       "id": "absent-text",
+      "set": "original",
       "group": "absent",
       "description": "A text-only creative with no logo",
       "expected": [
         "not_found"
       ],
+      "ai_result": "not_found",
       "result": "not_found",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo is not present in the creative."
+      "note": "The Inkloom AI logo is not present in the creative image."
     },
     {
       "id": "absent-other",
+      "set": "original",
       "group": "absent",
       "description": "Another company’s logo (“Northwind”)",
       "expected": [
         "not_found"
       ],
+      "ai_result": "not_found",
       "result": "not_found",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo is not present in the creative. The creative shows the Northwind brand instead."
+      "note": "The Inkloom AI logo is not present in the creative. The creative features the Northwind logo instead."
     },
     {
       "id": "degraded-lowres",
+      "set": "original",
       "group": "degraded",
       "description": "Approved logo at very low resolution, blurred",
       "expected": [
         "match",
         "uncertain"
       ],
+      "ai_result": "match",
       "result": "match",
       "correct": true,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo featuring a purple rounded square with a white water drop icon followed by the text Inkloom AI matches the reference."
+      "note": "The Inkloom AI logo containing the purple rounded square with a teardrop shape and the text 'Inkloom AI' matches the reference logo."
     },
     {
       "id": "degraded-rotated",
+      "set": "original",
       "group": "degraded",
       "description": "Approved logo rotated 10° on a gradient",
       "expected": [
         "match",
         "uncertain"
       ],
+      "ai_result": "modified",
       "result": "modified",
       "correct": false,
+      "checked_by_brandora": "",
       "model": "gemini-3.5-flash-lite",
-      "note": "The Inkloom AI logo is present in the top-left corner inside a white box, but it is rotated clockwise compared to the reference image."
+      "note": "The logo is rotated slightly compared to the reference."
+    },
+    {
+      "id": "fresh-hero",
+      "set": "fresh",
+      "group": "approved",
+      "description": "Fresh: approved logo large and centred on a hero banner",
+      "expected": [
+        "match"
+      ],
+      "ai_result": "match",
+      "result": "match",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo featuring a purple rounded square with a white drop icon and the text 'Inkloom AI' matches the approved logo reference perfectly."
+    },
+    {
+      "id": "fresh-night",
+      "set": "fresh",
+      "group": "approved",
+      "description": "Fresh: approved logo on its white plate over a dark banner",
+      "expected": [
+        "match"
+      ],
+      "ai_result": "match",
+      "result": "match",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing the purple rounded square with a white drop and the text Inkloom AI matches the reference perfectly."
+    },
+    {
+      "id": "fresh-corner",
+      "set": "fresh",
+      "group": "approved",
+      "description": "Fresh: approved logo small, top-right of a busy layout",
+      "expected": [
+        "match"
+      ],
+      "ai_result": "match",
+      "result": "match",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo in the top right corner matches the reference image in both the icon (purple rounded square with white water droplet) and the text style."
+    },
+    {
+      "id": "fresh-squash",
+      "set": "fresh",
+      "group": "altered",
+      "description": "Fresh: approved logo squashed to 60% of its width",
+      "expected": [
+        "modified"
+      ],
+      "ai_result": "match",
+      "result": "uncertain",
+      "correct": false,
+      "checked_by_brandora": "Brandora measured the logo at 0.60 times the width-to-height ratio of the approved reference, so it may be stretched or squashed.",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo containing the purple rounded square with a white drop and the text Inkloom AI matches the reference perfectly. Brandora measured the logo at 0.60 times the width-to-height ratio of the approved reference, so it may be stretched or squashed."
+    },
+    {
+      "id": "fresh-green",
+      "set": "fresh",
+      "group": "altered",
+      "description": "Fresh: approved logo with the mark recoloured green",
+      "expected": [
+        "modified"
+      ],
+      "ai_result": "modified",
+      "result": "modified",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo is present in the top-left corner, but the icon's background color has been changed from purple/violet in the reference to green."
+    },
+    {
+      "id": "fresh-misspelt",
+      "set": "fresh",
+      "group": "altered",
+      "description": "Fresh: approved mark with a misspelt wordmark (“Inkloon AI”)",
+      "expected": [
+        "modified"
+      ],
+      "ai_result": "match",
+      "result": "match",
+      "correct": false,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo featuring a purple square with a white drop and the text 'Inkloom AI' matches the approved reference."
+    },
+    {
+      "id": "fresh-old-stretched",
+      "set": "fresh",
+      "group": "wrong",
+      "description": "Fresh: the outdated orange logo, stretched",
+      "expected": [
+        "modified",
+        "not_found"
+      ],
+      "ai_result": "not_found",
+      "result": "not_found",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The reference logo shows a purple icon with a water drop and the text 'Inkloom AI' in dark blue, whereas the creative features an orange oval icon with white letters 'Ik' and orange text 'inkloom'."
+    },
+    {
+      "id": "fresh-name-only",
+      "set": "fresh",
+      "group": "absent",
+      "description": "Fresh: the company name typed as a heading, with no logo",
+      "expected": [
+        "not_found"
+      ],
+      "ai_result": "not_found",
+      "result": "not_found",
+      "correct": true,
+      "checked_by_brandora": "",
+      "model": "gemini-3.5-flash-lite",
+      "note": "The Inkloom AI logo graphic icon is missing from the creative, only the text 'Inkloom AI' appears as part of the headline."
     }
   ],
   "summary": {
-    "items": 12,
-    "ran": 12,
-    "correct": 9,
-    "violations": 7,
-    "violations_caught": 5,
-    "genuine": 5,
-    "false_alarms": 1
+    "items": 20,
+    "ran": 20,
+    "correct": 15,
+    "violations": 12,
+    "violations_caught": 10,
+    "violations_detected": 8,
+    "violations_to_person": 2,
+    "genuine": 8,
+    "false_alarms": 1,
+    "genuine_to_person": 0
+  },
+  "by_set": {
+    "original": {
+      "items": 12,
+      "ran": 12,
+      "correct": 9,
+      "violations": 7,
+      "violations_caught": 6,
+      "violations_detected": 5,
+      "violations_to_person": 1,
+      "genuine": 5,
+      "false_alarms": 1,
+      "genuine_to_person": 0
+    },
+    "fresh": {
+      "items": 8,
+      "ran": 8,
+      "correct": 6,
+      "violations": 5,
+      "violations_caught": 4,
+      "violations_detected": 3,
+      "violations_to_person": 1,
+      "genuine": 3,
+      "false_alarms": 0,
+      "genuine_to_person": 0
+    }
   },
   "tried_and_not_kept": [
     {
@@ -172,8 +358,11 @@
         "correct": 9,
         "violations": 7,
         "violations_caught": 5,
+        "violations_detected": 5,
+        "violations_to_person": 0,
         "genuine": 5,
-        "false_alarms": 1
+        "false_alarms": 1,
+        "genuine_to_person": 1
       },
       "results": {
         "approved-ad": "match",
@@ -190,6 +379,38 @@
         "degraded-rotated": "modified"
       },
       "outcome": "Same score on the same 12 items, with the same two misses on altered logos, so the product keeps the original instructions (the ones behind the results above and the 51/51 live check)."
+    }
+  ],
+  "earlier_runs": [
+    {
+      "checked_at": "2026-11-24T07:49:09+00:00",
+      "results": {
+        "approved-ad": "match",
+        "approved-social": "match",
+        "approved-small": "match",
+        "altered-colour": "modified",
+        "altered-stretch": "match",
+        "altered-name": "match",
+        "wrong-ad": "modified",
+        "wrong-card": "modified",
+        "absent-text": "not_found",
+        "absent-other": "not_found",
+        "degraded-lowres": "match",
+        "degraded-rotated": "modified"
+      },
+      "summary": {
+        "items": 12,
+        "ran": 12,
+        "correct": 9,
+        "violations": 7,
+        "violations_caught": 5,
+        "violations_detected": 5,
+        "violations_to_person": 0,
+        "genuine": 5,
+        "false_alarms": 1,
+        "genuine_to_person": 0
+      },
+      "note": "AI only, before Brandora’s own proportion and wordmark checks; the original 12 creatives."
     }
   ]
 }

@@ -44,6 +44,12 @@ All dates are IST (UTC+5:30, as recorded in the commit history). The full histor
   - A price with the right amount but the wrong billing period ("₹1,999 per year" for ₹1,999 a month) is now a contradiction, not verified.
   - A value stated as no longer, previously or not true ("no longer 30 days") goes to a reviewer instead of being called a contradiction or verified.
   - A separate labelled logo set (12 creatives) measures the live AI logo comparison, with every miss published; a stricter prompt that did not change the score was not kept.
+- **After a second ChatGPT review round (24 Nov), each finding reproduced first:**
+  - The billing period is read across the whole pricing clause: “The annual price for Professional is ₹1,999” and “₹1,999 for a full year” are contradictions; “₹1,999 per month, billed annually” stays verified; a price with only “billed annually” goes to a reviewer.
+  - Approved replacement wording now records the source that approves it (the claims register). Withdrawing that wording sends approved content back for reassessment, the receipt names the register, and a re-check asks a reviewer to confirm the wording. Approved wording is shown green with its source.
+  - A version that was approved and then invalidated reads “Previously approved · needs reassessment” wherever it appears.
+  - Every AI logo “match” is re-checked: Brandora measures the logo’s proportions against the reference and reads the wordmark; a disagreement becomes “uncertain” for a reviewer. On 20 labelled creatives (8 fresh): 10 of 12 problems caught (8 detected, 2 sent to a person), 1 false alarm in 8 genuine logos. Misspelt wordmarks are still missed.
+  - The daily live check is described exactly: 49 workflow checks, with the two live-AI image checks only on request.
   - Privacy & AI now lists exactly what leaves the workspace when AI is on, including the approved rule excerpts and reference logos.
   - Metrics say which split and which run they come from. The reliability scores are unchanged; 96 tests pass.
 - **Phone layout:** walkthrough cards stack in one column, an item's title gets its own row next to the back link, and long origin labels wrap, so no screen scrolls sideways at 375 px.

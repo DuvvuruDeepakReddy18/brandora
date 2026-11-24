@@ -3,7 +3,7 @@ import io
 import re
 from collections import Counter
 from typing import Literal
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from . import ai
 
@@ -56,7 +56,51 @@ def inspect_visual(blob,references):
     valid_boxes(result.ocr.regions);valid_boxes(result.logos)
     ids=[r['id'] for r in references]
     if sorted(m.reference_id for m in result.logos)!=sorted(ids):raise ai.ProviderError('The provider did not account for each approved logo reference. No comparison was accepted.')
-    return result.model_dump()
+    out=result.model_dump()
+    # The AI's "match" is checked against what Brandora can measure itself; a disagreement goes to a person.
+    image=normalize_image(blob)
+    for logo in out['logos']:
+        if logo['result']=='match':
+            ref=next(r for r in references if r['id']==logo['reference_id'])
+            doubt=logo_doubts(image,logo['box'],ref,out['ocr']['regions'])
+            if doubt:logo['result']='uncertain';logo['explanation']=(logo['explanation']+' '+doubt).strip()[:1000];logo['checked_by_brandora']=doubt
+    return out
+
+GENERIC_LOGO_WORDS={'approved','logo','reference','mark','wordmark','primary','official','brand','version','new','old','full','colour','color','the','and'}
+def ink_box(image):
+    """Bounding box of the pixels that differ clearly from the image's border colour: the logo without its margin."""
+    rgb=image.convert('RGB');W,H=rgb.size
+    if W<4 or H<4:return None
+    px=rgb.load();edge=[px[x,0] for x in range(W)]+[px[x,H-1] for x in range(W)]+[px[0,y] for y in range(H)]+[px[W-1,y] for y in range(H)]
+    bg=tuple(sorted(c[i] for c in edge)[len(edge)//2] for i in range(3))
+    mask=Image.eval(ImageChops.difference(rgb,Image.new('RGB',rgb.size,bg)).convert('L'),lambda v:255 if v>48 else 0)
+    return mask.getbbox()
+def near_miss(word,target):
+    """True when a word is one or two edits from a target name but not the name itself ("Inkbloom" for "Inkloom")."""
+    a,b=word.lower(),target.lower()
+    if a==b or min(len(a),len(b))<5 or abs(len(a)-len(b))>2:return False
+    row=list(range(len(b)+1))
+    for i,x in enumerate(a,1):
+        prev,row[0]=row[0],i
+        for j,y in enumerate(b,1):prev,row[j]=row[j],min(row[j]+1,row[j-1]+1,prev+(x!=y))
+    return row[-1]<=2
+def logo_doubts(image_bytes,box,ref,regions):
+    """Why an AI "match" needs a person: the measured proportions differ from the reference, or the text read inside the logo
+    is a near-miss of the approved name. '' when neither applies or nothing can be measured."""
+    reasons=[]
+    with Image.open(io.BytesIO(image_bytes)) as creative, Image.open(io.BytesIO(ref['blob'])) as reference:
+        W,H=creative.size;y0,x0,y1,x1=box
+        crop=creative.crop((round(x0*W/1000),round(y0*H/1000),round(x1*W/1000),round(y1*H/1000)))
+        a,b=ink_box(crop),ink_box(reference)
+        if a and b and a[3]>a[1] and b[3]>b[1]:
+            ratio=((a[2]-a[0])/(a[3]-a[1]))/((b[2]-b[0])/(b[3]-b[1]))
+            if not 0.75<=ratio<=1.33:reasons.append(f'Brandora measured the logo at {ratio:.2f} times the width-to-height ratio of the approved reference, so it may be stretched or squashed.')
+    names=[w for w in re.findall(r'[A-Za-z]{5,}',ref.get('name','')) if w.lower() not in GENERIC_LOGO_WORDS]
+    inside=[r['text'] for r in regions if r['box'][0]<box[2] and box[0]<r['box'][2] and r['box'][1]<box[3] and box[1]<r['box'][3]]
+    for word in re.findall(r'[A-Za-z]{5,}',' '.join(inside)):
+        name=next((n for n in names if near_miss(word,n)),None)
+        if name:reasons.append(f'The wordmark reads “{word}”; the approved name is “{name}”.');break
+    return ' '.join(reasons)
 
 def extract_document(blob,mime):
     result=ai.generate('Extract text in reading order, preserving exact wording and numbers. Do not summarize or infer missing text. Mark page breaks as [Page N]. Put unreadable or uncertain areas in warnings. Return empty text if there is no readable text. For PDF return an empty regions list; page-relative region boxes are not supported. This is a transcription to be reviewed, not approved evidence.',{},OCRResult,[('Document for transcription',mime,blob)])

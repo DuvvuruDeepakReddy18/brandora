@@ -1,6 +1,7 @@
 name: Live claim check
 # Every day, re-run every documented claim against the production URL, exactly as an evaluator's browser would,
-# in fresh isolated demo sandboxes. Rules only (no AI quota is used). A failure turns the README badge red.
+# in fresh isolated demo sandboxes. Without --ai the two live-AI image checks are skipped (49 workflow checks); the demo
+# workspaces have AI on, so ordinary text scans may still call the provider. A failure turns the README badge red.
 on:
   schedule:
     - cron: '17 3 * * *'
